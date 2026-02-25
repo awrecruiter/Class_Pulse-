@@ -30,6 +30,4 @@ export function createRateLimiter(maxRequests: number, windowMs: number) {
 	};
 }
 
-// Shared rate limiters for API routes
-export const apiRateLimiter = createRateLimiter(30, 60_000); // 30 req/min
-export const slugCheckRateLimiter = createRateLimiter(60, 60_000); // 60 req/min (more lenient for typing)
+export const coachRateLimiter = createRateLimiter(10, 60_000); // 10 req/min (AI coach)

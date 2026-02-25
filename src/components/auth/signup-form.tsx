@@ -6,14 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth/client";
-import { slugSchema } from "@/lib/validations";
-import { SlugInput } from "./slug-input";
 
 interface FormErrors {
 	name?: string;
 	email?: string;
 	password?: string;
-	slug?: string;
 	general?: string;
 }
 
@@ -22,7 +19,6 @@ export function SignupForm() {
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	const [slug, setSlug] = useState("");
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [loading, setLoading] = useState(false);
 
@@ -32,11 +28,6 @@ export function SignupForm() {
 		if (!name.trim()) newErrors.name = "Name is required";
 		if (!email.trim()) newErrors.email = "Email is required";
 		if (password.length < 8) newErrors.password = "Password must be at least 8 characters";
-
-		const slugResult = slugSchema.safeParse(slug);
-		if (!slugResult.success) {
-			newErrors.slug = slugResult.error.issues[0]?.message ?? "Invalid username";
-		}
 
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
@@ -50,7 +41,6 @@ export function SignupForm() {
 		setErrors({});
 
 		try {
-			// 1. Create Neon Auth user
 			const { error } = await authClient.signUp.email({
 				email,
 				password,
@@ -63,22 +53,7 @@ export function SignupForm() {
 				return;
 			}
 
-			// 2. Create profile with slug
-			const profileRes = await fetch("/api/profile", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ slug, displayName: name }),
-			});
-
-			if (!profileRes.ok) {
-				const data = await profileRes.json();
-				setErrors({ general: data.error || "Failed to create profile" });
-				setLoading(false);
-				return;
-			}
-
-			// 3. Redirect to editor
-			router.push("/editor");
+			router.push("/coach");
 		} catch {
 			setErrors({ general: "Something went wrong. Please try again." });
 			setLoading(false);
@@ -124,8 +99,6 @@ export function SignupForm() {
 				/>
 				{errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
 			</div>
-
-			<SlugInput value={slug} onChange={setSlug} error={errors.slug} />
 
 			{errors.general && <p className="text-sm text-destructive text-center">{errors.general}</p>}
 
