@@ -16,6 +16,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { GroupsKanban } from "@/components/classes/groups-kanban";
+import { RamBucksPanel } from "@/components/classes/ram-bucks-panel";
 import { Button } from "@/components/ui/button";
 
 type RosterEntry = {
@@ -540,6 +541,14 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 						}}
 					/>
 				)}
+			</div>
+
+			{/* RAM Buck Economy */}
+			<div className="flex flex-col gap-3">
+				<div className="flex items-center justify-between">
+					<p className="text-sm font-semibold text-foreground">🐏 RAM Bucks</p>
+				</div>
+				<RamBucksPanel classId={id} />
 			</div>
 		</div>
 	);

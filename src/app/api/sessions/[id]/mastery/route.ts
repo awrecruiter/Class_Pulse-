@@ -4,9 +4,12 @@ import { z } from "zod/v4";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import { classSessions, masteryRecords, teacherSettings } from "@/lib/db/schema";
+import { awardRamBucks } from "@/lib/ram-bucks";
 import { joinRateLimiter } from "@/lib/rate-limit";
 
 const MASTERY_DEFAULT_THRESHOLD = 3;
+const AWARD_CORRECT = 5;
+const AWARD_MASTERY = 25;
 
 const bodySchema = z.object({
 	standardCode: z.string().min(1),
@@ -37,9 +40,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 	const { standardCode, isCorrect } = result.data;
 
-	// Look up teacher's mastery threshold
+	// Look up teacher's mastery threshold + classId for RAM Buck awards
 	const [session] = await db
-		.select({ teacherId: classSessions.teacherId })
+		.select({ teacherId: classSessions.teacherId, classId: classSessions.classId })
 		.from(classSessions)
 		.where(eq(classSessions.id, sessionId));
 
@@ -99,12 +102,46 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		});
 	}
 
+	// Award RAM Bucks for academic performance
+	let ramBuckEarned = 0;
+	let newRamBalance: number | null = null;
+
+	if (session) {
+		if (achieved) {
+			// Just hit mastery threshold — award mastery bonus only (not +correct too)
+			const result = await awardRamBucks({
+				classId: session.classId,
+				rosterId: payload.rosterId,
+				sessionId,
+				type: "academic-mastery",
+				amount: AWARD_MASTERY,
+				reason: `Mastered ${standardCode}`,
+			});
+			ramBuckEarned = AWARD_MASTERY;
+			newRamBalance = result.newBalance;
+		} else if (isCorrect && !wasAlreadyMastered) {
+			// Correct answer, not yet mastered
+			const result = await awardRamBucks({
+				classId: session.classId,
+				rosterId: payload.rosterId,
+				sessionId,
+				type: "academic-correct",
+				amount: AWARD_CORRECT,
+				reason: `Correct answer on ${standardCode}`,
+			});
+			ramBuckEarned = AWARD_CORRECT;
+			newRamBalance = result.newBalance;
+		}
+	}
+
 	return NextResponse.json({
 		consecutiveCorrect: newStreak,
 		totalAttempts: newTotal,
 		threshold,
 		achieved,
 		status: newStatus,
+		ramBuckEarned,
+		newRamBalance,
 	});
 }
 

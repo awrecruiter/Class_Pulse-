@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import {
 	behaviorProfiles,
 	classes,
+	groupAccounts,
 	groupMemberships,
 	ramBuckAccounts,
 	rosterEntries,
@@ -156,6 +157,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 			rosterId: student.id,
 		}));
 		await db.insert(behaviorProfiles).values(profileValues).onConflictDoNothing();
+
+		// Seed group accounts for each group
+		await db
+			.insert(groupAccounts)
+			.values(groups.map((g) => ({ classId, groupId: g.id })))
+			.onConflictDoNothing();
 	}
 
 	// Re-fetch with members

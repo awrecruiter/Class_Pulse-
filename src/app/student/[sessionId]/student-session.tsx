@@ -54,6 +54,9 @@ type Props = {
 	isActive: boolean;
 	studentId: string;
 	initialSignal: Signal | null;
+	ramBalance: number;
+	groupBalance: number | null;
+	groupName: string | null;
 };
 
 export function StudentSession({
@@ -63,6 +66,9 @@ export function StudentSession({
 	isActive,
 	studentId,
 	initialSignal,
+	ramBalance,
+	groupBalance,
+	groupName,
 }: Props) {
 	const [currentSignal, setCurrentSignal] = useState<Signal | null>(initialSignal);
 	const [isPending, startTransition] = useTransition();
@@ -129,6 +135,22 @@ export function StudentSession({
 					<p className="text-sm text-white/80">{classLabel}</p>
 				</div>
 			</div>
+
+			{/* RAM Buck balances */}
+			{(ramBalance > 0 || groupBalance !== null) && (
+				<div className="flex flex-col items-center gap-1.5">
+					{ramBalance > 0 && (
+						<div className="rounded-full bg-yellow-400/90 px-4 py-1.5 text-sm font-bold text-yellow-900">
+							🐏 {ramBalance} RAM Bucks
+						</div>
+					)}
+					{groupBalance !== null && groupName && (
+						<div className="rounded-full bg-blue-200/80 px-3 py-1 text-xs font-semibold text-blue-900">
+							{groupName}: 🐏 {groupBalance}
+						</div>
+					)}
+				</div>
+			)}
 
 			{/* Pushed manipulative — appears above signal when teacher sends one */}
 			{showManip && pushedSpec && (

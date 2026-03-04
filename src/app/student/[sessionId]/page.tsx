@@ -1,9 +1,18 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
-import { classes, classSessions, comprehensionSignals, rosterEntries } from "@/lib/db/schema";
+import {
+	classes,
+	classSessions,
+	comprehensionSignals,
+	groupAccounts,
+	groupMemberships,
+	ramBuckAccounts,
+	rosterEntries,
+	studentGroups,
+} from "@/lib/db/schema";
 import { StudentSession } from "./student-session";
 
 export default async function StudentSessionPage({
@@ -37,6 +46,47 @@ export default async function StudentSessionPage({
 		.from(comprehensionSignals)
 		.where(eq(comprehensionSignals.rosterId, payload.rosterId));
 
+	// Load RAM Buck balance
+	const [ramAccount] = await db
+		.select({ balance: ramBuckAccounts.balance })
+		.from(ramBuckAccounts)
+		.where(
+			and(
+				eq(ramBuckAccounts.rosterId, payload.rosterId),
+				eq(ramBuckAccounts.classId, session.classId),
+			),
+		);
+
+	// Load group membership + group balance
+	const [membershipRow] = await db
+		.select({
+			groupId: groupMemberships.groupId,
+			groupName: studentGroups.name,
+			groupEmoji: studentGroups.emoji,
+		})
+		.from(groupMemberships)
+		.innerJoin(studentGroups, eq(groupMemberships.groupId, studentGroups.id))
+		.where(
+			and(
+				eq(groupMemberships.rosterId, payload.rosterId),
+				eq(groupMemberships.classId, session.classId),
+			),
+		);
+
+	let groupBalance: number | null = null;
+	if (membershipRow) {
+		const [ga] = await db
+			.select({ balance: groupAccounts.balance })
+			.from(groupAccounts)
+			.where(
+				and(
+					eq(groupAccounts.classId, session.classId),
+					eq(groupAccounts.groupId, membershipRow.groupId),
+				),
+			);
+		groupBalance = ga?.balance ?? null;
+	}
+
 	const displayName = entry ? `${entry.firstInitial}.${entry.lastInitial}.` : "Student";
 	const classLabel = cls?.label ?? "Class";
 	const isActive = session.status === "active";
@@ -49,6 +99,9 @@ export default async function StudentSessionPage({
 			isActive={isActive}
 			studentId={entry?.studentId ?? ""}
 			initialSignal={(signalRow?.signal as "got-it" | "almost" | "lost" | null) ?? null}
+			ramBalance={ramAccount?.balance ?? 0}
+			groupBalance={groupBalance}
+			groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
 		/>
 	);
 }
