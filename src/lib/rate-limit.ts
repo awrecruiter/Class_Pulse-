@@ -31,3 +31,6 @@ export function createRateLimiter(maxRequests: number, windowMs: number) {
 }
 
 export const coachRateLimiter = createRateLimiter(10, 60_000); // 10 req/min (AI coach)
+export const behaviorCoachLimiter = createRateLimiter(20, 60_000); // 20 req/min (behavior coach — chatty all day)
+export const sessionRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (class/session management)
+export const joinRateLimiter = createRateLimiter(20, 60_000); // 20 req/min (student join)

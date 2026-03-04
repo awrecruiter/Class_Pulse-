@@ -1,15 +1,18 @@
 "use client";
 
 import { MicIcon, SquareIcon } from "lucide-react";
+import { StandardPicker } from "./standard-picker";
 
 type LecturePanelProps = {
 	transcript: string;
 	isListening: boolean;
 	wordCount: number;
 	isSupported: boolean;
+	pinnedStandards: string[];
 	onStart: () => void;
 	onStop: () => void;
 	onClear: () => void;
+	onStandardsChange: (codes: string[]) => void;
 };
 
 export function LecturePanel({
@@ -17,9 +20,11 @@ export function LecturePanel({
 	isListening,
 	wordCount,
 	isSupported,
+	pinnedStandards,
 	onStart,
 	onStop,
 	onClear,
+	onStandardsChange,
 }: LecturePanelProps) {
 	if (!isSupported) {
 		return (
@@ -31,6 +36,9 @@ export function LecturePanel({
 
 	return (
 		<div className="flex flex-col gap-4">
+			{/* Standard picker */}
+			<StandardPicker value={pinnedStandards} onChange={onStandardsChange} />
+
 			{/* Status bar */}
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex items-center gap-2">

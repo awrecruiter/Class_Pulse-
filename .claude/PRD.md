@@ -1,32 +1,34 @@
 # Product Requirements Document
-## UnGhettoMyLife — AI Instructional Coach
+## UnGhettoMyLife — Classroom Intelligence Platform
 
-**Last updated:** 2026-02-25
-**Status:** Phase 1 shipped — link-in-bio builder removed, coach-only app
+**Last updated:** 2026-02-28
+**Status:** Phase 6 (Lecture Visualizer + Settings) shipped — Phases 1–6 of Classroom Intelligence System complete
 
 ---
 
 ## Executive Summary
 
-UnGhettoMyLife is a mobile-first AI assistant for 5th grade Florida math teachers. It solves a specific, high-stakes classroom problem: when a student is stuck during practice time, the teacher needs to know exactly what prerequisite concept is missing and exactly what to say and do — in 30 seconds, without leaving the student.
+UnGhettoMyLife is a mobile-first classroom intelligence platform for 5th grade Florida math teachers. It combines an AI Instructional Coach, a real-time student comprehension system, an interactive adaptive learning engine, and a classroom behavior/economy management system — all built for the specific needs of FL BEST Math instruction.
 
-The app works in two modes. In Lecture Mode, the teacher speaks their lesson aloud and the app transcribes it in real time, building a rolling context buffer. In Coach Mode, the teacher describes a student's confusion and the AI — grounded in both today's lesson and the FL BEST Math prerequisite chain — returns a precise, teacher-executable remediation plan with a script, a gap analysis, a sketch prompt, and a 30-second hands-on activity.
-
-The MVP is fully ephemeral: no student data is ever stored. The lesson transcript lives only in React state. Privacy is structural, not policy.
+The platform operates across three surfaces:
+- **Teacher device** — AI coach, live class dashboard, behavior management, RAM Buck economy
+- **Student device** — interactive manipulatives, comprehension signal, mastery loop, reward store
+- **Post-class** — gradebook, differentiation groups, behavior profiles, parent communications
 
 ---
 
 ## Mission
 
-**Help Florida teachers meet every student where they are, in the moment it matters.**
+**Help Florida teachers meet every student where they are — in the moment it matters, and across every dimension of the classroom.**
 
 ### Core Principles
 
-1. **Grounded, not generic** — Every response references what was actually taught today, not a generic scaffold.
+1. **Grounded, not generic** — Every AI response references what was actually taught today.
 2. **30-second executable** — Suggestions must be actionable with no prep, no materials, no delay.
-3. **Privacy by architecture** — No student PII is ever transmitted or stored. Transcript lives in memory only.
+3. **Privacy by architecture** — Student roster stores ID + initials only. No student PII in AI calls.
 4. **Standards-anchored** — All gap analysis traces to specific FL BEST Math prerequisite codes (Gr 3–5).
 5. **Mobile-first** — Teacher is moving. UI must work one-handed on a phone screen.
+6. **Child-appropriate student UI** — Student-facing surfaces are colorful, engaging, Prodigy/Khan Academy Kids energy.
 
 ---
 
@@ -34,151 +36,294 @@ The MVP is fully ephemeral: no student data is ever stored. The lesson transcrip
 
 ### Primary: 5th Grade Florida Math Teachers
 - Teaching in FL public schools under FL BEST Math standards
+- Multiple class periods (AM/PM groups, period blocks) with different student rosters
 - Moving around the room during practice time, phone in hand
 - Need instant, specific guidance — not a search tool or a lesson plan generator
-- Comfortable with basic smartphone apps; not necessarily tech-savvy
 
-### Key Pain Points
-- Generic "scaffold" suggestions don't connect to what was just taught
-- Identifying the right prerequisite gap takes expertise and time they don't have mid-class
-- Writing the exact right words to say while stressed is cognitively expensive
-
----
-
-## MVP Scope
-
-### In Scope ✅
-
-**Core Functionality**
-- ✅ Lecture Mode: continuous Web Speech API transcription, rolling 2,500-word / 15-min buffer
-- ✅ Coach Mode: student query input (text + mic), AI response with Script / Gap / Draw / Go! tabs
-- ✅ AI grounded in FL BEST Math standards corpus (108 benchmarks, Gr 3–5, with prereq chains)
-- ✅ Copy button on each response tab
-- ✅ Mode toggle with session storage persistence
-
-**Technical**
-- ✅ `POST /api/coach` — authenticated, rate-limited (10 req/min), returns CoachResponse JSON
-- ✅ Claude Haiku model (`claude-haiku-4-5-20251001`), max 700 tokens, <3s target latency
-- ✅ Neon Auth session protection on `/coach` route
-- ✅ TypeScript strict mode, zero type errors
-
-**Privacy**
-- ✅ Transcript never written to DB, localStorage, or any log
-- ✅ No student name or PII in any API payload
-- ✅ Buffer clears on new session or tab close
-
-### Out of Scope ❌
-
-- ❌ Saving past coaching sessions
-- ❌ Multi-student tracking or class roster
-- ❌ Standards search / browse UI
-- ❌ Push notifications or alerts
-- ❌ Offline support
-- ❌ DB schema changes for MVP
-- ❌ Analytics on coach usage
+### Secondary: Students (age ~10)
+- Accessing on personal devices (phone, tablet, Chromebook)
+- Interacting with manipulatives, signaling confusion, earning RAM Bucks
+- Must never create accounts or enter PII
 
 ---
 
-## User Stories
-
-1. **As a teacher mid-lesson**, I want to tap Start Listening so the app captures my lesson context automatically, without me having to type anything.
-
-   *Example: Teacher starts Lecture Mode before introducing fraction multiplication. App transcribes "we're finding a part of a part" — that phrase becomes available to ground AI responses.*
-
-2. **As a teacher during practice**, I want to describe a student's confusion and get exact words to say back to them, so I'm not fumbling for language under pressure.
-
-   *Example: "Student says the answer to 2/3 × 3/4 should be a whole number" → Coach returns: "Tell them: remember the 'part of a part' example — the answer must be smaller than 2/3."*
-
-3. **As a teacher**, I want to see which FL BEST prerequisite standard the student is missing, so I know whether this needs a quick fix now or a pull-out session later.
-
-   *Example: Gap tab shows `MA.4.FR.2.4` (Gr 4) with explanation of why that gap causes the current confusion.*
-
-4. **As a teacher**, I want a sketch I can draw in 10 seconds on the whiteboard that makes the connection visual.
-
-   *Example: Draw tab: "Draw a pizza sliced into 4 parts. Shade 3. Now take half of those 3 shaded slices — that's ½ × ¾."*
-
-5. **As a teacher**, I want a hands-on activity I can start immediately using things on the student's desk.
-
-   *Example: Go! tab: "Have the student fold a piece of paper in thirds, shade 2/3, then fold that in half. Count the shaded sections out of total — that's their answer."*
-
-6. **As a teacher**, I want to copy the script with one tap so I can read it aloud without fumbling.
-
-7. **As a teacher concerned about privacy**, I want to know that nothing about my students is being stored anywhere.
-
-   *Technical story: No DB writes for transcripts. No student data in logs. Transcript clears on reload.*
-
----
-
-## Core Architecture & Patterns
-
-### High-Level Architecture
+## Architecture Overview
 
 ```
-Browser (React state only)
-  ├── Lecture Mode: Web Speech API → rolling transcript buffer (2,500 words max)
-  └── Coach Mode: transcript + query → POST /api/coach → Claude API → render response
+Teacher App (authenticated, /dashboard)
+  ├── AI Instructional Coach (/coach)
+  ├── Class Manager (/classes)
+  │   ├── Multiple periods: AM Math, PM Math, Period 3...
+  │   ├── Roster per class (student ID + initials)
+  │   └── Groups: Dogs / Cats / Birds / Bears (max 6 per group)
+  ├── Live Session Dashboard (/classes/[id]/session)
+  │   ├── Comprehension pulse (aggregate only, real-time SSE)
+  │   ├── AI behavior coach (persistent all-day voice assistant)
+  │   └── RAM Buck awards/deductions (voice + touch)
+  ├── Post-Class Report (/classes/[id]/report)
+  │   ├── Comprehension timeline
+  │   ├── Student mastery grid
+  │   └── Differentiation groups + AI reteach recommendations
+  ├── Gradebook (/gradebook) — CFU tracker, absent alerts, CSV export
+  └── Settings (/settings) — mastery threshold, alert %, store schedule
 
-Server (Next.js API Route)
-  └── /api/coach: auth check → rate limit → validate → call Claude → return JSON
+Student App (no auth, /student)
+  ├── Join screen — 6-char code + pick name from roster
+  ├── Active session — comprehension signal + pushed manipulatives
+  ├── Mastery loop — interactive manipulative → check questions → earn RAM Bucks
+  └── RAM Buck store — view balance, browse menu, request purchases
 
-AI Layer
-  └── Claude Haiku: system prompt (FL BEST corpus + instructions) + user message (transcript + query) → CoachResponse JSON
-```
-
-### Key Design Patterns
-
-- **Ephemeral state**: Transcript lives only in `useRef` + `useState`. Never touches any persistence layer.
-- **Rolling buffer**: `trimToWordLimit()` keeps only the last 2,500 words — limits token cost while preserving recency.
-- **Strict JSON AI output**: System prompt demands exact JSON schema. Response validated before returning to client.
-- **Auth pattern**: `auth.getSession()` from `@neondatabase/auth` — same as all other API routes.
-
-### Directory Structure
-
-```
-src/
-  data/fl-best-standards.ts         — 108 FL BEST benchmarks + prereq chains + formatStandardsForPrompt()
-  lib/ai/coach.ts                   — Anthropic SDK, system prompt, getScaffold()
-  app/api/coach/route.ts            — POST handler
-  hooks/use-lecture-transcript.ts   — continuous STT hook
-  hooks/use-speech-query.ts         — single-utterance STT hook
-  components/coach/
-    mode-toggle.tsx
-    lecture-panel.tsx
-    query-input.tsx
-    scaffold-card.tsx
-  app/(dashboard)/coach/page.tsx
-  types/speech-recognition.d.ts     — Web Speech API type declarations
+Data Layer (Neon Postgres + Drizzle ORM)
+  ├── Teacher: classes, roster_entries, class_sessions, teacher_settings
+  ├── Economy: ram_buck_accounts, ram_buck_transactions, ram_buck_fee_schedule
+  ├── Behavior: behavior_incidents, behavior_profiles, parent_notifications
+  ├── Learning: comprehension_signals, manipulative_pushes, mastery_records
+  └── Gradebook: cfu_entries, drawing_analyses
 ```
 
 ---
 
-## Features
+## Real-Time Transport
 
-### Lecture Mode
-- Continuous `SpeechRecognition` with `continuous = true`, `interimResults = true`
-- Auto-restarts on browser silence timeout
-- Live transcript display with word count (X / 2,500)
-- Start / Stop / Clear controls
-- Pulsing red indicator while listening
+**Server-Sent Events (SSE) + DB polling every 5 seconds** — no new packages. Next.js 15 App Router handles SSE natively via `ReadableStream`. Student → server via normal `POST`; server → teacher/student via SSE.
 
-### Coach Mode
-- Lesson context status bar (green if transcript captured, grey if not, with "Capture lesson →" CTA)
-- Textarea for student query with mic button overlay
-- Single-utterance mic (`continuous = false`, stops on 2s silence)
-- Ask Coach button (disabled when empty or loading)
-- Cmd+Enter keyboard shortcut to submit
-- Loading skeleton while AI responds
-- ScaffoldCard with 4 tabs: Script / Gap / Draw / Go!
-- Copy button per tab with "Copied!" confirmation
+---
 
-### ScaffoldCard Tabs
+## Student Identity Model
 
-| Tab | Content |
-|-----|---------|
-| **Script** | ≤30-word phrase to say, displayed in quotes |
-| **Gap** | FL BEST code badge + grade + standard description + explanation |
-| **Draw** | Whiteboard sketch description |
-| **Go!** | 30-second hands-on intervention |
+- Teacher creates roster per class: **student ID + first initial + last initial** (e.g. `10293847 — J.M.`)
+- Students join via 6-char uppercase alphanumeric join code (no 0/O/I/1)
+- Student auth = signed cookie `student_session` containing `{ sessionId, rosterId }` (HMAC-SHA256, no new package)
+- No student Neon Auth accounts
+- No student PII beyond initials + school-assigned ID
+- Student balances, mastery, and behavior scoped per class (AM class Jordan ≠ PM class Jordan)
+
+---
+
+## Class / Session Model
+
+| Concept | Definition | Example |
+|---|---|---|
+| **Class** | Recurring group of students, exists all semester | "AM Math", "PM Math", "Period 3" |
+| **Session** | Single daily meeting of a class | "AM Math — Feb 28" |
+| **Roster** | Belongs to the class, not the session | 23 students in AM |
+| **Groups** | Belong to the class, persist all semester | AM Dogs/Cats/Birds/Bears |
+| **RAM Buck balance** | Per student per class, accumulates across sessions | Jordan in AM has 340 bucks |
+
+---
+
+## RAM Buck Economy
+
+- **Currency:** RAM Bucks (school mascot = Ram)
+- **Earning — Academic (automatic):**
+  - Check for understanding correct: configurable default 5 bucks
+  - Mastery achieved on a standard: configurable default 25 bucks
+  - iReady goal met (teacher voice confirmation): configurable default 20 bucks
+  - Full day no incidents: configurable default 10 bucks
+  - Group collective goal hit: configurable default 8 bucks each
+- **Earning — Behavior (teacher-narrated):**
+  - Teacher speaks to AI agent throughout the day: "Give Marcus 10 bucks for helping clean up"
+  - Teacher touch-awards: tap student card → `+` → enter amount
+- **Deductions:** Per RAM Buck Fee Schedule (auto-fires when consequence logged)
+- **Balance:** Carries over indefinitely + teacher can reset at any time (daily/weekly/monthly/quarterly/manual)
+- **Store window:** Teacher configures when students can spend (daily/weekly/monthly/quarterly/manual open)
+- **Group account:** Each group has a shared account alongside individual accounts
+- **Student visibility:** Full (balance, group balance, menu, affordability) — teacher can toggle off
+
+### Default RAM Buck Fee Schedule (teacher configures)
+
+| Consequence Step | Label | Default Deduction |
+|---|---|---|
+| 1 | Ram Buck Fine | −5 bucks |
+| 2 | No Games | −10 bucks |
+| 3 | No PE | −15 bucks |
+| 4 | Silent Lunch | −20 bucks |
+| 5 | Call Home | −30 bucks |
+| 6 | Write Up | −40 bucks |
+| 7 | Detention | −60 bucks |
+| 8 | Saturday School | −100 bucks |
+
+---
+
+## Behavior Ladder
+
+**Structure:** Consequence escalation — each incident moves student one step further.
+**Reset:** At teacher-configured interval (daily/weekly/monthly/quarterly/manual).
+
+- Steps 5–8 auto-generate a parent notification (ClassDojo-formatted copy/paste message)
+- All incidents logged in student behavior profile — **teacher-only, exportable**
+- AI behavior coach is **child-psychology-aware** in all recommendations
+- Groups are collectively gated from specials (PE, games, celebrations) based on group behavior level
+
+---
+
+## Groups
+
+- Four groups per class: **Dogs, Cats, Birds, Bears** (teacher can rename)
+- Max 6 students per group
+- Auto-assigned by academic performance level on roster import
+- Teacher can manually drag/reassign after auto-assign
+- CSV and Excel (.xlsx) upload supported for roster import
+- Groups held collectively accountable for special privileges
+
+---
+
+## Privilege Menu
+
+Default items (teacher configures):
+
+| Privilege | Default Cost | Duration |
+|---|---|---|
+| Brain Break | 15 bucks | 5–15 min |
+| Library Time | 30 bucks | 20 min |
+| Outdoor Recess | 25 bucks | 15 min |
+| Computer Time | 20 bucks | 20 min |
+| Phone Time | 40 bucks | 10 min |
+| Class Game (Heads Up 7-Up etc.) | 20 bucks | 15 min |
+
+- Fixed baseline menu + teacher daily specials
+- Students request → teacher approves
+- Students at Step 5+ (Call Home or higher) automatically excluded — teacher can override
+
+---
+
+## AI Systems
+
+### Instructional Coach (existing)
+- Model: `claude-haiku-4-5-20251001`, max 2000 tokens
+- Grounded in FL BEST Math standards corpus (108 benchmarks, Gr 3–5)
+- Returns: studentInterpretation, missingConcept, script, visual, microIntervention, guidingQuestions, manipulative, gradePrereq, below
+- Privacy: transcript ephemeral (React state only, never persisted)
+
+### Behavior Coach (Phase 11)
+- Persistent all-day classroom assistant — teacher narrates naturally throughout the day
+- Handles: RAM buck awards/deductions, iReady logging, behavior incidents, advice requests
+- Proactive daily alerts: pattern detection, flagged students
+- Child-psychology-aware in all recommendations
+- AI notes saved to student behavior profile — teacher-only, exportable
+- Parent messages formatted for ClassDojo copy/paste
+
+### Drawing Analyzer (Phase 5)
+- Claude Vision analyzes student canvas submission
+- Identifies where mental model breaks against current FL BEST standard
+- Feedback shown to student; breakpoint logged to teacher dashboard
+- Image NOT stored — only analysis result persisted
+
+### Lecture Visualizer (Phase 6)
+- Debounced AI call every 30 seconds during lecture mode
+- Generates quick visual spec for current concept being discussed
+- Renders inline, collapsible
+
+---
+
+## Database Schema
+
+### Existing Tables
+- `profiles` — teacher profiles
+- `link_items` — link-in-bio items (legacy)
+- `click_events` — click analytics (legacy)
+
+### Phase 1 (Session Foundation)
+- `teacher_settings` — mastery threshold, alert %, store schedule, alias mode
+- `classes` — recurring class periods (teacherId, label, periodTime)
+- `roster_entries` — studentId + initials per class
+- `class_sessions` — daily meetings with join code (classId FK)
+
+### Phase 2 (Comprehension Pulse)
+- `comprehension_signals` — 3-state signal log per student per session
+- `manipulative_pushes` — log of auto/teacher-triggered manipulative pushes
+
+### Phase 4 (Mastery Loop)
+- `mastery_records` — per student per standard: status, consecutiveCorrect, lastModality
+- `check_question_responses` — individual mastery check answers
+
+### Phase 5 (Drawing + Dashboard)
+- `drawing_analyses` — Claude Vision results (no image stored)
+
+### Phase 7 (Groups)
+- `student_groups` — Dogs/Cats/Birds/Bears per class
+- `group_memberships` — student → group assignment
+
+### Phase 8 (RAM Buck Economy)
+- `ram_buck_accounts` — individual balance per student per class
+- `ram_buck_transactions` — full ledger (academic|behavior-positive|behavior-fine|purchase...)
+- `ram_buck_fee_schedule` — infraction → deduction amount per teacher
+- `group_accounts` — shared group balance
+- `group_transactions` — group ledger
+
+### Phase 9 (Behavior Ladder)
+- `behavior_incidents` — incident log per student per session
+- `behavior_profiles` — current step, history, teacher notes
+- `parent_notifications` — generated messages, sent status
+
+### Phase 10 (Privilege Store)
+- `privilege_items` — menu items per teacher
+- `privilege_purchases` — request/approval log
+- `teacher_store_settings` — store open schedule
+
+### Phase 12 (Gradebook)
+- `cfu_entries` — daily check-for-understanding scores per student per standard
+- `cfu_alerts` — missing entry + makeup due alerts
+
+---
+
+## 12-Phase Roadmap
+
+### ✅ Phase 0 — AI Instructional Coach (Shipped)
+Core coach with FL BEST grounding, 4 remediation approaches, visual manipulatives, progressive deepening, interactive accordion cards, grade-below scaffolds.
+
+### ✅ Phase 1 — Session Foundation (Shipped)
+**Goal:** Teacher creates classes with rosters. Students join on their device with a join code.
+
+Deliverables:
+- [ ] `teacher_settings`, `classes`, `roster_entries`, `class_sessions` DB tables
+- [ ] `POST/GET /api/classes` — create and list classes
+- [ ] `GET/PUT/DELETE /api/classes/[id]` — manage single class
+- [ ] `POST /api/classes/[id]/roster` — add student (ID + initials)
+- [ ] `DELETE /api/classes/[id]/roster/[rosterId]` — remove student
+- [ ] `POST /api/sessions` — start a session, generate join code
+- [ ] `PUT /api/sessions/[id]/end` — end session
+- [ ] `POST /api/sessions/join` — student joins by code, receives signed cookie
+- [ ] `GET/PUT /api/teacher-settings` — teacher preferences
+- [ ] `/classes` teacher page — list + create classes
+- [ ] `/classes/[id]` teacher page — roster manager + session start
+- [ ] `/student` join screen — enter code + pick name (colorful, child-appropriate)
+- [ ] `/student/[sessionId]` — waiting screen
+- [ ] Student signed cookie auth (HMAC-SHA256, no new package)
+- [ ] Updated dashboard nav
+
+### ✅ Phase 2 — Comprehension Pulse (Shipped)
+Real-time 3-state student signal (Got It / Almost / Lost). Teacher sees aggregate only (never names) during class via SSE. 60s "stuck" detection flags students in teacher view. `/classes/[id]/session` live dashboard. Auto-push manipulative content pending Phase 3.
+
+### ✅ Phase 3 — Interactive Manipulatives (Student-Side, Shipped)
+Tap-to-build fraction bars, area model, number line on student devices. Teacher push via SSE — 3 presets (Fraction Bar, Area Model, Number Line). `manipulative_pushes` DB table. Student SSE feed (`/api/sessions/[id]/student-feed`). Manipulative appears as overlay card on student screen with dismiss. Teacher push panel in live session view.
+
+### ✅ Phase 4 — Mastery Loop (Shipped)
+After manipulative: 1–3 check questions. Wrong → switch modality or drop to grade-below. Right → harder variant. Mastery = N consecutive correct (teacher-configured, default 3).
+
+### ✅ Phase 5 — Drawing Analysis + Teacher Dashboard (Shipped)
+Claude Vision analyzes student canvas. Post-class report: comprehension timeline (donut chart), student mastery grid, AI-generated differentiation groups (Extension/Practice/Reteach) with reteach recommendations. Drawing prompt offered after quiz completion. `/classes/[id]/report` page with `?session=ID` param.
+
+### ✅ Phase 6 — Lecture Visualization + Polish (Shipped)
+Lecture Visualizer: debounced AI call every 30s while listening → concept name + text/ASCII whiteboard visual + 3 key points, collapsible violet card below transcript. Teacher Settings UI at `/settings`: mastery threshold stepper, confusion alert % slider, alias mode toggle, RAM Buck store schedule picker + open toggle.
+
+### Phase 7 — Student Groups + Roster Import
+CSV/Excel upload. Auto-group by performance level. Dogs/Cats/Birds/Bears (max 6). Teacher drag-to-adjust. Group board kanban UI.
+
+### Phase 8 — RAM Buck Economy
+Individual + group accounts. Academic auto-earning. Teacher narrates to AI agent all day (voice + touch). Fee schedule auto-deducts on consequence. Configurable store window.
+
+### Phase 9 — Behavior Ladder + Consequence Tracking
+8-step consequence escalation. Auto RAM buck deduction per fee schedule. Auto parent message (ClassDojo-formatted) at Step 5+. Student behavior profiles (teacher-only, exportable).
+
+### Phase 10 — Privilege Menu + Store
+Fixed baseline + daily teacher specials. Teacher-scheduled store window. Student request → teacher approve. Behavior gate blocks Step 5+ students.
+
+### Phase 11 — AI Behavior Coach
+Persistent daily classroom assistant. Teacher narrates naturally all day. Proactive pattern alerts. Child-psychology-aware advice. Voice logging for iReady. Parent message generation.
+
+### Phase 12 — Gradebook + CFU Tracker
+Daily check-for-understanding entry (standard + lesson + scores). Absent student documentation + makeup alerts. Teacher alerted if CFU not entered by end of day. Individual grid + class aggregate view. CSV export.
 
 ---
 
@@ -189,8 +334,10 @@ src/
 | Framework | Next.js App Router | 15.5.12 |
 | UI | React | 19.1.0 |
 | Styling | Tailwind CSS v4 + shadcn/ui | 4.x |
-| Auth | Neon Auth (`@neondatabase/auth`) | 0.1.0-beta.21 |
+| Auth (teacher) | Neon Auth (`@neondatabase/auth`) | 0.1.0-beta.21 |
+| Auth (student) | Signed cookie, HMAC-SHA256, Node crypto | built-in |
 | Database | Neon serverless + Drizzle ORM | — |
+| Real-time | SSE via Next.js ReadableStream | built-in |
 | AI | `@anthropic-ai/sdk` | ^0.39.0 |
 | AI Model | Claude Haiku | `claude-haiku-4-5-20251001` |
 | Speech | Web Speech API | Browser-native |
@@ -199,194 +346,45 @@ src/
 
 ---
 
-## Security & Configuration
+## Security & Privacy
 
-### Authentication
-- All `/coach` routes protected by Neon Auth session cookie middleware
+### Teacher Auth
+- All `/coach`, `/classes`, `/sessions`, `/settings`, `/gradebook` routes protected by Neon Auth
 - `auth.getSession()` called at start of every API handler
-- Unauthorized → 401
 
-### Rate Limiting
-- `coachRateLimiter`: 10 requests/min per IP
-- In-memory store (resets on server restart)
-- Returns 429 with `{ error: "Too many requests" }`
+### Student Auth
+- Signed cookie `student_session` = HMAC-SHA256(`{ sessionId, rosterId }`, NEON_AUTH_COOKIE_SECRET)
+- No Neon Auth account, no email, no password
+- Cookie expires when session ends
 
-### Input Validation
-- `studentQuery`: required, max 2,000 chars
-- `lessonTranscript`: required string, max 20,000 chars
-- Both validated before calling Claude API
+### Student Data Privacy
+- Roster stores: student ID (school-assigned) + first initial + last initial only
+- No full names, no email, no photos stored
+- AI calls never include student names — student ID only in API context
+- Drawing images sent to Claude Vision but NOT stored — only analysis result persisted
+- Parent notifications are teacher-exported text — no automated outbound messaging
 
-### Environment Variables
-```
-ANTHROPIC_API_KEY=sk-ant-...         # Required for coach feature
-DATABASE_URL=...                      # Neon DB
-NEON_AUTH_BASE_URL=...               # Neon Auth
-NEON_AUTH_COOKIE_SECRET=...          # Cookie signing
-```
-
-### Privacy Architecture
-- Transcript: React state only, never sent to server except as part of a coach request
-- Coach request: contains lesson content and student confusion — no names, no IDs
-- No logging of request bodies
-- No DB writes for any coach data
+### Rate Limiting (in-memory, per IP)
+- `coachRateLimiter`: 10 req/min
+- `sessionRateLimiter`: 30 req/min
+- `joinRateLimiter`: 20 req/min
 
 ---
 
-## API Specification
+## Environment Variables
 
-### `POST /api/coach`
-
-**Auth:** Required (Neon Auth session cookie)
-**Rate limit:** 10 req/min per IP
-
-**Request:**
-```json
-{
-  "lessonTranscript": "string (max 20,000 chars)",
-  "studentQuery": "string (required, max 2,000 chars)"
-}
+```bash
+DATABASE_URL=             # Neon Postgres
+NEON_AUTH_BASE_URL=       # Neon Auth
+NEON_AUTH_COOKIE_SECRET=  # Cookie signing (also used for student tokens)
+ANTHROPIC_API_KEY=        # Required for all AI features
 ```
 
-**Response 200:**
-```json
-{
-  "script": "Tell them: remember the part-of-a-part example — the answer must be smaller than 2/3.",
-  "missingConcept": {
-    "code": "MA.4.FR.2.4",
-    "grade": 4,
-    "description": "Extend previous understanding of multiplication to multiply a fraction by a whole number or a whole number by a fraction.",
-    "explanation": "The student lacks the foundational understanding that multiplying by a fraction makes a quantity smaller. Without MA.4.FR.2.4, they default to whole-number multiplication intuition where multiplication always increases."
-  },
-  "visual": "Draw a number line from 0 to 1. Mark 2/3. Now take half of that distance — shade it. The shaded part is smaller than 2/3, which is the answer.",
-  "microIntervention": "Have the student hold up 3 fingers. Ask: what is half of 3 fingers? (1.5). So half of something is always smaller. Now apply that to fractions."
-}
-```
-
-**Error responses:**
-- `400` — missing/invalid fields
-- `401` — not authenticated
-- `429` — rate limit exceeded
-- `500` — AI service error
-
 ---
 
-## Success Criteria
+## Related Files
 
-### MVP Definition
-A teacher can capture a live math lesson, describe a student's confusion, and receive a complete remediation plan in under 3 seconds — grounded in what was actually taught today.
-
-### Functional Requirements
-- ✅ Lecture Mode captures speech continuously with auto-restart
-- ✅ Rolling 2,500-word buffer maintained in memory
-- ✅ Coach Mode sends transcript + query to Claude Haiku
-- ✅ All 4 response tabs populated on every request
-- ✅ Script explicitly references today's lesson content
-- ✅ Gap tab shows valid FL BEST standard code
-- ✅ Copy button works on all tabs
-- ✅ Mic input works for student query
-- ✅ No student PII in any API payload
-- ✅ `npx tsc --noEmit` passes clean
-- ✅ Protected behind Neon Auth
-
-### Quality Indicators
-- AI response latency < 3 seconds (Haiku model, 700 max tokens)
-- Zero TypeScript errors in strict mode
-- Mobile usable one-handed on iPhone SE viewport
-
----
-
-## Implementation Phases
-
-### Phase 1 — Core Coach (SHIPPED ✅)
-**Goal:** Working end-to-end coach on `/coach` route
-
-**Deliverables:**
-- ✅ FL BEST standards data file (108 benchmarks, Gr 3–5)
-- ✅ `getScaffold()` with Claude Haiku + full standards corpus in system prompt
-- ✅ `POST /api/coach` route with auth + rate limiting
-- ✅ `useLectureTranscript` hook (continuous STT, rolling buffer)
-- ✅ `useSpeechQuery` hook (single-utterance STT)
-- ✅ 4 coach components + main page
-- ✅ Middleware protection for `/coach`
-- ✅ Nav link in dashboard layout
-
-**Validation:** Teacher can speak a lesson, describe student confusion, receive 4-tab response in <3s.
-
----
-
-### Phase 2 — Polish & Reliability (Next)
-**Goal:** Production-ready for classroom use
-
-**Deliverables:**
-- [ ] Error boundary + graceful degradation when Speech API unavailable
-- [ ] Loading/error toasts via Sonner
-- [ ] Transcript pause/resume (currently stop clears recognition instance)
-- [ ] Response history within session (last 3 queries, in-memory only)
-- [ ] Haptic feedback on mobile for mic button state changes
-- [ ] Rate limit UI feedback (show remaining requests)
-
-**Validation:** No crashes observed in 30-minute classroom simulation.
-
----
-
-### Phase 3 — Standards Intelligence (Future)
-**Goal:** Deeper FL BEST integration
-
-**Deliverables:**
-- [ ] Auto-detect likely standard from lesson transcript (show in Lecture Mode)
-- [ ] Prerequisite chain visualizer — tap any standard code to see full chain
-- [ ] "Quick pick" standard selector so teacher can confirm what they taught
-- [ ] Standard pinning — pin today's standard so Coach Mode always references it
-
----
-
-### Phase 4 — Teacher Workflow (Future)
-**Goal:** Fit into real classroom routines
-
-**Deliverables:**
-- [ ] Session summary — end-of-class summary of confusion patterns (no student names, aggregate only)
-- [ ] Saved interventions — teacher can star a response for reuse
-- [ ] Shareable coach cards — export a response as a PDF card for the student's folder
-- [ ] Grade level configuration (currently hardcoded to Gr 5)
-
----
-
-## Future Considerations
-
-- **Other grade bands:** FL BEST covers K–8. Extending to Gr 6–8 is a config change + data file expansion.
-- **Other subjects:** ELA, Science scaffolding follow the same architecture pattern.
-- **School/district deployment:** Multi-tenant auth, school roster import, admin dashboard.
-- **Offline mode:** Cache last N responses in IndexedDB for use in no-WiFi classrooms.
-- **Student-facing mode:** Simplified UI where student can ask the question themselves (privacy controls remain).
-
----
-
-## Risks & Mitigations
-
-| Risk | Likelihood | Mitigation |
-|------|-----------|------------|
-| Web Speech API not available (non-Chrome browser, HTTP) | Medium | Graceful fallback to text-only input; show "use Chrome" message |
-| Claude API latency > 3s during class | Low | Haiku model, 700 max tokens, streaming fallback in Phase 2 |
-| Teacher forgets to start Lecture Mode | High | Coach Mode shows clear "No lesson captured" CTA; AI still works without transcript |
-| API key exposure in client | None | Key is server-only, never in client bundle |
-| Student confusion described with PII | Low | System prompt instructs Claude to ignore/strip names; no server-side logging of request bodies |
-
----
-
-## Appendix
-
-### Strategic Decision
-The app originally scaffolded as a link-in-bio page builder. That feature has been removed. UnGhettoMyLife is now a single-purpose AI Instructional Coach for Florida math teachers.
-
-### Related Files
 - `.claude/PRD.md` — this document
 - `src/data/fl-best-standards.ts` — authoritative FL BEST corpus
-- `src/lib/ai/coach.ts` — AI system prompt
-
-### FL BEST Standards Source
-Florida Department of Education — [B.E.S.T. Standards for Mathematics](https://www.fldoe.org/academics/standards/subject-areas/math-science/mathematics/)
-
-### Key Dependencies
-- `@anthropic-ai/sdk` ^0.39.0
-- `@neondatabase/auth` ^0.1.0-beta.21
-- Web Speech API (Chrome 33+, Edge 79+, Safari 14.1+)
+- `src/lib/ai/coach.ts` — AI system prompt + CoachResponse type
+- `src/lib/db/schema.ts` — all database tables

@@ -1,8 +1,11 @@
 "use client";
 
 import { GraduationCapIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { VisualResponse } from "@/app/api/coach/visualize/route";
+import { BehaviorPanel } from "@/components/coach/behavior-panel";
 import { LecturePanel } from "@/components/coach/lecture-panel";
+import { LectureVisualizer } from "@/components/coach/lecture-visualizer";
 import type { CoachMode } from "@/components/coach/mode-toggle";
 import { ModeToggle } from "@/components/coach/mode-toggle";
 import { QueryInput } from "@/components/coach/query-input";
@@ -14,18 +17,22 @@ import type { CoachResponse } from "@/lib/ai/coach";
 const SESSION_MODE_KEY = "coach-mode";
 
 export default function CoachPage() {
-	const [mode, setMode] = useState<CoachMode>(() => {
-		if (typeof window !== "undefined") {
-			const saved = sessionStorage.getItem(SESSION_MODE_KEY);
-			if (saved === "lecture" || saved === "coach") return saved;
-		}
-		return "lecture";
-	});
+	const [mode, setMode] = useState<CoachMode>("lecture");
 
+	// Restore saved mode after hydration to avoid SSR/client mismatch
+	useEffect(() => {
+		const saved = sessionStorage.getItem(SESSION_MODE_KEY);
+		if (saved === "lecture" || saved === "coach") setMode(saved);
+	}, []);
+
+	const [pinnedStandards, setPinnedStandards] = useState<string[]>([]);
 	const [manualQuery, setManualQuery] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [response, setResponse] = useState<CoachResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [attempts, setAttempts] = useState<
+		Array<{ studentQuery: string; triedApproach: string; deeperContext: string }>
+	>([]);
 
 	const {
 		transcript,
@@ -36,6 +43,45 @@ export default function CoachPage() {
 		stopListening,
 		clearTranscript,
 	} = useLectureTranscript();
+
+	// ── Lecture Visualizer — debounced AI call every 30s while listening ──────
+	const [visual, setVisual] = useState<VisualResponse | null>(null);
+	const [visualLoading, setVisualLoading] = useState(false);
+	const visualTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const lastVisualTranscript = useRef("");
+
+	useEffect(() => {
+		// Only run when actively listening and transcript has grown meaningfully
+		if (!isListening || wordCount < 20) return;
+		if (transcript === lastVisualTranscript.current) return;
+
+		// Reset debounce timer
+		if (visualTimerRef.current) clearTimeout(visualTimerRef.current);
+
+		visualTimerRef.current = setTimeout(async () => {
+			lastVisualTranscript.current = transcript;
+			setVisualLoading(true);
+			try {
+				const res = await fetch("/api/coach/visualize", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ transcript, pinnedStandards }),
+				});
+				if (res.ok) {
+					const data = (await res.json()) as VisualResponse;
+					setVisual(data);
+				}
+			} catch {
+				// Non-critical — silently fail
+			} finally {
+				setVisualLoading(false);
+			}
+		}, 30_000);
+
+		return () => {
+			if (visualTimerRef.current) clearTimeout(visualTimerRef.current);
+		};
+	}, [transcript, isListening, wordCount, pinnedStandards]);
 
 	const {
 		query: spokenQuery,
@@ -72,6 +118,7 @@ export default function CoachPage() {
 		setIsLoading(true);
 		setError(null);
 		setResponse(null);
+		setAttempts([]);
 
 		try {
 			const res = await fetch("/api/coach", {
@@ -80,6 +127,7 @@ export default function CoachPage() {
 				body: JSON.stringify({
 					lessonTranscript: transcript,
 					studentQuery: q,
+					pinnedStandards,
 				}),
 			});
 
@@ -95,7 +143,43 @@ export default function CoachPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [manualQuery, transcript]);
+	}, [manualQuery, transcript, pinnedStandards]);
+
+	const handleDeepen = useCallback(
+		async (triedApproach: string, deeperContext: string) => {
+			const newAttempt = { studentQuery: manualQuery.trim(), triedApproach, deeperContext };
+			const nextAttempts = [...attempts, newAttempt];
+			setAttempts(nextAttempts);
+			setIsLoading(true);
+			setError(null);
+
+			try {
+				const res = await fetch("/api/coach", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						lessonTranscript: transcript,
+						studentQuery: manualQuery.trim(),
+						pinnedStandards,
+						priorAttempts: nextAttempts,
+					}),
+				});
+
+				if (!res.ok) {
+					const data = await res.json().catch(() => ({}));
+					throw new Error((data as { error?: string }).error ?? `Error ${res.status}`);
+				}
+
+				const data = (await res.json()) as CoachResponse;
+				setResponse(data);
+			} catch (err) {
+				setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[manualQuery, attempts, transcript, pinnedStandards],
+	);
 
 	const queryWordCount = manualQuery.trim()
 		? manualQuery.trim().split(/\s+/).filter(Boolean).length
@@ -119,16 +203,23 @@ export default function CoachPage() {
 				<ModeToggle mode={mode} onChange={handleModeChange} />
 			</div>
 
-			{mode === "lecture" ? (
-				<LecturePanel
-					transcript={transcript}
-					isListening={isListening}
-					wordCount={wordCount}
-					isSupported={isSupported}
-					onStart={startListening}
-					onStop={stopListening}
-					onClear={clearTranscript}
-				/>
+			{mode === "behavior" ? (
+				<BehaviorPanel />
+			) : mode === "lecture" ? (
+				<div className="flex flex-col gap-4">
+					<LecturePanel
+						transcript={transcript}
+						isListening={isListening}
+						wordCount={wordCount}
+						isSupported={isSupported}
+						pinnedStandards={pinnedStandards}
+						onStart={startListening}
+						onStop={stopListening}
+						onClear={clearTranscript}
+						onStandardsChange={setPinnedStandards}
+					/>
+					<LectureVisualizer visual={visual} loading={visualLoading} />
+				</div>
 			) : (
 				<div className="flex flex-col gap-5">
 					{/* Lesson context indicator */}
@@ -192,7 +283,7 @@ export default function CoachPage() {
 					)}
 
 					{/* Response */}
-					{response && !isLoading && <ScaffoldCard response={response} />}
+					{response && !isLoading && <ScaffoldCard response={response} onDeepen={handleDeepen} />}
 				</div>
 			)}
 		</div>

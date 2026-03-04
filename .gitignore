@@ -45,3 +45,4 @@ tests/e2e/screenshots/
 next-env.d.ts
 
 e2e-screenshots
+.env*.local
