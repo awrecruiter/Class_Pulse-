@@ -4,11 +4,12 @@ import {
 	CheckIcon,
 	ClockIcon,
 	CoinsIcon,
+	GiftIcon,
 	ShoppingBagIcon,
 	ShoppingCartIcon,
 	XIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ type Purchase = {
 };
 
 type ClassRow = { id: string; label: string; isArchived: boolean };
+type RosterEntry = { id: string; firstInitial: string; lastInitial: string; balance: number };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,9 +60,73 @@ function CostBadge({ cost }: { cost: number }) {
 
 // ─── Item card ────────────────────────────────────────────────────────────────
 
-function ItemCard({ item }: { item: PrivilegeItem }) {
+function ItemCard({
+	item,
+	classId,
+	roster,
+	onGranted,
+}: {
+	item: PrivilegeItem;
+	classId: string;
+	roster: RosterEntry[];
+	onGranted: () => void;
+}) {
+	const [showPicker, setShowPicker] = useState(false);
+	const [grantState, setGrantState] = useState<"idle" | "loading" | "done" | "error">("idle");
+	const [selectedRosterId, setSelectedRosterId] = useState("");
+	const pickerRef = useRef<HTMLDivElement>(null);
+
+	// Close picker on outside click
+	useEffect(() => {
+		if (!showPicker) return;
+		function handler(e: MouseEvent) {
+			if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+				setShowPicker(false);
+			}
+		}
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, [showPicker]);
+
+	async function handleGrant() {
+		if (!selectedRosterId || !classId || grantState === "loading") return;
+		setGrantState("loading");
+		try {
+			// Create purchase
+			const createRes = await fetch(`/api/classes/${classId}/purchases`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterId: selectedRosterId, itemId: item.id }),
+			});
+			const createData = await createRes.json();
+			if (!createRes.ok) throw new Error(createData.error ?? "Failed to create purchase");
+
+			// Immediately approve it
+			const approveRes = await fetch(
+				`/api/classes/${classId}/purchases/${createData.purchase.id}`,
+				{
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ action: "approve" }),
+				},
+			);
+			if (!approveRes.ok) throw new Error("Failed to approve");
+
+			setGrantState("done");
+			setTimeout(() => {
+				setGrantState("idle");
+				setShowPicker(false);
+				setSelectedRosterId("");
+				onGranted();
+			}, 1000);
+		} catch {
+			setGrantState("error");
+			setTimeout(() => setGrantState("idle"), 2000);
+		}
+	}
+
 	return (
-		<div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-primary/30 transition-colors">
+		<div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-primary/30 transition-colors relative">
 			<div className="flex items-start justify-between gap-2">
 				<div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
 					<ShoppingBagIcon className="h-5 w-5 text-amber-400" />
@@ -76,6 +142,53 @@ function ItemCard({ item }: { item: PrivilegeItem }) {
 					</p>
 				)}
 			</div>
+
+			{/* Grant button */}
+			{classId && roster.length > 0 && (
+				<div className="relative" ref={pickerRef}>
+					<button
+						type="button"
+						onClick={() => setShowPicker((s) => !s)}
+						disabled={grantState === "loading"}
+						className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-500/40 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/10 active:scale-95 disabled:opacity-50 transition-all"
+					>
+						<GiftIcon className="h-3 w-3" />
+						Grant to student
+					</button>
+
+					{showPicker && (
+						<div className="absolute bottom-full mb-2 left-0 right-0 z-20 rounded-xl border border-border bg-popover shadow-xl p-2 flex flex-col gap-1.5">
+							<select
+								value={selectedRosterId}
+								onChange={(e) => setSelectedRosterId(e.target.value)}
+								className="w-full rounded-lg border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground focus:outline-none"
+							>
+								<option value="">Pick a student…</option>
+								{roster.map((s) => (
+									<option key={s.id} value={s.id}>
+										{s.firstInitial}.{s.lastInitial}. — 🐏 {s.balance}
+									</option>
+								))}
+							</select>
+
+							<button
+								type="button"
+								onClick={handleGrant}
+								disabled={!selectedRosterId || grantState === "loading"}
+								className="w-full rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 active:scale-95 transition-all py-1.5 text-xs font-bold text-white"
+							>
+								{grantState === "loading"
+									? "Granting…"
+									: grantState === "done"
+										? "✓ Granted!"
+										: grantState === "error"
+											? "Failed — try again"
+											: `Grant (${item.cost} 🐏)`}
+							</button>
+						</div>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -119,7 +232,6 @@ function PurchaseCard({
 
 	return (
 		<div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
-			{/* Student + item */}
 			<div className="flex items-center gap-3">
 				<div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
 					<span className="text-[11px] font-bold text-white">
@@ -145,7 +257,6 @@ function PurchaseCard({
 
 			<p className="text-[10px] text-muted-foreground">Requested {fmtTime(purchase.requestedAt)}</p>
 
-			{/* Actions */}
 			<div className="flex gap-2">
 				<button
 					type="button"
@@ -229,6 +340,7 @@ export default function StorePage() {
 	const [selectedClassId, setSelectedClassId] = useState("");
 	const [items, setItems] = useState<PrivilegeItem[]>([]);
 	const [purchases, setPurchases] = useState<Purchase[]>([]);
+	const [roster, setRoster] = useState<RosterEntry[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -262,6 +374,24 @@ export default function StorePage() {
 		}
 	}, []);
 
+	// Fetch roster for grant picker
+	useEffect(() => {
+		if (!selectedClassId) return;
+		fetch(`/api/classes/${selectedClassId}/roster-overview`)
+			.then((r) => r.json())
+			.then((j) =>
+				setRoster(
+					(j.students ?? []).map((s: { rosterId: string; displayName: string; balance: number }) => ({
+						id: s.rosterId,
+						firstInitial: s.displayName.split(" ")[0]?.[0] ?? "?",
+						lastInitial: s.displayName.split(" ")[1]?.[0] ?? "",
+						balance: s.balance,
+					})),
+				),
+			)
+			.catch(() => setRoster([]));
+	}, [selectedClassId]);
+
 	useEffect(() => {
 		if (selectedClassId) fetchPurchases(selectedClassId);
 	}, [selectedClassId, fetchPurchases]);
@@ -280,7 +410,7 @@ export default function StorePage() {
 						<div>
 							<h1 className="text-lg font-bold text-foreground">Privilege Store</h1>
 							<p className="text-xs text-muted-foreground">
-								Manage items, approve requests, control store hours
+								Grant items, approve requests, control store hours
 							</p>
 						</div>
 					</div>
@@ -320,7 +450,13 @@ export default function StorePage() {
 					) : (
 						<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
 							{items.map((item) => (
-								<ItemCard key={item.id} item={item} />
+								<ItemCard
+									key={item.id}
+									item={item}
+									classId={selectedClassId}
+									roster={roster}
+									onGranted={() => fetchPurchases(selectedClassId)}
+								/>
 							))}
 						</div>
 					)}
