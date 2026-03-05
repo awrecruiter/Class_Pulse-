@@ -8,6 +8,13 @@
       "when": 1771628396749,
       "tag": "0000_green_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772742533901,
+      "tag": "0001_brainy_killer_shrike",
+      "breakpoints": true
     }
   ]
 }
