@@ -1,9 +1,19 @@
 "use client";
 
-import { CheckIcon, ClipboardIcon, MicIcon, SendIcon, SquareIcon } from "lucide-react";
+import { gsap } from "gsap";
+import {
+	CheckIcon,
+	ClipboardIcon,
+	MicIcon,
+	SendIcon,
+	SquareIcon,
+	Volume2Icon,
+	XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
+import { RamBuckBurst } from "@/components/coach/ram-buck-burst";
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
 
@@ -50,39 +60,38 @@ function hashId(id: string): number {
 	for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
 	return h;
 }
-
 function avatarColor(rosterId: string) {
 	return AVATAR_COLORS[hashId(rosterId) % AVATAR_COLORS.length];
 }
-
 function avatarAnimal(rosterId: string) {
 	return AVATAR_ANIMALS[(hashId(rosterId) >> 4) % AVATAR_ANIMALS.length];
 }
 
-// ─── Student card ─────────────────────────────────────────────────────────────
+// ─── Student strip chip ────────────────────────────────────────────────────────
 
-function StudentCard({
+function StudentChip({
 	student,
+	active,
 	onTap,
 }: {
 	student: StudentOverview;
-	onTap: (student: StudentOverview) => void;
+	active: boolean;
+	onTap: (s: StudentOverview) => void;
 }) {
 	const step = student.behaviorStep;
-	const balance = student.balance;
 	const stepColor = step >= 5 ? "bg-red-500" : step >= 3 ? "bg-orange-500" : "bg-yellow-400";
-
 	return (
 		<button
 			type="button"
 			onClick={() => onTap(student)}
-			className="flex flex-col items-center gap-1 rounded-xl p-2 hover:bg-muted/60 active:scale-95 transition-all"
+			className={`relative flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 transition-all shrink-0 active:scale-95 ${
+				active ? "bg-amber-200 ring-2 ring-amber-500" : "bg-amber-50 hover:bg-amber-100"
+			}`}
 		>
-			{/* Avatar */}
 			<div
-				className={`relative h-12 w-12 rounded-full ${avatarColor(student.rosterId)} flex items-center justify-center shadow-md`}
+				className={`relative h-10 w-10 rounded-full ${avatarColor(student.rosterId)} flex items-center justify-center shadow`}
 			>
-				<span className="text-2xl leading-none select-none" aria-hidden>
+				<span className="text-xl leading-none select-none" aria-hidden>
 					{avatarAnimal(student.rosterId)}
 				</span>
 				{step > 0 && (
@@ -93,17 +102,13 @@ function StudentCard({
 					</span>
 				)}
 			</div>
-
-			{/* Initials */}
-			<span className="text-xs font-semibold text-foreground leading-none">
+			<span className="text-[10px] font-semibold text-foreground leading-none">
 				{student.firstInitial}.{student.lastInitial}.
 			</span>
-
-			{/* Balance */}
 			<span
-				className={`text-xs font-bold tabular-nums leading-none ${balance > 0 ? "text-green-600" : "text-muted-foreground"}`}
+				className={`text-[9px] tabular-nums leading-none ${student.balance > 0 ? "text-green-600 font-bold" : "text-muted-foreground"}`}
 			>
-				🐏 {balance}
+				🐏{student.balance}
 			</span>
 		</button>
 	);
@@ -119,7 +124,7 @@ function CopyButton({ text }: { text: string }) {
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch {
-			// clipboard unavailable
+			/* clipboard unavailable */
 		}
 	}
 	return (
@@ -143,11 +148,105 @@ function CopyButton({ text }: { text: string }) {
 	);
 }
 
+// ─── SMS send button ──────────────────────────────────────────────────────────
+
+type SmsState = "idle" | "loading" | "sent" | "error";
+
+function SmsSendButton({
+	classId,
+	rosterId,
+	body,
+}: {
+	classId: string;
+	rosterId: string;
+	body: string;
+}) {
+	const [state, setState] = useState<SmsState>("idle");
+	const [errorMsg, setErrorMsg] = useState("");
+	async function handleSend() {
+		if (state !== "idle") return;
+		setState("loading");
+		try {
+			const res = await fetch(`/api/classes/${classId}/parent-message`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterId, body, triggeredBy: "manual" }),
+			});
+			const json = await res.json();
+			if (!res.ok || json.error) {
+				setErrorMsg(json.error ?? "Failed");
+				setState("error");
+			} else setState("sent");
+		} catch {
+			setErrorMsg("Network error");
+			setState("error");
+		}
+	}
+	if (state === "sent")
+		return (
+			<span className="flex items-center gap-1 text-xs text-green-700 shrink-0">
+				<CheckIcon className="h-3 w-3" />
+				Sent
+			</span>
+		);
+	if (state === "error")
+		return (
+			<span className="text-xs text-red-600 shrink-0" title={errorMsg}>
+				SMS failed
+			</span>
+		);
+	return (
+		<button
+			type="button"
+			onClick={handleSend}
+			disabled={state === "loading"}
+			className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 transition-colors shrink-0 disabled:opacity-50"
+		>
+			<SendIcon className="h-3 w-3" />
+			{state === "loading" ? "Sending…" : "Send SMS"}
+		</button>
+	);
+}
+
+// ─── Inline speak button (TTS) ────────────────────────────────────────────────
+
+function SpeakButton({ text }: { text: string }) {
+	const [speaking, setSpeaking] = useState(false);
+	const [supported, setSupported] = useState(false);
+	useEffect(() => {
+		setSupported(typeof window !== "undefined" && "speechSynthesis" in window);
+	}, []);
+	if (!supported) return null;
+
+	function toggle() {
+		if (speaking) {
+			window.speechSynthesis.cancel();
+			setSpeaking(false);
+			return;
+		}
+		const u = new SpeechSynthesisUtterance(text);
+		u.onstart = () => setSpeaking(true);
+		u.onend = () => setSpeaking(false);
+		u.onerror = () => setSpeaking(false);
+		window.speechSynthesis.speak(u);
+	}
+	return (
+		<button
+			type="button"
+			onClick={toggle}
+			aria-label={speaking ? "Stop" : "Hear response"}
+			className={`flex items-center gap-1 text-xs transition-colors shrink-0 ${speaking ? "text-primary font-medium" : "text-muted-foreground hover:text-foreground"}`}
+		>
+			<Volume2Icon className="h-3 w-3" />
+			{speaking ? "Stop" : "Hear"}
+		</button>
+	);
+}
+
 // ─── Action badge ─────────────────────────────────────────────────────────────
 
 function ActionBadge({ response }: { response: BehaviorResponse }) {
 	if (response.actionType === "general" || response.actionType === "advice") return null;
-
 	const badgeMap: Record<string, { label: string; className: string }> = {
 		"ram-buck-award": {
 			label: response.ramBuck ? `+${response.ramBuck.amount} RAM Bucks` : "RAM Buck Award",
@@ -165,15 +264,10 @@ function ActionBadge({ response }: { response: BehaviorResponse }) {
 			label: "Parent Message",
 			className: "bg-amber-100 text-amber-800 border-amber-200",
 		},
-		iready: {
-			label: "iReady Goal ✓",
-			className: "bg-blue-100 text-blue-800 border-blue-200",
-		},
+		iready: { label: "iReady Goal ✓", className: "bg-blue-100 text-blue-800 border-blue-200" },
 	};
-
 	const badge = badgeMap[response.actionType];
 	if (!badge) return null;
-
 	return (
 		<span
 			className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium ${badge.className}`}
@@ -186,40 +280,75 @@ function ActionBadge({ response }: { response: BehaviorResponse }) {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type HistoryEntry = { role: "user" | "assistant"; content: string };
-
 type Message = {
 	id: string;
 	role: "teacher" | "coach";
 	text: string;
 	response?: BehaviorResponse;
+	rosterId?: string;
+};
+type ClassRow = { id: string; label: string };
+type GuidanceResult = {
+	talkingPoints: string[];
+	practiceGuidance: string;
+	parentMessageDraft: string;
 };
 
-type ClassRow = { id: string; label: string };
+// ─── Animated message wrapper ─────────────────────────────────────────────────
+
+function AnimatedMessage({
+	role,
+	children,
+}: {
+	role: "teacher" | "coach";
+	children: React.ReactNode;
+}) {
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (!ref.current) return;
+		const anim = gsap.from(ref.current, {
+			x: role === "teacher" ? 18 : -18,
+			opacity: 0,
+			duration: 0.28,
+			ease: "power2.out",
+		});
+		return () => {
+			anim.kill();
+		};
+	}, [role]);
+	return (
+		<div ref={ref} className={`flex ${role === "teacher" ? "justify-end" : "justify-start"}`}>
+			{children}
+		</div>
+	);
+}
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function BehaviorPanel() {
-	// Class selection
 	const [classes, setClasses] = useState<ClassRow[]>([]);
 	const [selectedClassId, setSelectedClassId] = useState("");
-
-	// Student roster
 	const [students, setStudents] = useState<StudentOverview[]>([]);
 	const [studentsLoading, setStudentsLoading] = useState(false);
 
-	// Chat
+	const [activeStudent, setActiveStudent] = useState<StudentOverview | null>(null);
+	const [guidanceLoading, setGuidanceLoading] = useState(false);
+	const [guidance, setGuidance] = useState<GuidanceResult | null>(null);
+
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [input, setInput] = useState("");
+	const [showTypeInput, setShowTypeInput] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isRecording, setIsRecording] = useState(false);
+
+	const [burst, setBurst] = useState<{ amount: number; type: "award" | "deduction" } | null>(null);
 
 	const recognitionRef = useRef<SpeechRecognition | null>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const historyRef = useRef<HistoryEntry[]>([]);
-	// Tracks the last student card tapped — used as the target for DB commits
 	const pendingStudentRef = useRef<StudentOverview | null>(null);
+	const orbRef = useRef<HTMLButtonElement>(null);
 
-	// Load classes on mount — selectedClassId read only as initial check, intentionally excluded from deps
 	// biome-ignore lint/correctness/useExhaustiveDependencies: only run once on mount
 	useEffect(() => {
 		fetch("/api/classes")
@@ -229,14 +358,11 @@ export function BehaviorPanel() {
 					(c: ClassRow & { isArchived: boolean }) => !c.isArchived,
 				);
 				setClasses(active);
-				if (active.length > 0 && !selectedClassId) {
-					setSelectedClassId(active[0].id);
-				}
+				if (active.length > 0 && !selectedClassId) setSelectedClassId(active[0].id);
 			})
 			.catch(() => {});
 	}, []);
 
-	// Load students when class changes
 	const fetchStudents = useCallback(async (classId: string) => {
 		setStudentsLoading(true);
 		try {
@@ -245,7 +371,7 @@ export function BehaviorPanel() {
 			const json = await res.json();
 			setStudents(json.students ?? []);
 		} catch {
-			// silently fail
+			/* silently fail */
 		} finally {
 			setStudentsLoading(false);
 		}
@@ -255,13 +381,11 @@ export function BehaviorPanel() {
 		if (selectedClassId) fetchStudents(selectedClassId);
 	}, [selectedClassId, fetchStudents]);
 
-	// Auto-scroll on new messages
 	// biome-ignore lint/correctness/useExhaustiveDependencies: isLoading triggers scroll
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages, isLoading]);
 
-	// Match initials pattern in text to a roster entry (e.g. "J.M." → student)
 	function findStudentInText(text: string): StudentOverview | null {
 		const upper = text.toUpperCase();
 		for (const s of students) {
@@ -272,9 +396,10 @@ export function BehaviorPanel() {
 		return null;
 	}
 
-	// Tap student card → remember as pending target + prepend initials
 	function handleStudentTap(student: StudentOverview) {
 		pendingStudentRef.current = student;
+		setActiveStudent(student);
+		setGuidance(null);
 		const initials = `${student.firstInitial}.${student.lastInitial}.`;
 		setInput((prev) => {
 			if (prev.includes(initials)) return prev;
@@ -282,17 +407,50 @@ export function BehaviorPanel() {
 		});
 	}
 
+	// Quick action chips — pre-fill or auto-send common narrations
+	function applyChip(template: string, autoSend = false) {
+		const initials = activeStudent
+			? `${activeStudent.firstInitial}.${activeStudent.lastInitial}.`
+			: null;
+		const phrase = initials
+			? template.replace("{}", initials)
+			: template.replace("{} ", "").replace("{}", "");
+		if (autoSend && initials) {
+			handleSend(phrase);
+		} else {
+			setInput(phrase);
+			setShowTypeInput(true);
+		}
+	}
+
+	async function fetchGuidance(student: StudentOverview) {
+		if (!selectedClassId) return;
+		setGuidanceLoading(true);
+		setGuidance(null);
+		try {
+			const res = await fetch("/api/coach/academic-guidance", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterId: student.rosterId, classId: selectedClassId }),
+			});
+			if (res.ok) setGuidance((await res.json()) as GuidanceResult);
+		} catch {
+			/* silently fail */
+		} finally {
+			setGuidanceLoading(false);
+		}
+	}
+
 	async function handleSend(text: string) {
 		const trimmed = text.trim();
 		if (!trimmed || isLoading) return;
 
-		const teacherMsg: Message = { id: crypto.randomUUID(), role: "teacher", text: trimmed };
-		setMessages((prev) => [...prev, teacherMsg]);
+		setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "teacher", text: trimmed }]);
 		setInput("");
+		setShowTypeInput(false);
 		setIsLoading(true);
 
 		const history = historyRef.current.slice(-20);
-
 		try {
 			const res = await fetch("/api/coach/behavior", {
 				method: "POST",
@@ -302,28 +460,31 @@ export function BehaviorPanel() {
 			if (!res.ok) throw new Error("Request failed");
 			const data = (await res.json()) as BehaviorResponse;
 
-			const coachMsg: Message = {
-				id: crypto.randomUUID(),
-				role: "coach",
-				text: data.message,
-				response: data,
-			};
-			setMessages((prev) => [...prev, coachMsg]);
+			const target = pendingStudentRef.current ?? findStudentInText(trimmed);
+			pendingStudentRef.current = null;
+
+			setMessages((prev) => [
+				...prev,
+				{
+					id: crypto.randomUUID(),
+					role: "coach",
+					text: data.message,
+					response: data,
+					rosterId: target?.rosterId,
+				},
+			]);
 			historyRef.current = [
 				...historyRef.current,
 				{ role: "user", content: trimmed },
 				{ role: "assistant", content: data.message },
 			];
 
-			// ── Commit DB transaction based on AI action ─────────────────────
-			const target = pendingStudentRef.current ?? findStudentInText(trimmed);
-			pendingStudentRef.current = null;
-
 			if (selectedClassId && target) {
 				if (
 					(data.actionType === "ram-buck-award" || data.actionType === "iready") &&
 					data.ramBuck
 				) {
+					setBurst({ amount: Math.abs(data.ramBuck.amount), type: "award" });
 					await fetch(`/api/classes/${selectedClassId}/ram-bucks`, {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -335,6 +496,7 @@ export function BehaviorPanel() {
 						}),
 					});
 				} else if (data.actionType === "ram-buck-deduction" && data.ramBuck) {
+					setBurst({ amount: Math.abs(data.ramBuck.amount), type: "deduction" });
 					await fetch(`/api/classes/${selectedClassId}/ram-bucks`, {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -349,15 +511,10 @@ export function BehaviorPanel() {
 					await fetch(`/api/classes/${selectedClassId}/behavior/incident`, {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							rosterId: target.rosterId,
-							notes: data.incidentNote ?? "",
-						}),
+						body: JSON.stringify({ rosterId: target.rosterId, notes: data.incidentNote ?? "" }),
 					});
 				}
 			}
-
-			// Refresh roster grid to show updated balances/steps
 			if (selectedClassId) fetchStudents(selectedClassId);
 		} catch {
 			setMessages((prev) => [
@@ -374,28 +531,19 @@ export function BehaviorPanel() {
 		}
 	}
 
-	function toggleRecording() {
-		if (isRecording) {
-			recognitionRef.current?.stop();
-			setIsRecording(false);
-			return;
-		}
+	function startRecording() {
 		const SR =
 			typeof window !== "undefined"
 				? (window.SpeechRecognition ?? window.webkitSpeechRecognition)
 				: null;
 		if (!SR) return;
-
 		const recognition = new SR();
 		recognition.continuous = false;
 		recognition.interimResults = false;
 		recognition.lang = "en-US";
 		recognition.onresult = (e: SpeechRecognitionEvent) => {
 			const transcript = e.results[0]?.[0]?.transcript ?? "";
-			if (transcript) {
-				setInput(transcript);
-				handleSend(transcript);
-			}
+			if (transcript) handleSend(transcript);
 		};
 		recognition.onend = () => setIsRecording(false);
 		recognition.onerror = () => setIsRecording(false);
@@ -404,12 +552,23 @@ export function BehaviorPanel() {
 		setIsRecording(true);
 	}
 
+	function stopRecording() {
+		recognitionRef.current?.stop();
+		setIsRecording(false);
+	}
+
+	function toggleOrb() {
+		if (isLoading) return;
+		if (isRecording) stopRecording();
+		else startRecording();
+	}
+
 	const hasSpeech =
 		typeof window !== "undefined" && !!(window.SpeechRecognition ?? window.webkitSpeechRecognition);
 
 	return (
-		<div className="flex flex-col gap-4">
-			{/* ── Class selector ──────────────────────────────────── */}
+		<div className="flex flex-col gap-5">
+			{/* ── Class selector ─────────────────────────────────── */}
 			{classes.length > 1 && (
 				<select
 					value={selectedClassId}
@@ -424,163 +583,318 @@ export function BehaviorPanel() {
 				</select>
 			)}
 
-			{/* ── Student roster grid ─────────────────────────────── */}
+			{/* ── Hero orb ───────────────────────────────────────── */}
+			<div className="flex flex-col items-center gap-3 pt-2">
+				<button
+					ref={orbRef}
+					type="button"
+					onClick={toggleOrb}
+					disabled={isLoading}
+					aria-label={isRecording ? "Stop" : "Narrate to coach"}
+					className={`relative h-28 w-28 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl active:scale-95 ${
+						isRecording
+							? "bg-red-500 shadow-red-300"
+							: isLoading
+								? "bg-amber-300 shadow-amber-200 cursor-wait"
+								: "bg-amber-500 hover:bg-amber-600 shadow-amber-300"
+					}`}
+				>
+					{/* Pulse rings */}
+					{isRecording && (
+						<>
+							<span className="absolute inset-0 rounded-full bg-red-400/40 animate-ping" />
+							<span className="absolute inset-[-10px] rounded-full border-2 border-red-300/30 animate-pulse" />
+						</>
+					)}
+					{isLoading && (
+						<span className="absolute inset-0 rounded-full bg-amber-300/40 animate-pulse" />
+					)}
+
+					{/* Icon */}
+					{isRecording ? (
+						<SquareIcon className="h-10 w-10 text-white" />
+					) : isLoading ? (
+						<div className="flex gap-1.5">
+							{[0, 1, 2].map((i) => (
+								<span
+									key={i}
+									className="h-2.5 w-2.5 rounded-full bg-white animate-bounce"
+									style={{ animationDelay: `${i * 150}ms` }}
+								/>
+							))}
+						</div>
+					) : (
+						<MicIcon className="h-11 w-11 text-white" />
+					)}
+				</button>
+
+				<p
+					className={`text-sm font-semibold transition-colors ${isRecording ? "text-red-600" : isLoading ? "text-amber-600" : "text-muted-foreground"}`}
+				>
+					{isRecording
+						? "Listening…"
+						: isLoading
+							? "Thinking…"
+							: hasSpeech
+								? "Tap to narrate"
+								: "Tap to narrate"}
+				</p>
+			</div>
+
+			{/* ── Quick action chips ─────────────────────────────── */}
+			<div className="flex flex-wrap gap-2 justify-center">
+				<button
+					type="button"
+					onClick={() => applyChip("Give {} bucks for ")}
+					className="rounded-full bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-800 hover:bg-green-200 active:scale-95 transition-all"
+				>
+					🏆 Reward
+				</button>
+				<button
+					type="button"
+					onClick={() => applyChip("Step up for {}", !!activeStudent)}
+					className="rounded-full bg-orange-100 px-3 py-1.5 text-xs font-semibold text-orange-800 hover:bg-orange-200 active:scale-95 transition-all"
+				>
+					⚠️ Step Up
+				</button>
+				<button
+					type="button"
+					onClick={() => applyChip("Call home for {}", !!activeStudent)}
+					className="rounded-full bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-200 active:scale-95 transition-all"
+				>
+					📞 Call Home
+				</button>
+				{activeStudent ? (
+					<button
+						type="button"
+						onClick={() => fetchGuidance(activeStudent)}
+						disabled={guidanceLoading}
+						className="rounded-full bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-200 active:scale-95 transition-all disabled:opacity-50"
+					>
+						{guidanceLoading ? "Loading…" : "📊 Guidance"}
+					</button>
+				) : (
+					<button
+						type="button"
+						onClick={() => {
+							setShowTypeInput((v) => !v);
+						}}
+						className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all"
+					>
+						✏️ Type
+					</button>
+				)}
+			</div>
+
+			{/* ── Type input (collapsible) ───────────────────────── */}
+			{showTypeInput && (
+				<div className="flex gap-2 items-end">
+					<textarea
+						rows={2}
+						value={input}
+						onChange={(e) => setInput(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								handleSend(input);
+							}
+						}}
+						placeholder='"Give J.M. 15 bucks for great focus"'
+						autoFocus
+						className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber-400"
+						disabled={isLoading}
+					/>
+					<button
+						type="button"
+						onClick={() => handleSend(input)}
+						disabled={!input.trim() || isLoading}
+						className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-amber-500 text-white disabled:opacity-40 hover:bg-amber-600 transition-colors"
+					>
+						<SendIcon className="h-4 w-4" />
+					</button>
+				</div>
+			)}
+
+			{/* ── Student strip ──────────────────────────────────── */}
 			{selectedClassId && (
-				<div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+				<div>
 					{studentsLoading ? (
-						<div className="flex justify-center py-4">
-							<div className="flex gap-1">
-								{[0, 1, 2].map((i) => (
-									<span
-										key={i}
-										className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce"
-										style={{ animationDelay: `${i * 150}ms` }}
+						<div className="flex gap-1 justify-center py-2">
+							{[0, 1, 2].map((i) => (
+								<span
+									key={i}
+									className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce"
+									style={{ animationDelay: `${i * 150}ms` }}
+								/>
+							))}
+						</div>
+					) : students.length > 0 ? (
+						<div>
+							<p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 px-0.5">
+								{activeStudent
+									? `Selected: ${activeStudent.firstInitial}.${activeStudent.lastInitial}.`
+									: "Tap a student to focus"}
+							</p>
+							<div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+								{students.map((s) => (
+									<StudentChip
+										key={s.rosterId}
+										student={s}
+										active={activeStudent?.rosterId === s.rosterId}
+										onTap={handleStudentTap}
 									/>
 								))}
 							</div>
 						</div>
-					) : students.length === 0 ? (
-						<p className="text-center text-xs text-amber-700 py-3">
-							No students on roster yet. Add students in Classes.
-						</p>
 					) : (
-						<>
-							<p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 mb-2">
-								Tap a student to mention them
-							</p>
-							<div className="grid grid-cols-4 gap-1 sm:grid-cols-5">
-								{students.map((student) => (
-									<StudentCard key={student.rosterId} student={student} onTap={handleStudentTap} />
-								))}
-							</div>
-						</>
+						<p className="text-center text-xs text-muted-foreground py-2">
+							No students on roster yet.
+						</p>
 					)}
 				</div>
 			)}
 
-			{/* ── Behavior coach prompt ───────────────────────────── */}
-			<div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5">
-				<p className="text-xs font-semibold text-amber-800">
-					Behavior Coach — narrate throughout the day
-				</p>
-				<p className="text-xs text-amber-700 mt-0.5">
-					"Give J.M. 10 bucks for helping" · "Step 2 for A.T." · "Call home for D.R."
-				</p>
-			</div>
-
-			{/* ── Message thread ──────────────────────────────────── */}
-			<div className="flex flex-col gap-2 min-h-[160px] max-h-[360px] overflow-y-auto pr-0.5">
-				{messages.length === 0 && (
-					<div className="flex flex-col items-center justify-center h-28 text-center">
-						<p className="text-sm text-muted-foreground">No messages yet.</p>
-						<p className="text-xs text-muted-foreground mt-1">
-							Tap a student or type to start narrating.
-						</p>
-					</div>
-				)}
-
-				{messages.map((msg) => (
-					<div
-						key={msg.id}
-						className={`flex ${msg.role === "teacher" ? "justify-end" : "justify-start"}`}
-					>
-						{msg.role === "teacher" ? (
-							<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-primary px-3 py-2">
-								<p className="text-sm text-primary-foreground leading-snug">{msg.text}</p>
-							</div>
-						) : (
-							<div className="max-w-[90%] flex flex-col gap-1.5">
-								<div className="rounded-xl rounded-tl-sm border border-amber-200 bg-white px-3 py-2">
-									<p className="text-sm text-foreground leading-snug">{msg.text}</p>
-									{msg.response?.ramBuck?.reason && (
-										<p className="text-xs text-muted-foreground mt-1 italic">
-											{msg.response.ramBuck.reason}
-										</p>
-									)}
-								</div>
-								{msg.response && <ActionBadge response={msg.response} />}
-								{msg.response?.incidentNote && (
-									<div className="rounded border border-orange-200 bg-orange-50 px-2 py-1.5 flex items-start justify-between gap-2">
-										<p className="text-xs text-orange-800 leading-snug flex-1">
-											<span className="font-medium">Behavior note: </span>
-											{msg.response.incidentNote}
-										</p>
-										<CopyButton text={msg.response.incidentNote} />
-									</div>
-								)}
-								{msg.response?.parentMessage && (
-									<div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 flex flex-col gap-1">
-										<div className="flex items-center justify-between">
-											<span className="text-xs font-medium text-amber-800">ClassDojo message</span>
-											<CopyButton text={msg.response.parentMessage} />
-										</div>
-										<p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap">
-											{msg.response.parentMessage}
-										</p>
-									</div>
-								)}
-							</div>
-						)}
-					</div>
-				))}
-
-				{isLoading && (
-					<div className="flex justify-start">
-						<div className="rounded-xl rounded-tl-sm border border-amber-200 bg-white px-3 py-2.5">
-							<div className="flex gap-1 items-center">
-								<span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:0ms]" />
-								<span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:150ms]" />
-								<span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:300ms]" />
-							</div>
-						</div>
-					</div>
-				)}
-
-				<div ref={bottomRef} />
-			</div>
-
-			{/* ── Input ───────────────────────────────────────────── */}
-			<div className="flex gap-2 items-end">
-				{hasSpeech && (
+			{/* ── Active student dismiss + guidance ─────────────── */}
+			{activeStudent && (
+				<div className="flex items-center justify-between gap-2">
+					<span className="text-xs font-medium text-amber-700">
+						Focused: {activeStudent.firstInitial}.{activeStudent.lastInitial}. — 🐏
+						{activeStudent.balance} · Step {activeStudent.behaviorStep}
+					</span>
 					<button
 						type="button"
-						onClick={toggleRecording}
-						className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${
-							isRecording
-								? "bg-red-500 text-white animate-pulse"
-								: "bg-amber-100 text-amber-700 hover:bg-amber-200"
-						}`}
-						aria-label={isRecording ? "Stop recording" : "Start voice input"}
+						onClick={() => {
+							setActiveStudent(null);
+							setGuidance(null);
+						}}
+						className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
 					>
-						{isRecording ? <SquareIcon className="h-4 w-4" /> : <MicIcon className="h-4 w-4" />}
+						<XIcon className="h-3 w-3" />
+						Dismiss
 					</button>
-				)}
+				</div>
+			)}
 
-				<textarea
-					rows={2}
-					value={input}
-					onChange={(e) => setInput(e.target.value)}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && !e.shiftKey) {
-							e.preventDefault();
-							handleSend(input);
-						}
-					}}
-					placeholder='Type or tap mic... "Give J.M. 15 bucks for great focus"'
-					className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber-400"
-					disabled={isLoading}
-				/>
+			{/* Guidance card */}
+			{guidance && activeStudent && (
+				<div className="rounded-xl border border-blue-200 bg-blue-50 p-3 flex flex-col gap-3">
+					<p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+						Academic Guidance
+					</p>
 
-				<button
-					type="button"
-					onClick={() => handleSend(input)}
-					disabled={!input.trim() || isLoading}
-					className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-amber-500 text-white disabled:opacity-40 hover:bg-amber-600 transition-colors"
-					aria-label="Send"
-				>
-					<SendIcon className="h-4 w-4" />
-				</button>
-			</div>
+					<div>
+						<p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 mb-1">
+							Talking Points
+						</p>
+						<ul className="flex flex-col gap-0.5">
+							{guidance.talkingPoints.map((pt) => (
+								<li key={pt} className="text-xs text-blue-900 leading-snug flex gap-1">
+									<span className="shrink-0">•</span>
+									{pt}
+								</li>
+							))}
+						</ul>
+					</div>
+
+					<div>
+						<p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 mb-1">
+							At-Home Practice
+						</p>
+						<p className="text-xs text-blue-900 leading-snug">{guidance.practiceGuidance}</p>
+					</div>
+
+					<div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 flex flex-col gap-1">
+						<div className="flex items-center justify-between gap-2">
+							<span className="text-xs font-medium text-amber-800">Parent message draft</span>
+							<div className="flex items-center gap-2">
+								<CopyButton text={guidance.parentMessageDraft} />
+								<SmsSendButton
+									classId={selectedClassId}
+									rosterId={activeStudent.rosterId}
+									body={guidance.parentMessageDraft}
+								/>
+							</div>
+						</div>
+						<p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap">
+							{guidance.parentMessageDraft}
+						</p>
+					</div>
+				</div>
+			)}
+
+			{/* ── Message log ────────────────────────────────────── */}
+			{messages.length > 0 && (
+				<div className="flex flex-col gap-2 max-h-[380px] overflow-y-auto">
+					{messages.map((msg) => (
+						<AnimatedMessage key={msg.id} role={msg.role}>
+							{msg.role === "teacher" ? (
+								<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-primary px-3 py-2">
+									<p className="text-sm text-primary-foreground leading-snug">{msg.text}</p>
+								</div>
+							) : (
+								<div className="max-w-[90%] flex flex-col gap-1.5">
+									<div className="rounded-xl rounded-tl-sm border border-amber-200 bg-white px-3 py-2">
+										<div className="flex items-start justify-between gap-2">
+											<p className="text-sm text-foreground leading-snug flex-1">{msg.text}</p>
+											<SpeakButton text={msg.text} />
+										</div>
+										{msg.response?.ramBuck?.reason && (
+											<p className="text-xs text-muted-foreground mt-1 italic">
+												{msg.response.ramBuck.reason}
+											</p>
+										)}
+									</div>
+									{msg.response && <ActionBadge response={msg.response} />}
+									{msg.response?.incidentNote && (
+										<div className="rounded border border-orange-200 bg-orange-50 px-2 py-1.5 flex items-start justify-between gap-2">
+											<p className="text-xs text-orange-800 leading-snug flex-1">
+												<span className="font-medium">Behavior note: </span>
+												{msg.response.incidentNote}
+											</p>
+											<CopyButton text={msg.response.incidentNote} />
+										</div>
+									)}
+									{msg.response?.parentMessage && (
+										<div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 flex flex-col gap-1">
+											<div className="flex items-center justify-between gap-2">
+												<span className="text-xs font-medium text-amber-800">
+													ClassDojo message
+												</span>
+												<div className="flex items-center gap-2">
+													<CopyButton text={msg.response.parentMessage} />
+													{msg.rosterId && selectedClassId && (
+														<SmsSendButton
+															classId={selectedClassId}
+															rosterId={msg.rosterId}
+															body={msg.response.parentMessage}
+														/>
+													)}
+												</div>
+											</div>
+											<p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap">
+												{msg.response.parentMessage}
+											</p>
+										</div>
+									)}
+								</div>
+							)}
+						</AnimatedMessage>
+					))}
+
+					{isLoading && (
+						<div className="flex justify-start">
+							<div className="rounded-xl rounded-tl-sm border border-amber-200 bg-white px-3 py-2.5">
+								<div className="flex gap-1 items-center">
+									<span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:0ms]" />
+									<span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:150ms]" />
+									<span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:300ms]" />
+								</div>
+							</div>
+						</div>
+					)}
+					<div ref={bottomRef} />
+				</div>
+			)}
 
 			{messages.length > 0 && (
 				<button
@@ -593,6 +907,16 @@ export function BehaviorPanel() {
 				>
 					Clear session log
 				</button>
+			)}
+
+			{/* RAM Buck burst animation */}
+			{burst && (
+				<RamBuckBurst
+					amount={burst.amount}
+					type={burst.type}
+					anchorRef={orbRef}
+					onDone={() => setBurst(null)}
+				/>
 			)}
 		</div>
 	);

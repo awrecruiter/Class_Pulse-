@@ -5,7 +5,7 @@ import { useState } from "react";
 import { DoItInteractive } from "@/components/coach/do-it-interactive";
 import { DrawCanvas } from "@/components/coach/draw-canvas";
 import { Manipulative } from "@/components/coach/manipulatives";
-import { VoiceOrb } from "@/components/coach/voice-orb";
+import { TtsButton } from "@/components/coach/tts-button";
 import type { CoachResponse } from "@/lib/ai/coach";
 
 type CopyButtonProps = { text: string };
@@ -264,7 +264,7 @@ export function ScaffoldCard({ response, onDeepen }: ScaffoldCardProps) {
 				onToggle={() => toggleCard("say")}
 				interactive={
 					<>
-						<VoiceOrb text={response.script} />
+						<TtsButton text={response.script} />
 						<GradeBelowSection
 							gradePrereq={response.gradePrereq}
 							below={response.below}
@@ -290,7 +290,7 @@ export function ScaffoldCard({ response, onDeepen }: ScaffoldCardProps) {
 				onToggle={() => toggleCard("ask")}
 				interactive={
 					<>
-						<VoiceOrb text={response.guidingQuestions.join(". ")} label="Tap to hear all" />
+						<TtsButton text={response.guidingQuestions.join(". ")} label="Tap to hear all" />
 						<GradeBelowSection
 							gradePrereq={response.gradePrereq}
 							below={response.below}

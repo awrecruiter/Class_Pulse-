@@ -51,7 +51,7 @@ export default function GradebookPage() {
 	const [date, setDate] = useState<string>(today());
 	const [standardCode, setStandardCode] = useState<string>("");
 	const [scores, setScores] = useState<Record<string, { score: number; notes: string }>>({});
-	const [existingEntries, setExistingEntries] = useState<CfuEntry[]>([]);
+	const [_existingEntries, setExistingEntries] = useState<CfuEntry[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [exportFrom, setExportFrom] = useState<string>(today());
@@ -67,7 +67,7 @@ export default function GradebookPage() {
 				);
 				setClasses(cls);
 				if (cls.length > 0 && !selectedClassId) {
-					setSelectedClassId(cls[0]!.id);
+					setSelectedClassId(cls[0]?.id);
 				}
 			})
 			.catch(() => toast.error("Failed to load classes"));

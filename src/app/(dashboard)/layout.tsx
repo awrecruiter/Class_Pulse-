@@ -1,10 +1,55 @@
 "use client";
 
-import { BookOpenIcon, GraduationCapIcon, LogOutIcon, SettingsIcon, UsersIcon } from "lucide-react";
+import {
+	BookOpenIcon,
+	GraduationCapIcon,
+	LogOutIcon,
+	MoonIcon,
+	SettingsIcon,
+	ShoppingBagIcon,
+	SunIcon,
+	UsersIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AiPresenceBorder } from "@/components/coach/ai-presence-border";
 import { authClient } from "@/lib/auth/client";
+
+// ─── Dark mode toggle ─────────────────────────────────────────────────────────
+
+function ThemeToggle() {
+	const [dark, setDark] = useState(false);
+
+	useEffect(() => {
+		setDark(document.documentElement.classList.contains("dark"));
+	}, []);
+
+	function toggle() {
+		const next = !dark;
+		setDark(next);
+		if (next) {
+			document.documentElement.classList.add("dark");
+			localStorage.setItem("theme", "dark");
+		} else {
+			document.documentElement.classList.remove("dark");
+			localStorage.setItem("theme", "light");
+		}
+	}
+
+	return (
+		<button
+			type="button"
+			onClick={toggle}
+			aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+			className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+		>
+			{dark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+		</button>
+	);
+}
+
+// ─── User menu ────────────────────────────────────────────────────────────────
 
 function UserMenu() {
 	const router = useRouter();
@@ -12,7 +57,6 @@ function UserMenu() {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const { data: session } = authClient.useSession();
 
-	// Close on outside click
 	useEffect(() => {
 		function handleClick(e: MouseEvent) {
 			if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -52,13 +96,11 @@ function UserMenu() {
 
 			{open && (
 				<div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-xl border border-border bg-card shadow-xl py-1 overflow-hidden">
-					{/* Profile info */}
 					<div className="px-4 py-3 border-b border-border">
 						<p className="text-sm font-semibold text-foreground truncate">{name}</p>
 						{email && <p className="text-xs text-muted-foreground truncate mt-0.5">{email}</p>}
 					</div>
 
-					{/* Menu items */}
 					<div className="py-1">
 						<Link
 							href="/settings"
@@ -86,18 +128,24 @@ function UserMenu() {
 	);
 }
 
+// ─── Nav links ────────────────────────────────────────────────────────────────
+
 const NAV_LINKS = [
 	{ href: "/coach", label: "Coach", icon: GraduationCapIcon },
 	{ href: "/classes", label: "Classes", icon: UsersIcon },
 	{ href: "/gradebook", label: "Gradebook", icon: BookOpenIcon },
+	{ href: "/store", label: "Store", icon: ShoppingBagIcon },
 ];
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
 	const pathname = usePathname();
 
 	return (
 		<div className="min-h-screen bg-background">
-			<nav className="border-b bg-card">
+			<AiPresenceBorder />
+			<nav className="border-b bg-card sticky top-0 z-30">
 				<div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
 					{/* Logo */}
 					<Link href="/coach" className="text-base font-bold shrink-0 text-foreground">
@@ -124,8 +172,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 						})}
 					</div>
 
-					{/* Right — user menu */}
-					<div className="ml-auto">
+					{/* Right — theme toggle + user menu */}
+					<div className="ml-auto flex items-center gap-1">
+						<ThemeToggle />
 						<UserMenu />
 					</div>
 				</div>

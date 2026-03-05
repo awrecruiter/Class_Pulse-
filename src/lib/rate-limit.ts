@@ -34,3 +34,7 @@ export const coachRateLimiter = createRateLimiter(10, 60_000); // 10 req/min (AI
 export const behaviorCoachLimiter = createRateLimiter(20, 60_000); // 20 req/min (behavior coach — chatty all day)
 export const sessionRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (class/session management)
 export const joinRateLimiter = createRateLimiter(20, 60_000); // 20 req/min (student join)
+export const smsRateLimiter = createRateLimiter(10, 60_000); // 10 req/min (AWS SNS SMS sends)
+export const ambientScanLimiter = createRateLimiter(20, 60_000); // 20 req/min (noise heartbeat)
+export const correctionRateLimiter = createRateLimiter(5, 60_000); // 5 req/min (student I'm Lost)
+export const animateLimiter = createRateLimiter(3, 60_000); // 3 req/min (Manim render — expensive)

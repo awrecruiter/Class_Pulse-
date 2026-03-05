@@ -5,12 +5,15 @@ import {
 	CheckCircleIcon,
 	ClipboardListIcon,
 	CopyIcon,
+	HistoryIcon,
+	PhoneIcon,
 	PlayIcon,
 	PlusIcon,
 	SquareIcon,
 	Trash2Icon,
 	UploadIcon,
 	UsersIcon,
+	XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useRef, useState } from "react";
@@ -40,6 +43,26 @@ type ClassData = {
 	periodTime: string;
 	gradeLevel: string;
 	subject: string;
+};
+
+type ParentContact = {
+	id: string;
+	rosterId: string;
+	parentName: string;
+	phone: string;
+	notes: string;
+	studentId: string;
+	firstInitial: string;
+	lastInitial: string;
+};
+
+type TimelineEvent = {
+	id: string;
+	type: "behavior" | "ram-buck" | "mastery" | "cfu" | "drawing";
+	title: string;
+	detail: string;
+	date: string;
+	severity?: "positive" | "neutral" | "negative";
 };
 
 type GroupMember = {
@@ -82,6 +105,19 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 	const [importingCsv, setImportingCsv] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
+	// Parent contacts state
+	const [contacts, setContacts] = useState<ParentContact[]>([]);
+	const [contactForms, setContactForms] = useState<
+		Record<string, { parentName: string; phone: string; notes: string }>
+	>({});
+	const [savingContact, setSavingContact] = useState<string | null>(null);
+	const [expandedContact, setExpandedContact] = useState<string | null>(null);
+
+	// Timeline state
+	const [selectedStudent, setSelectedStudent] = useState<RosterEntry | null>(null);
+	const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+	const [timelineLoading, setTimelineLoading] = useState(false);
+
 	const fetchData = useCallback(async () => {
 		try {
 			const res = await fetch(`/api/classes/${id}`);
@@ -111,10 +147,41 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 		}
 	}, [id]);
 
+	const fetchContacts = useCallback(async () => {
+		try {
+			const res = await fetch(`/api/classes/${id}/parent-contacts`);
+			if (res.ok) {
+				const json = await res.json();
+				setContacts(json.contacts ?? []);
+			}
+		} catch {
+			// non-critical
+		}
+	}, [id]);
+
+	const fetchTimeline = useCallback(
+		async (rosterId: string) => {
+			setTimelineLoading(true);
+			try {
+				const res = await fetch(`/api/classes/${id}/timeline?rosterId=${rosterId}`);
+				if (res.ok) {
+					const json = await res.json();
+					setTimelineEvents(json.events ?? []);
+				}
+			} catch {
+				setTimelineEvents([]);
+			} finally {
+				setTimelineLoading(false);
+			}
+		},
+		[id],
+	);
+
 	useEffect(() => {
 		fetchData();
 		fetchGroups();
-	}, [fetchData, fetchGroups]);
+		fetchContacts();
+	}, [fetchData, fetchGroups, fetchContacts]);
 
 	async function startSession() {
 		setSessionLoading(true);
@@ -550,6 +617,269 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 				</div>
 				<RamBucksPanel classId={id} />
 			</div>
+
+			{/* Parent Contacts */}
+			<div className="flex flex-col gap-3">
+				<div className="flex items-center gap-2">
+					<PhoneIcon className="h-4 w-4 text-muted-foreground" />
+					<p className="text-sm font-semibold text-foreground">Parent Contacts</p>
+				</div>
+				{roster.length === 0 ? (
+					<p className="text-xs text-muted-foreground">Add students to the roster first.</p>
+				) : (
+					<div className="rounded-lg border border-border overflow-hidden">
+						{roster.map((student, i) => {
+							const contact = contacts.find((c) => c.rosterId === student.id);
+							const isExpanded = expandedContact === student.id;
+							const form = contactForms[student.id] ?? {
+								parentName: contact?.parentName ?? "",
+								phone: contact?.phone ?? "",
+								notes: contact?.notes ?? "",
+							};
+							return (
+								<div
+									key={student.id}
+									className={`flex flex-col px-3 py-2.5 ${i !== roster.length - 1 ? "border-b border-border" : ""}`}
+								>
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-2">
+											<span className="text-sm font-medium">
+												{student.firstInitial}.{student.lastInitial}.
+											</span>
+											{contact ? (
+												<span className="text-xs rounded-full bg-green-100 text-green-700 px-2 py-0.5">
+													{contact.phone}
+												</span>
+											) : (
+												<span className="text-xs text-muted-foreground">No contact</span>
+											)}
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												setExpandedContact(isExpanded ? null : student.id);
+												if (!isExpanded && !contactForms[student.id]) {
+													setContactForms((f) => ({
+														...f,
+														[student.id]: {
+															parentName: contact?.parentName ?? "",
+															phone: contact?.phone ?? "",
+															notes: contact?.notes ?? "",
+														},
+													}));
+												}
+											}}
+											className="text-xs text-primary underline"
+										>
+											{isExpanded ? "Cancel" : contact ? "Edit" : "Add"}
+										</button>
+									</div>
+									{isExpanded && (
+										<div className="mt-2 flex flex-col gap-2">
+											<input
+												type="text"
+												placeholder="Parent name"
+												value={form.parentName}
+												onChange={(e) =>
+													setContactForms((f) => ({
+														...f,
+														[student.id]: { ...form, parentName: e.target.value },
+													}))
+												}
+												className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											/>
+											<input
+												type="tel"
+												placeholder="+12125551234"
+												value={form.phone}
+												onChange={(e) =>
+													setContactForms((f) => ({
+														...f,
+														[student.id]: { ...form, phone: e.target.value },
+													}))
+												}
+												className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											/>
+											<input
+												type="text"
+												placeholder="Notes (optional)"
+												value={form.notes}
+												onChange={(e) =>
+													setContactForms((f) => ({
+														...f,
+														[student.id]: { ...form, notes: e.target.value },
+													}))
+												}
+												className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											/>
+											<div className="flex gap-2 justify-end">
+												{contact && (
+													<Button
+														size="sm"
+														variant="ghost"
+														className="text-destructive hover:text-destructive"
+														disabled={savingContact === student.id}
+														onClick={async () => {
+															try {
+																await fetch(`/api/classes/${id}/parent-contacts/${contact.id}`, {
+																	method: "DELETE",
+																});
+																await fetchContacts();
+																setExpandedContact(null);
+															} catch {
+																toast.error("Failed to delete contact");
+															}
+														}}
+													>
+														Delete
+													</Button>
+												)}
+												<Button
+													size="sm"
+													disabled={savingContact === student.id}
+													onClick={async () => {
+														setSavingContact(student.id);
+														try {
+															const res = await fetch(`/api/classes/${id}/parent-contacts`, {
+																method: "POST",
+																headers: { "Content-Type": "application/json" },
+																body: JSON.stringify({ rosterId: student.id, ...form }),
+															});
+															if (!res.ok) {
+																const j = await res.json();
+																throw new Error((j as { error?: string }).error ?? "Failed");
+															}
+															await fetchContacts();
+															setExpandedContact(null);
+															toast.success("Contact saved");
+														} catch (err) {
+															toast.error(
+																err instanceof Error ? err.message : "Failed to save contact",
+															);
+														} finally {
+															setSavingContact(null);
+														}
+													}}
+												>
+													{savingContact === student.id ? "Saving..." : "Save"}
+												</Button>
+											</div>
+										</div>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				)}
+			</div>
+
+			{/* Student Timeline (Black Box) */}
+			<div className="flex flex-col gap-3">
+				<div className="flex items-center gap-2">
+					<HistoryIcon className="h-4 w-4 text-muted-foreground" />
+					<p className="text-sm font-semibold text-foreground">Student Timeline</p>
+				</div>
+				{roster.length === 0 ? (
+					<p className="text-xs text-muted-foreground">Add students to view their timeline.</p>
+				) : (
+					<div className="rounded-lg border border-border overflow-hidden">
+						{roster.map((student, i) => (
+							<div
+								key={student.id}
+								className={`flex items-center justify-between px-3 py-2.5 ${i !== roster.length - 1 ? "border-b border-border" : ""}`}
+							>
+								<span className="text-sm font-medium">
+									{student.firstInitial}.{student.lastInitial}.
+									<span className="ml-2 text-xs text-muted-foreground">{student.studentId}</span>
+								</span>
+								<button
+									type="button"
+									onClick={() => {
+										setSelectedStudent(student);
+										fetchTimeline(student.id);
+									}}
+									className="text-xs text-primary underline"
+								>
+									View
+								</button>
+							</div>
+						))}
+					</div>
+				)}
+			</div>
+
+			{/* Timeline Modal */}
+			{selectedStudent && (
+				<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+					<div className="bg-background rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+						<div className="flex items-center justify-between px-4 py-3 border-b border-border">
+							<p className="text-sm font-semibold">
+								{selectedStudent.firstInitial}.{selectedStudent.lastInitial}. — Full History
+							</p>
+							<button
+								type="button"
+								onClick={() => {
+									setSelectedStudent(null);
+									setTimelineEvents([]);
+								}}
+							>
+								<XIcon className="h-4 w-4 text-muted-foreground" />
+							</button>
+						</div>
+						<div className="overflow-y-auto flex-1 px-4 py-3 flex flex-col gap-2">
+							{timelineLoading ? (
+								<div className="flex flex-col gap-2">
+									{[1, 2, 3].map((k) => (
+										<div key={k} className="h-12 rounded-lg bg-muted animate-pulse" />
+									))}
+								</div>
+							) : timelineEvents.length === 0 ? (
+								<p className="text-sm text-muted-foreground text-center py-8">
+									No events recorded yet.
+								</p>
+							) : (
+								timelineEvents.map((event) => {
+									const borderColor =
+										event.severity === "positive"
+											? "border-l-green-500"
+											: event.severity === "negative"
+												? "border-l-red-500"
+												: "border-l-gray-300";
+									const icon =
+										event.type === "mastery"
+											? "⭐"
+											: event.type === "ram-buck"
+												? "🐏"
+												: event.type === "behavior"
+													? "📋"
+													: event.type === "cfu"
+														? "✍️"
+														: "🎨";
+									return (
+										<div
+											key={event.id}
+											className={`border-l-4 ${borderColor} rounded-r-lg bg-muted/30 px-3 py-2 flex flex-col gap-0.5`}
+										>
+											<div className="flex items-center gap-1.5">
+												<span className="text-sm">{icon}</span>
+												<p className="text-sm font-medium">{event.title}</p>
+											</div>
+											<p className="text-xs text-muted-foreground">{event.detail}</p>
+											<p className="text-xs text-muted-foreground/60">
+												{new Date(event.date).toLocaleDateString("en-US", {
+													month: "short",
+													day: "numeric",
+													year: "numeric",
+												})}
+											</p>
+										</div>
+									);
+								})
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

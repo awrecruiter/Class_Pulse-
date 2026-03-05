@@ -26,6 +26,15 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en" suppressHydrationWarning>
+			<head>
+				{/* Apply saved theme before first paint to avoid flash */}
+				<script
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: intentional anti-flash script
+					dangerouslySetInnerHTML={{
+						__html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})()`,
+					}}
+				/>
+			</head>
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 				<AuthProvider>{children}</AuthProvider>
 				<Toaster />

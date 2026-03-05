@@ -123,3 +123,203 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+/* ── Siri-style voice orb ─────────────────────────────────────────────────── */
+
+@property --orb-angle {
+	syntax: "<angle>";
+	inherits: false;
+	initial-value: 0deg;
+}
+
+@keyframes orb-ring-slow {
+	to {
+		--orb-angle: 360deg;
+	}
+}
+@keyframes orb-ring-fast {
+	to {
+		--orb-angle: 360deg;
+	}
+}
+@keyframes orb-idle {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.04);
+	}
+}
+@keyframes orb-listen {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.1);
+	}
+}
+@keyframes orb-speak {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.14);
+	}
+}
+@keyframes orb-think {
+	0% {
+		filter: hue-rotate(0deg);
+	}
+	100% {
+		filter: hue-rotate(360deg);
+	}
+}
+@keyframes blob-morph {
+	0%,
+	100% {
+		border-radius: 50%;
+	}
+	25% {
+		border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+	}
+	50% {
+		border-radius: 45% 55% 40% 60% / 55% 45% 60% 40%;
+	}
+	75% {
+		border-radius: 55% 45% 60% 40% / 45% 55% 40% 60%;
+	}
+}
+@keyframes glow-breathe {
+	0%,
+	100% {
+		opacity: 0.45;
+		transform: scale(1.1);
+	}
+	50% {
+		opacity: 0.85;
+		transform: scale(1.28);
+	}
+}
+
+/* ── MicButton radial waveform bars ─────────────────────────────────────── */
+
+@keyframes mic-bar-idle {
+	0%,
+	100% {
+		transform: scaleY(0.25);
+	}
+	50% {
+		transform: scaleY(0.55);
+	}
+}
+@keyframes mic-bar-listening {
+	0% {
+		transform: scaleY(0.3);
+	}
+	50% {
+		transform: scaleY(1);
+	}
+	100% {
+		transform: scaleY(0.3);
+	}
+}
+@keyframes mic-bar-processing {
+	0% {
+		transform: scaleY(0.2);
+		opacity: 0.3;
+	}
+	50% {
+		transform: scaleY(0.85);
+		opacity: 1;
+	}
+	100% {
+		transform: scaleY(0.2);
+		opacity: 0.3;
+	}
+}
+@keyframes mic-arc-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes mic-center-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.06);
+	}
+}
+
+.mic-bar-idle {
+	animation: mic-bar-idle 2.4s ease-in-out infinite;
+}
+.mic-bar-listening {
+	animation: mic-bar-listening 0.65s ease-in-out infinite;
+}
+.mic-bar-processing {
+	animation: mic-bar-processing 0.9s ease-in-out infinite;
+}
+
+/* ── AI Presence Border ──────────────────────────────────────────────────── */
+
+@keyframes ai-border-idle {
+	0%,
+	100% {
+		box-shadow:
+			inset 0 0 0 1px oklch(0.65 0.18 280 / 0.1),
+			inset 0 0 20px oklch(0.65 0.18 280 / 0.03);
+	}
+	50% {
+		box-shadow:
+			inset 0 0 0 1px oklch(0.65 0.18 280 / 0.22),
+			inset 0 0 30px oklch(0.65 0.18 280 / 0.08);
+	}
+}
+
+@keyframes ai-border-listening {
+	0%,
+	100% {
+		box-shadow:
+			inset 0 0 0 1.5px oklch(0.75 0.22 195 / 0.6),
+			inset 0 0 24px oklch(0.75 0.22 195 / 0.18),
+			inset 0 0 60px oklch(0.75 0.22 195 / 0.06);
+	}
+	50% {
+		box-shadow:
+			inset 0 0 0 2px oklch(0.82 0.24 195 / 1),
+			inset 0 0 36px oklch(0.82 0.24 195 / 0.32),
+			inset 0 0 80px oklch(0.82 0.24 195 / 0.12);
+	}
+}
+
+@keyframes ai-border-processing {
+	0%,
+	100% {
+		box-shadow:
+			inset 0 0 0 1.5px oklch(0.78 0.19 55 / 0.45),
+			inset 0 0 20px oklch(0.78 0.19 55 / 0.1);
+	}
+	50% {
+		box-shadow:
+			inset 0 0 0 1.5px oklch(0.88 0.21 65 / 0.85),
+			inset 0 0 36px oklch(0.88 0.21 65 / 0.24),
+			inset 0 0 70px oklch(0.88 0.21 65 / 0.08);
+	}
+}
+
+html[data-ai-state="idle"] #ai-presence-border {
+	animation: ai-border-idle 3.2s ease-in-out infinite;
+}
+
+html[data-ai-state="listening"] #ai-presence-border {
+	animation: ai-border-listening 0.72s ease-in-out infinite;
+}
+
+html[data-ai-state="processing"] #ai-presence-border {
+	animation: ai-border-processing 1.1s ease-in-out infinite;
+}

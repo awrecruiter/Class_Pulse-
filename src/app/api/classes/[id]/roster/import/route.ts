@@ -31,10 +31,18 @@ function parseInitials(raw: string): { firstInitial: string; lastInitial: string
 
 type ParsedRow = {
 	studentId: string;
+	firstName: string | null;
+	lastName: string | null;
 	firstInitial: string;
 	lastInitial: string;
 	performanceScore: number | null;
 };
+
+// Detect if a column looks like a full name (more than 2 chars, no dots)
+function isFullName(s: string): boolean {
+	const cleaned = s.trim().replace(/\./g, "");
+	return cleaned.length > 1;
+}
 
 function parseRows(rawRows: string[][]): {
 	rows: ParsedRow[];
@@ -56,38 +64,61 @@ function parseRows(rawRows: string[][]): {
 			continue;
 		}
 
+		let firstName: string | null = null;
+		let lastName: string | null = null;
 		let firstInitial = "";
 		let lastInitial = "";
 		let performanceScore: number | null = null;
 
 		if (cols.length === 2) {
-			// "student_id,J.M." or "student_id,JM"
-			const parsed = parseInitials(cols[1] ?? "");
-			if (!parsed) {
-				errors.push(`Cannot parse initials from "${cols[1]}" in row: "${cols.join(",")}"`);
-				continue;
-			}
-			firstInitial = parsed.firstInitial;
-			lastInitial = parsed.lastInitial;
-		} else if (cols.length >= 3) {
-			// cols[1] = first_initial, cols[2] = last_initial, cols[3] = optional score
-			firstInitial = (cols[1] ?? "").replace(/\./g, "").trim().toUpperCase();
-			lastInitial = (cols[2] ?? "").replace(/\./g, "").trim().toUpperCase();
-
-			if (cols[3] !== undefined && cols[3] !== "") {
-				const parsed = parseInt(String(cols[3]).trim(), 10);
-				if (!Number.isNaN(parsed)) {
-					performanceScore = parsed;
+			// "student_id,Jordan Mitchell" or "student_id,J.M."
+			const col1 = cols[1]?.trim() ?? "";
+			if (col1.includes(" ")) {
+				// Full name with space: "Jordan Mitchell"
+				const parts = col1.split(/\s+/);
+				firstName = parts[0] ?? null;
+				lastName = parts.slice(1).join(" ") || null;
+				firstInitial = firstName?.[0]?.toUpperCase() ?? "";
+				lastInitial = lastName?.[0]?.toUpperCase() ?? "";
+			} else {
+				const parsed = parseInitials(col1);
+				if (!parsed) {
+					errors.push(`Cannot parse name from "${col1}" in row: "${cols.join(",")}"`);
+					continue;
 				}
+				firstInitial = parsed.firstInitial;
+				lastInitial = parsed.lastInitial;
+			}
+		} else if (cols.length >= 3) {
+			const col1 = cols[1]?.trim() ?? "";
+			const col2 = cols[2]?.trim() ?? "";
+
+			if (isFullName(col1)) {
+				// cols[1] = first_name, cols[2] = last_name, cols[3] = optional score
+				firstName = col1 || null;
+				lastName = col2 || null;
+				firstInitial = firstName?.[0]?.toUpperCase() ?? "";
+				lastInitial = lastName?.[0]?.toUpperCase() ?? "";
+			} else {
+				// cols[1] = first_initial, cols[2] = last_initial, cols[3] = optional score
+				firstInitial = col1.replace(/\./g, "").toUpperCase();
+				lastInitial = col2.replace(/\./g, "").toUpperCase();
+			}
+
+			// Check for performance score in col 3 or 4
+			const scoreCol = cols[3] !== undefined ? cols[3] : undefined;
+			if (scoreCol !== undefined && scoreCol !== "") {
+				const parsed = parseInt(String(scoreCol).trim(), 10);
+				if (!Number.isNaN(parsed)) performanceScore = parsed;
 			}
 		}
 
 		if (!firstInitial) {
-			errors.push(`Missing first initial in row: "${cols.join(",")}"`);
+			errors.push(`Missing first name/initial in row: "${cols.join(",")}"`);
 			continue;
 		}
 
-		rows.push({ studentId, firstInitial, lastInitial, performanceScore });
+		rows.push({ studentId, firstName, lastName, firstInitial, lastInitial, performanceScore });
 	}
 
 	return { rows, errors };
@@ -147,6 +178,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 				.values({
 					classId,
 					studentId: row.studentId,
+					firstName: row.firstName,
+					lastName: row.lastName,
 					firstInitial: row.firstInitial,
 					lastInitial: row.lastInitial,
 					...(row.performanceScore !== null ? { performanceScore: row.performanceScore } : {}),
@@ -154,6 +187,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 				.onConflictDoUpdate({
 					target: [rosterEntries.classId, rosterEntries.studentId],
 					set: {
+						firstName: row.firstName,
+						lastName: row.lastName,
 						firstInitial: row.firstInitial,
 						lastInitial: row.lastInitial,
 						isActive: true,

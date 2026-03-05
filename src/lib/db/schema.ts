@@ -109,7 +109,10 @@ export const rosterEntries = pgTable(
 			.references(() => classes.id, { onDelete: "cascade" }),
 		// School-assigned student ID (e.g. "10293847")
 		studentId: text("student_id").notNull(),
-		// Display name: first initial + last initial, e.g. "J.M."
+		// Full names when available (preferred over initials)
+		firstName: text("first_name"),
+		lastName: text("last_name"),
+		// Display initials — always present (derived from names if provided)
 		firstInitial: text("first_initial").notNull(),
 		lastInitial: text("last_initial").notNull(),
 		isActive: boolean("is_active").notNull().default(true),
@@ -493,6 +496,104 @@ export const privilegePurchases = pgTable(
 	],
 );
 
+// ─── Phase 9 Cockpit: Parent Contacts + SMS Log ───────────────────────────────
+
+export const parentContacts = pgTable(
+	"parent_contacts",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		classId: uuid("class_id")
+			.notNull()
+			.references(() => classes.id, { onDelete: "cascade" }),
+		rosterId: uuid("roster_id")
+			.notNull()
+			.references(() => rosterEntries.id, { onDelete: "cascade" }),
+		parentName: text("parent_name").notNull().default(""),
+		phone: text("phone").notNull(), // E.164 format: +1XXXXXXXXXX
+		notes: text("notes").notNull().default(""),
+		isActive: boolean("is_active").notNull().default(true), // soft delete
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_parent_contacts_class_roster").on(table.classId, table.rosterId),
+		index("idx_parent_contacts_class_id").on(table.classId),
+	],
+);
+
+export const parentMessages = pgTable(
+	"parent_messages",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		classId: uuid("class_id")
+			.notNull()
+			.references(() => classes.id, { onDelete: "cascade" }),
+		rosterId: uuid("roster_id")
+			.notNull()
+			.references(() => rosterEntries.id, { onDelete: "cascade" }),
+		incidentId: uuid("incident_id").references(() => behaviorIncidents.id, {
+			onDelete: "set null",
+		}),
+		phone: text("phone").notNull(),
+		body: text("body").notNull(),
+		// "incident" | "broadcast" | "academic-guidance" | "manual"
+		triggeredBy: text("triggered_by").notNull(),
+		// "sent" | "failed"
+		status: text("status").notNull(),
+		smsSid: text("sms_sid"),
+		sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_parent_messages_class_roster").on(table.classId, table.rosterId),
+		index("idx_parent_messages_sent_at").on(table.sentAt),
+	],
+);
+
+// ─── Phase 11 Cockpit: Ambient Intelligence ───────────────────────────────────
+
+export const correctionRequests = pgTable(
+	"correction_requests",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		sessionId: uuid("session_id")
+			.notNull()
+			.references(() => classSessions.id, { onDelete: "cascade" }),
+		rosterId: uuid("roster_id")
+			.notNull()
+			.references(() => rosterEntries.id, { onDelete: "cascade" }),
+		context: text("context").notNull().default(""), // what student was stuck on (max 200)
+		// "pending" | "acknowledged"
+		status: text("status").notNull().default("pending"),
+		acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_correction_requests_session_id").on(table.sessionId),
+		index("idx_correction_requests_status").on(table.status),
+	],
+);
+
+export const ambientAlerts = pgTable(
+	"ambient_alerts",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		sessionId: uuid("session_id")
+			.notNull()
+			.references(() => classSessions.id, { onDelete: "cascade" }),
+		// "noise" | "transcript-anomaly" | "correction"
+		alertType: text("alert_type").notNull(),
+		// "low" | "medium" | "high"
+		severity: text("severity").notNull().default("medium"),
+		details: text("details").notNull().default(""),
+		isAcknowledged: boolean("is_acknowledged").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_ambient_alerts_session_id").on(table.sessionId),
+		index("idx_ambient_alerts_is_acknowledged").on(table.isAcknowledged),
+	],
+);
+
 // ─── Phase 12: Gradebook ──────────────────────────────────────────────────────
 
 export const cfuEntries = pgTable(
@@ -696,5 +797,49 @@ export const cfuEntriesRelations = relations(cfuEntries, ({ one }) => ({
 	rosterEntry: one(rosterEntries, {
 		fields: [cfuEntries.rosterId],
 		references: [rosterEntries.id],
+	}),
+}));
+
+export const parentContactsRelations = relations(parentContacts, ({ one }) => ({
+	class: one(classes, {
+		fields: [parentContacts.classId],
+		references: [classes.id],
+	}),
+	rosterEntry: one(rosterEntries, {
+		fields: [parentContacts.rosterId],
+		references: [rosterEntries.id],
+	}),
+}));
+
+export const parentMessagesRelations = relations(parentMessages, ({ one }) => ({
+	class: one(classes, {
+		fields: [parentMessages.classId],
+		references: [classes.id],
+	}),
+	rosterEntry: one(rosterEntries, {
+		fields: [parentMessages.rosterId],
+		references: [rosterEntries.id],
+	}),
+	incident: one(behaviorIncidents, {
+		fields: [parentMessages.incidentId],
+		references: [behaviorIncidents.id],
+	}),
+}));
+
+export const correctionRequestsRelations = relations(correctionRequests, ({ one }) => ({
+	session: one(classSessions, {
+		fields: [correctionRequests.sessionId],
+		references: [classSessions.id],
+	}),
+	rosterEntry: one(rosterEntries, {
+		fields: [correctionRequests.rosterId],
+		references: [rosterEntries.id],
+	}),
+}));
+
+export const ambientAlertsRelations = relations(ambientAlerts, ({ one }) => ({
+	session: one(classSessions, {
+		fields: [ambientAlerts.sessionId],
+		references: [classSessions.id],
 	}),
 }));

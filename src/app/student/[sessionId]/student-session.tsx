@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { StudentManipulative } from "@/components/coach/manipulatives/student";
+import { CorrectionRequest } from "@/components/coach/manipulatives/student/correction-request";
 import type { CoachResponse } from "@/lib/ai/coach";
 
 type Signal = "got-it" | "almost" | "lost";
@@ -208,6 +209,11 @@ export function StudentSession({
 						</div>
 
 						{error && <p className="text-center text-xs text-red-500">{error}</p>}
+
+						{/* I'm Lost / correction request */}
+						<div className="border-t border-border pt-3">
+							<CorrectionRequest sessionId={sessionId} />
+						</div>
 
 						{currentSignal === "lost" && !showManip && (
 							<div className="rounded-xl bg-orange-50 border border-orange-200 px-3 py-2.5 text-center">

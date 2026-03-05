@@ -8,8 +8,11 @@ import { sessionRateLimiter } from "@/lib/rate-limit";
 export type StudentOverview = {
 	rosterId: string;
 	studentId: string;
+	firstName: string | null;
+	lastName: string | null;
 	firstInitial: string;
 	lastInitial: string;
+	displayName: string; // firstName if available, else "J.M."
 	balance: number;
 	behaviorStep: number;
 };
@@ -35,6 +38,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		.select({
 			rosterId: rosterEntries.id,
 			studentId: rosterEntries.studentId,
+			firstName: rosterEntries.firstName,
+			lastName: rosterEntries.lastName,
 			firstInitial: rosterEntries.firstInitial,
 			lastInitial: rosterEntries.lastInitial,
 			balance: ramBuckAccounts.balance,
@@ -55,8 +60,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const students: StudentOverview[] = rows.map((r) => ({
 		rosterId: r.rosterId,
 		studentId: r.studentId,
+		firstName: r.firstName,
+		lastName: r.lastName,
 		firstInitial: r.firstInitial,
 		lastInitial: r.lastInitial,
+		displayName: r.firstName ?? `${r.firstInitial}.${r.lastInitial}.`,
 		balance: r.balance ?? 0,
 		behaviorStep: r.behaviorStep ?? 0,
 	}));

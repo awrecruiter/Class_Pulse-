@@ -43,7 +43,7 @@ export default function SettingsPage() {
 	// Privilege items state
 	const [privilegeItems, setPrivilegeItems] = useState<PrivilegeItem[]>([]);
 	const [itemsLoading, setItemsLoading] = useState(true);
-	const [itemsSaving, setItemsSaving] = useState<Record<string, boolean>>({});
+	const [_itemsSaving, setItemsSaving] = useState<Record<string, boolean>>({});
 
 	const fetchSettings = useCallback(async () => {
 		try {

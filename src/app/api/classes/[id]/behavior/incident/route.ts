@@ -7,6 +7,8 @@ import {
 	behaviorIncidents,
 	behaviorProfiles,
 	classes,
+	parentContacts,
+	parentMessages,
 	parentNotifications,
 	ramBuckAccounts,
 	ramBuckFeeSchedule,
@@ -14,6 +16,7 @@ import {
 	rosterEntries,
 } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
+import { sendSms } from "@/lib/sms";
 
 const DEFAULT_FEE_SCHEDULE = [
 	{ step: 1, label: "Ram Buck Fine", deductionAmount: 5 },
@@ -215,6 +218,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 		if (notification) {
 			parentMessage = { message: notification.message, notificationId: notification.id };
+
+			// Auto-send SMS if parent contact on file
+			const [contact] = await db
+				.select({ phone: parentContacts.phone })
+				.from(parentContacts)
+				.where(
+					and(
+						eq(parentContacts.classId, classId),
+						eq(parentContacts.rosterId, rosterId),
+						eq(parentContacts.isActive, true),
+					),
+				);
+
+			if (contact) {
+				const smsResult = await sendSms(contact.phone, message);
+				await db.insert(parentMessages).values({
+					classId,
+					rosterId,
+					incidentId: incident.id,
+					phone: contact.phone,
+					body: message,
+					triggeredBy: "incident",
+					status: smsResult.ok ? "sent" : "failed",
+					smsSid: smsResult.sid ?? null,
+				});
+			}
 		}
 	}
 
