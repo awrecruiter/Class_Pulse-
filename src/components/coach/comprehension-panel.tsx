@@ -80,7 +80,8 @@ function MasteryRing({ mastered, total }: { mastered: number; total: number }) {
 	const offset = circumference - (pct / 100) * circumference;
 	return (
 		<div className="flex items-center gap-3">
-			<svg width="52" height="52" className="-rotate-90">
+			<svg width="52" height="52" className="-rotate-90" aria-label="Mastery progress">
+				<title>Mastery progress</title>
 				<circle cx="26" cy="26" r="20" fill="none" stroke="#334155" strokeWidth="5" />
 				<circle
 					cx="26"

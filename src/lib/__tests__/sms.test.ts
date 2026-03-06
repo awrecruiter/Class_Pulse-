@@ -59,7 +59,8 @@ describe("sendSms", () => {
 		mockFetch.mockResolvedValueOnce({
 			ok: false,
 			status: 400,
-			text: async () => "<ErrorResponse><Error><Message>Invalid phone number</Message></Error></ErrorResponse>",
+			text: async () =>
+				"<ErrorResponse><Error><Message>Invalid phone number</Message></Error></ErrorResponse>",
 		});
 
 		const result = await sendSms("+1000", "Hello");

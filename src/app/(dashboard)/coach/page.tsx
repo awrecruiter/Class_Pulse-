@@ -7,6 +7,7 @@ import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
 import type { VisualResponse } from "@/app/api/coach/visualize/route";
 import { AmbientHud } from "@/components/coach/ambient-hud";
 import { ComprehensionPanel } from "@/components/coach/comprehension-panel";
+import { DiPanel } from "@/components/coach/di-panel";
 import { LectureVisualizer } from "@/components/coach/lecture-visualizer";
 import { MicButton, type MicState } from "@/components/coach/mic-button";
 import { ParentCommsPanel } from "@/components/coach/parent-comms-panel";
@@ -60,7 +61,7 @@ function hashId(id: string) {
 	return h;
 }
 const avatarColor = (id: string) => AVATAR_COLORS[hashId(id) % AVATAR_COLORS.length];
-const avatarAnimal = (id: string) => AVATAR_ANIMALS[(hashId(id) >> 4) % AVATAR_ANIMALS.length];
+const _avatarAnimal = (id: string) => AVATAR_ANIMALS[(hashId(id) >> 4) % AVATAR_ANIMALS.length];
 
 // ─── Behavior step color ───────────────────────────────────────────────────────
 
@@ -101,7 +102,10 @@ function StudentChip({
 			<div
 				className={`h-7 w-7 rounded-lg ${avatarColor(student.rosterId)} flex items-center justify-center shrink-0`}
 			>
-				<span className="text-sm leading-none select-none">{avatarAnimal(student.rosterId)}</span>
+				<span className="text-[11px] font-bold leading-none select-none text-white/90">
+					{(student.firstName ? student.firstName[0] : student.firstInitial).toUpperCase()}
+					{student.lastInitial.toUpperCase()}
+				</span>
 			</div>
 			{/* Name + balance */}
 			<div className="flex flex-col">
@@ -270,7 +274,7 @@ type BehaviorMsg = {
 	response?: BehaviorResponse;
 	rosterId?: string;
 };
-type ClassRow = { id: string; label: string; activeSessionId?: string };
+type ClassRow = { id: string; label: string; gradeLevel?: string; activeSessionId?: string };
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -323,6 +327,11 @@ export default function CoachPage() {
 	const [studentsLoading, setStudentsLoading] = useState(false);
 	const [activeStudent, setActiveStudent] = useState<StudentOverview | null>(null);
 
+	// Groups for differentiated instruction filtering
+	type GroupRow = { id: string; name: string; emoji: string; memberRosterIds: string[] };
+	const [groups, setGroups] = useState<GroupRow[]>([]);
+	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
 	useEffect(() => {
 		fetch("/api/classes")
 			.then((r) => r.json())
@@ -361,8 +370,28 @@ export default function CoachPage() {
 		if (selectedClassId) fetchStudents(selectedClassId);
 	}, [selectedClassId, fetchStudents]);
 
+	useEffect(() => {
+		if (!selectedClassId) return;
+		setSelectedGroupId(null);
+		fetch(`/api/classes/${selectedClassId}/groups`)
+			.then((r) => r.json())
+			.then((j) =>
+				setGroups(
+					(j.groups ?? []).map(
+						(g: { id: string; name: string; emoji: string; members: { rosterId: string }[] }) => ({
+							id: g.id,
+							name: g.name,
+							emoji: g.emoji,
+							memberRosterIds: g.members.map((m) => m.rosterId),
+						}),
+					),
+				),
+			)
+			.catch(() => setGroups([]));
+	}, [selectedClassId]);
+
 	// Orb + input state
-	const [inputMode, setInputMode] = useState<"behavior" | "ask">("behavior");
+	const [inputMode, setInputMode] = useState<"behavior" | "ask" | "di">("behavior");
 	const [isOrbRecording, setIsOrbRecording] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [textInput, setTextInput] = useState("");
@@ -624,31 +653,13 @@ export default function CoachPage() {
 	}
 
 	const lectureMinutes = wordCount > 0 ? Math.max(1, Math.round(wordCount / 130)) : 0;
+	const showOrbArea = inputMode !== "di";
 	const selectedClass = classes.find((c) => c.id === selectedClassId);
 
 	return (
-		<div className="min-h-[calc(100vh-4rem)] bg-slate-950 flex flex-col">
+		<div className="h-[calc(100vh-3.5rem)] bg-slate-950 flex flex-col overflow-hidden">
 			{/* ── Top bar ──────────────────────────────────────────────── */}
-			<div className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center gap-3 flex-wrap">
-				{/* Class selector */}
-				{classes.length > 1 ? (
-					<select
-						value={selectedClassId}
-						onChange={(e) => setSelectedClassId(e.target.value)}
-						className="rounded-lg bg-slate-800 border border-slate-700 px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-					>
-						{classes.map((c) => (
-							<option key={c.id} value={c.id}>
-								{c.label}
-							</option>
-						))}
-					</select>
-				) : (
-					<span className="text-sm font-semibold text-slate-200">
-						{selectedClass?.label ?? "Coach"}
-					</span>
-				)}
-
+			<div className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center gap-3 flex-wrap">
 				{/* Session status dot */}
 				<span
 					className={`flex items-center gap-1.5 text-xs font-medium ${activeSessionId ? "text-emerald-400" : "text-slate-500"}`}
@@ -697,9 +708,9 @@ export default function CoachPage() {
 			</div>
 
 			{/* ── Main grid ─────────────────────────────────────────────── */}
-			<div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr] xl:grid-cols-[320px_1fr_300px] gap-0">
+			<div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[300px_1fr] xl:grid-cols-[320px_1fr_300px] gap-0">
 				{/* ── LEFT: Roster + Comprehension ─────────────────────── */}
-				<div className="border-r border-slate-800 flex flex-col gap-0 overflow-y-auto">
+				<div className="border-r border-slate-800 flex flex-col gap-0 overflow-y-auto min-h-0">
 					{/* Student roster */}
 					<div className="p-4 border-b border-slate-800">
 						<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-3">
@@ -730,7 +741,7 @@ export default function CoachPage() {
 				</div>
 
 				{/* ── CENTER: Voice cockpit ─────────────────────────────── */}
-				<div className="flex flex-col overflow-y-auto">
+				<div className="flex flex-col overflow-y-auto min-h-0">
 					{/* Active student bar */}
 					{activeStudent && (
 						<div className="bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2 flex items-center justify-between">
@@ -762,245 +773,376 @@ export default function CoachPage() {
 						</div>
 					)}
 
-					{/* Orb area */}
-					<div className="flex flex-col items-center justify-center gap-6 px-6 py-10 min-h-[360px]">
-						{/* Mode toggle */}
-						<div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs font-semibold">
-							<button
-								type="button"
-								onClick={() => {
-									setInputMode("behavior");
-									setScaffoldResponse(null);
-									setScaffoldError(null);
-								}}
-								className={`px-4 py-2 transition-colors ${inputMode === "behavior" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
-							>
-								🧑‍🏫 Behavior
-							</button>
-							<button
-								type="button"
-								onClick={() => {
-									setInputMode("ask");
-									setShowTextInput(true);
-								}}
-								className={`px-4 py-2 transition-colors ${inputMode === "ask" ? "bg-indigo-600/30 text-indigo-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
-							>
-								🎓 Ask Coach
-							</button>
-						</div>
-
-						{/* Mic button */}
-						<MicButton state={micState} onClick={toggleOrb} disabled={isLoading} size="lg" />
-
-						{/* Quick action chips */}
-						{inputMode === "behavior" && (
-							<div className="flex flex-wrap gap-2 justify-center">
-								<button
-									type="button"
-									onClick={() => applyChip("Give {} bucks for ")}
-									className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all"
-								>
-									🏆 Reward
-								</button>
-								<button
-									type="button"
-									onClick={() => applyChip("Step up for {}", !!activeStudent)}
-									className="rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-xs font-semibold text-orange-300 hover:bg-orange-500/20 active:scale-95 transition-all"
-								>
-									⚠️ Step Up
-								</button>
-								<button
-									type="button"
-									onClick={() => applyChip("Call home for {}", !!activeStudent)}
-									className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 active:scale-95 transition-all"
-								>
-									📞 Call Home
-								</button>
-								<button
-									type="button"
-									onClick={() => setShowTextInput((v) => !v)}
-									className="rounded-full border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:bg-slate-700 active:scale-95 transition-all"
-								>
-									✏️ Type
-								</button>
-							</div>
-						)}
-
-						{/* Standard picker — ask mode only */}
-						{inputMode === "ask" && (
-							<div className="w-full max-w-md">
-								<StandardPicker value={pinnedStandards} onChange={setPinnedStandards} />
-							</div>
-						)}
-
-						{/* Text input */}
-						{(showTextInput || inputMode === "ask") && (
-							<div className="flex gap-2 items-end w-full max-w-md">
-								<textarea
-									rows={2}
-									value={textInput}
-									onChange={(e) => setTextInput(e.target.value)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" && !e.shiftKey) {
-											e.preventDefault();
-											if (inputMode === "ask") sendAcademic(textInput);
-											else sendBehavior(textInput);
-										}
-									}}
-									placeholder={
-										inputMode === "ask"
-											? "What are your students struggling with?"
-											: '"Give Jordan 15 bucks for great focus"'
-									}
-									autoFocus={inputMode === "ask"}
-									className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-									disabled={isLoading}
-								/>
-								<button
-									type="button"
-									disabled={!textInput.trim() || isLoading}
-									onClick={() => {
-										if (inputMode === "ask") sendAcademic(textInput);
-										else sendBehavior(textInput);
-									}}
-									className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-500 transition-colors"
-								>
-									<SendIcon className="h-4 w-4" />
-								</button>
-							</div>
-						)}
-					</div>
-
-					{/* Scaffold (Ask mode) */}
-					{scaffoldError && (
-						<div className="mx-6 mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-							{scaffoldError}
-						</div>
-					)}
-					{scaffoldResponse && !isLoading && (
-						<div className="px-6 pb-4">
-							<ScaffoldCard response={scaffoldResponse} onDeepen={handleDeepen} />
-						</div>
+					{/* DI Panel — replaces center when DI mode active */}
+					{inputMode === "di" && selectedClassId && (
+						<DiPanel
+							classId={selectedClassId}
+							students={students}
+							onSessionEnd={() => fetchStudents(selectedClassId)}
+						/>
 					)}
 
-					{/* Lecture visualizer */}
-					{(visual || visualLoading) && (
-						<div className="px-6 pb-4">
-							<LectureVisualizer visual={visual} loading={visualLoading} />
-						</div>
-					)}
-
-					{/* Ambient HUD */}
-					{isListening && (
-						<div className="px-6 pb-4">
-							<AmbientHud
-								transcript={transcript}
-								isListening={isListening}
-								sessionId={activeSessionId}
-							/>
-						</div>
-					)}
-
-					{/* Behavior message log */}
-					{behaviorMsgs.length > 0 && (
-						<div className="px-6 pb-4 flex flex-col gap-2">
-							<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-								Session Log
-							</p>
-							<div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
-								{behaviorMsgs.map((msg) => (
-									<div
-										key={msg.id}
-										className={`flex ${msg.role === "teacher" ? "justify-end" : "justify-start"}`}
+					{showOrbArea && (
+						<>
+							{/* Orb area */}
+							<div className="flex flex-col items-center gap-5 px-6 py-8 w-full">
+								{/* Mode toggle */}
+								<div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs font-semibold">
+									<button
+										type="button"
+										onClick={() => {
+											setInputMode("behavior");
+											setScaffoldResponse(null);
+											setScaffoldError(null);
+										}}
+										className={`px-4 py-2 transition-colors ${inputMode === "behavior" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
 									>
-										{msg.role === "teacher" ? (
-											<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-indigo-600 px-3 py-2">
-												<p className="text-sm text-white leading-snug">{msg.text}</p>
-											</div>
-										) : (
-											<div className="max-w-[90%] flex flex-col gap-1.5">
-												<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2">
-													<div className="flex items-start justify-between gap-2">
-														<p className="text-sm text-slate-200 leading-snug flex-1">{msg.text}</p>
-														<SpeakButton text={msg.text} />
-													</div>
-													{msg.response?.ramBuck?.reason && (
-														<p className="text-xs text-slate-400 mt-1 italic">
-															{msg.response.ramBuck.reason}
-														</p>
-													)}
-												</div>
-												{msg.response && <ActionBadge response={msg.response} />}
-												{msg.response?.incidentNote && (
-													<div className="rounded border-l-2 border-orange-500 bg-slate-800 px-2 py-1.5 flex items-start justify-between gap-2">
-														<p className="text-xs text-orange-300 leading-snug flex-1">
-															<span className="font-medium">Behavior note: </span>
-															{msg.response.incidentNote}
-														</p>
-														<CopyButton text={msg.response.incidentNote} />
-													</div>
-												)}
-												{msg.response?.parentMessage && (
-													<div className="rounded border-l-2 border-amber-500 bg-slate-800 px-2 py-1.5 flex flex-col gap-1">
-														<div className="flex items-center justify-between gap-2">
-															<span className="text-xs font-medium text-amber-300">
-																ClassDojo message
-															</span>
-															<div className="flex items-center gap-2">
-																<CopyButton text={msg.response.parentMessage} />
-																{msg.rosterId && selectedClassId && (
-																	<SmsSendButton
-																		classId={selectedClassId}
-																		rosterId={msg.rosterId}
-																		body={msg.response.parentMessage}
-																	/>
-																)}
-															</div>
-														</div>
-														<p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
-															{msg.response.parentMessage}
-														</p>
-													</div>
-												)}
-											</div>
-										)}
-									</div>
-								))}
-								{isLoading && (
-									<div className="flex justify-start">
-										<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2.5">
-											<div className="flex gap-1">
-												{[0, 1, 2].map((i) => (
-													<span
-														key={i}
-														className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
-														style={{ animationDelay: `${i * 150}ms` }}
-													/>
-												))}
-											</div>
-										</div>
+										🧑‍🏫 Behavior
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											setInputMode("ask");
+											setShowTextInput(true);
+										}}
+										className={`px-4 py-2 transition-colors ${inputMode === "ask" ? "bg-indigo-600/30 text-indigo-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
+									>
+										🎓 Ask Coach
+									</button>
+									<button
+										type="button"
+										onClick={() => setInputMode("di")}
+										className={`px-4 py-2 transition-colors ${(inputMode as string) === "di" ? "bg-emerald-600/30 text-emerald-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
+									>
+										🏆 DI Groups
+									</button>
+								</div>
+
+								{/* Mic button */}
+								<MicButton state={micState} onClick={toggleOrb} disabled={isLoading} size="lg" />
+
+								{/* Quick action chips */}
+								{inputMode === "behavior" && (
+									<div className="flex flex-wrap gap-2 justify-center">
+										<button
+											type="button"
+											onClick={() => applyChip("Give {} bucks for ")}
+											className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all"
+										>
+											🏆 Reward
+										</button>
+										<button
+											type="button"
+											onClick={() => applyChip("Step up for {}", !!activeStudent)}
+											className="rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-xs font-semibold text-orange-300 hover:bg-orange-500/20 active:scale-95 transition-all"
+										>
+											⚠️ Step Up
+										</button>
+										<button
+											type="button"
+											onClick={() => applyChip("Call home for {}", !!activeStudent)}
+											className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 active:scale-95 transition-all"
+										>
+											📞 Call Home
+										</button>
+										<button
+											type="button"
+											onClick={() => setShowTextInput((v) => !v)}
+											className="rounded-full border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:bg-slate-700 active:scale-95 transition-all"
+										>
+											✏️ Type
+										</button>
 									</div>
 								)}
-								<div ref={bottomRef} />
+
+								{/* Standard picker — ask mode only */}
+								{inputMode === "ask" && (
+									<div className="w-full max-w-md">
+										<StandardPicker
+											value={pinnedStandards}
+											onChange={setPinnedStandards}
+											defaultGrade={
+												selectedClass?.gradeLevel
+													? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
+													: undefined
+											}
+										/>
+									</div>
+								)}
+
+								{/* Text input */}
+								{(showTextInput || inputMode === "ask") && (
+									<div className="flex gap-2 items-end w-full max-w-md">
+										<textarea
+											rows={2}
+											value={textInput}
+											onChange={(e) => setTextInput(e.target.value)}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" && !e.shiftKey) {
+													e.preventDefault();
+													if (inputMode === "ask") sendAcademic(textInput);
+													else sendBehavior(textInput);
+												}
+											}}
+											placeholder={
+												inputMode === "ask"
+													? "What are your students struggling with?"
+													: '"Give Jordan 15 bucks for great focus"'
+											}
+											className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+											disabled={isLoading}
+										/>
+										<button
+											type="button"
+											disabled={!textInput.trim() || isLoading}
+											onClick={() => {
+												if (inputMode === "ask") sendAcademic(textInput);
+												else sendBehavior(textInput);
+											}}
+											className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-500 transition-colors"
+										>
+											<SendIcon className="h-4 w-4" />
+										</button>
+									</div>
+								)}
 							</div>
-							<button
-								type="button"
-								onClick={() => {
-									setBehaviorMsgs([]);
-									historyRef.current = [];
-								}}
-								className="self-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
-							>
-								Clear session log
-							</button>
-						</div>
+
+							{/* Class + group selector — radio pills, left-justified */}
+							<div className="px-6 pb-3 w-full flex flex-col gap-2">
+								{classes.length > 0 && (
+									<div className="flex flex-wrap gap-1.5">
+										{classes.map((c) => (
+											<button
+												key={c.id}
+												type="button"
+												onClick={() => setSelectedClassId(c.id)}
+												className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedClassId === c.id ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"}`}
+											>
+												{c.label}
+											</button>
+										))}
+									</div>
+								)}
+								{groups.length > 0 && (
+									<div className="flex flex-wrap gap-1.5">
+										<button
+											type="button"
+											onClick={() => setSelectedGroupId(null)}
+											className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedGroupId === null ? "bg-slate-500 text-white" : "bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-slate-300 border border-slate-700"}`}
+										>
+											All
+										</button>
+										{groups.map((g) => (
+											<button
+												key={g.id}
+												type="button"
+												onClick={() => setSelectedGroupId(g.id)}
+												className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedGroupId === g.id ? "bg-slate-500 text-white" : "bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-slate-300 border border-slate-700"}`}
+											>
+												{g.emoji} {g.name}
+											</button>
+										))}
+									</div>
+								)}
+							</div>
+
+							{/* Student grid — ClassDojo style, always visible below buttons */}
+							<div className="px-6 pb-6 w-full">
+								{studentsLoading ? (
+									<p className="text-xs text-slate-500 text-center">Loading students…</p>
+								) : students.length === 0 ? (
+									<p className="text-xs text-slate-500 text-center">No students on roster yet.</p>
+								) : (
+									<>
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2 text-center">
+											Tap a student
+										</p>
+										<div
+											className="grid gap-2"
+											style={{ gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))" }}
+										>
+											{(selectedGroupId
+												? students.filter((s) =>
+														groups
+															.find((g) => g.id === selectedGroupId)
+															?.memberRosterIds.includes(s.rosterId),
+													)
+												: students
+											).map((s) => {
+												const isActive = activeStudent?.rosterId === s.rosterId;
+												const color = avatarColor(s.rosterId);
+												return (
+													<button
+														key={s.rosterId}
+														type="button"
+														onClick={() => handleStudentTap(s)}
+														className={`flex flex-col items-center gap-1.5 rounded-2xl p-2 transition-all active:scale-95 ${
+															isActive
+																? "bg-indigo-500/25 ring-2 ring-indigo-400"
+																: "bg-slate-800/60 hover:bg-slate-700/60"
+														}`}
+													>
+														<div
+															className={`h-12 w-12 rounded-full ${color} flex items-center justify-center shadow-md`}
+														>
+															<span className="text-sm font-bold text-white leading-none">
+																{(s.firstName ? s.firstName[0] : s.firstInitial).toUpperCase()}
+																{s.lastInitial.toUpperCase()}
+															</span>
+														</div>
+														<span className="text-[11px] font-medium text-slate-300 leading-tight text-center w-full truncate">
+															{s.displayName}
+														</span>
+														<div className="flex items-center gap-1">
+															<span
+																className={`h-2 w-2 rounded-full shrink-0 ${stepDotColor(s.behaviorStep)}`}
+															/>
+															<span className="text-[10px] text-amber-400 font-bold tabular-nums">
+																{s.balance}
+															</span>
+														</div>
+													</button>
+												);
+											})}
+										</div>
+									</>
+								)}
+							</div>
+
+							{/* Scaffold (Ask mode) */}
+							{scaffoldError && (
+								<div className="mx-6 mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+									{scaffoldError}
+								</div>
+							)}
+							{scaffoldResponse && !isLoading && (
+								<div className="px-6 pb-4">
+									<ScaffoldCard response={scaffoldResponse} onDeepen={handleDeepen} />
+								</div>
+							)}
+
+							{/* Lecture visualizer */}
+							{(visual || visualLoading) && (
+								<div className="px-6 pb-4">
+									<LectureVisualizer visual={visual} loading={visualLoading} />
+								</div>
+							)}
+
+							{/* Ambient HUD */}
+							{isListening && (
+								<div className="px-6 pb-4">
+									<AmbientHud
+										transcript={transcript}
+										isListening={isListening}
+										sessionId={activeSessionId}
+									/>
+								</div>
+							)}
+
+							{/* Behavior message log */}
+							{behaviorMsgs.length > 0 && (
+								<div className="px-6 pb-4 flex flex-col gap-2">
+									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+										Session Log
+									</p>
+									<div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
+										{behaviorMsgs.map((msg) => (
+											<div
+												key={msg.id}
+												className={`flex ${msg.role === "teacher" ? "justify-end" : "justify-start"}`}
+											>
+												{msg.role === "teacher" ? (
+													<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-indigo-600 px-3 py-2">
+														<p className="text-sm text-white leading-snug">{msg.text}</p>
+													</div>
+												) : (
+													<div className="max-w-[90%] flex flex-col gap-1.5">
+														<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2">
+															<div className="flex items-start justify-between gap-2">
+																<p className="text-sm text-slate-200 leading-snug flex-1">
+																	{msg.text}
+																</p>
+																<SpeakButton text={msg.text} />
+															</div>
+															{msg.response?.ramBuck?.reason && (
+																<p className="text-xs text-slate-400 mt-1 italic">
+																	{msg.response.ramBuck.reason}
+																</p>
+															)}
+														</div>
+														{msg.response && <ActionBadge response={msg.response} />}
+														{msg.response?.incidentNote && (
+															<div className="rounded border-l-2 border-orange-500 bg-slate-800 px-2 py-1.5 flex items-start justify-between gap-2">
+																<p className="text-xs text-orange-300 leading-snug flex-1">
+																	<span className="font-medium">Behavior note: </span>
+																	{msg.response.incidentNote}
+																</p>
+																<CopyButton text={msg.response.incidentNote} />
+															</div>
+														)}
+														{msg.response?.parentMessage && (
+															<div className="rounded border-l-2 border-amber-500 bg-slate-800 px-2 py-1.5 flex flex-col gap-1">
+																<div className="flex items-center justify-between gap-2">
+																	<span className="text-xs font-medium text-amber-300">
+																		ClassDojo message
+																	</span>
+																	<div className="flex items-center gap-2">
+																		<CopyButton text={msg.response.parentMessage} />
+																		{msg.rosterId && selectedClassId && (
+																			<SmsSendButton
+																				classId={selectedClassId}
+																				rosterId={msg.rosterId}
+																				body={msg.response.parentMessage}
+																			/>
+																		)}
+																	</div>
+																</div>
+																<p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+																	{msg.response.parentMessage}
+																</p>
+															</div>
+														)}
+													</div>
+												)}
+											</div>
+										))}
+										{isLoading && (
+											<div className="flex justify-start">
+												<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2.5">
+													<div className="flex gap-1">
+														{[0, 1, 2].map((i) => (
+															<span
+																key={i}
+																className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
+																style={{ animationDelay: `${i * 150}ms` }}
+															/>
+														))}
+													</div>
+												</div>
+											</div>
+										)}
+										<div ref={bottomRef} />
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											setBehaviorMsgs([]);
+											historyRef.current = [];
+										}}
+										className="self-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
+									>
+										Clear session log
+									</button>
+								</div>
+							)}
+						</>
 					)}
 				</div>
 
 				{/* ── RIGHT: Parent Comms ──────────────────────────────── */}
 				{selectedClassId && (
 					<div className="hidden xl:flex xl:flex-col border-l border-slate-800 overflow-hidden">
-						<ParentCommsPanel classId={selectedClassId} />
+						<ParentCommsPanel classId={selectedClassId} students={students} />
 					</div>
 				)}
 			</div>

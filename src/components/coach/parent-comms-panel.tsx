@@ -5,6 +5,7 @@ import {
 	ChevronLeftIcon,
 	MessageSquareIcon,
 	PhoneIcon,
+	PlusIcon,
 	SendIcon,
 	XCircleIcon,
 } from "lucide-react";
@@ -20,6 +21,13 @@ type Contact = {
 	notes: string;
 	firstInitial: string;
 	lastInitial: string;
+};
+
+type RosterStudent = {
+	rosterId: string;
+	firstInitial: string;
+	lastInitial: string;
+	displayName: string;
 };
 
 type Message = {
@@ -92,14 +100,12 @@ function MessageThread({ messages, loading }: { messages: Message[]; loading: bo
 		);
 	}
 
-	// Oldest first for thread display
 	const sorted = [...messages].reverse();
 
 	return (
 		<div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3 min-h-0">
 			{sorted.map((msg) => (
 				<div key={msg.id} className="flex flex-col gap-1">
-					{/* Header row */}
 					<div className="flex items-center gap-1.5 flex-wrap">
 						<span
 							className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${triggerColor(msg.triggeredBy)}`}
@@ -121,8 +127,6 @@ function MessageThread({ messages, loading }: { messages: Message[]; loading: bo
 							{fmtTime(msg.sentAt)}
 						</span>
 					</div>
-
-					{/* Bubble */}
 					<div
 						className={`rounded-xl rounded-tl-sm px-3 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
 							msg.status === "sent"
@@ -214,58 +218,177 @@ function ComposeBar({
 	);
 }
 
-// ─── Contact list item ────────────────────────────────────────────────────────
+// ─── Add contact inline form ──────────────────────────────────────────────────
 
-function ContactRow({
+function AddContactForm({
+	classId,
+	rosterId,
+	onSaved,
+	onCancel,
+}: {
+	classId: string;
+	rosterId: string;
+	onSaved: () => void;
+	onCancel: () => void;
+}) {
+	const [parentName, setParentName] = useState("");
+	const [phone, setPhone] = useState("");
+	const [saving, setSaving] = useState(false);
+	const [err, setErr] = useState("");
+
+	async function save() {
+		const p = phone.trim();
+		if (!p) {
+			setErr("Phone is required");
+			return;
+		}
+		setSaving(true);
+		setErr("");
+		try {
+			const res = await fetch(`/api/classes/${classId}/parent-contacts`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterId, parentName: parentName.trim(), phone: p, notes: "" }),
+			});
+			const json = await res.json();
+			if (json.error) {
+				setErr(json.error);
+				setSaving(false);
+				return;
+			}
+			onSaved();
+		} catch {
+			setErr("Network error");
+			setSaving(false);
+		}
+	}
+
+	return (
+		<div className="px-3 py-3 flex flex-col gap-2 border-t border-slate-800">
+			{err && <p className="text-[10px] text-red-400">{err}</p>}
+			<input
+				type="text"
+				placeholder="Parent name (optional)"
+				value={parentName}
+				onChange={(e) => setParentName(e.target.value)}
+				className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+			/>
+			<input
+				type="tel"
+				placeholder="+12125551234"
+				value={phone}
+				onChange={(e) => setPhone(e.target.value)}
+				className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+			/>
+			<div className="flex gap-2">
+				<button
+					type="button"
+					onClick={onCancel}
+					className="flex-1 rounded-lg border border-slate-700 py-1.5 text-xs text-slate-400 hover:bg-slate-800 transition-colors"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onClick={save}
+					disabled={saving || !phone.trim()}
+					className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white disabled:opacity-40 hover:bg-indigo-500 transition-colors"
+				>
+					{saving ? "Saving…" : "Save"}
+				</button>
+			</div>
+		</div>
+	);
+}
+
+// ─── Student row (with or without contact) ────────────────────────────────────
+
+function StudentRow({
+	student,
 	contact,
 	active,
 	onSelect,
+	onAdd,
 }: {
-	contact: Contact;
+	student: RosterStudent;
+	contact: Contact | undefined;
 	active: boolean;
 	onSelect: () => void;
+	onAdd: () => void;
 }) {
+	if (contact) {
+		return (
+			<button
+				type="button"
+				onClick={onSelect}
+				className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all active:scale-[0.98] ${
+					active
+						? "bg-indigo-500/20 border border-indigo-500/50"
+						: "hover:bg-slate-800/80 border border-transparent"
+				}`}
+			>
+				<div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+					<span className="text-[10px] font-bold text-white">
+						{student.firstInitial}
+						{student.lastInitial}
+					</span>
+				</div>
+				<div className="flex-1 min-w-0">
+					<p className="text-xs font-semibold text-slate-200 truncate">
+						{student.displayName}
+						{contact.parentName && (
+							<span className="text-slate-500 font-normal ml-1">— {contact.parentName}</span>
+						)}
+					</p>
+					<p className="text-[10px] text-slate-500 flex items-center gap-1">
+						<PhoneIcon className="h-2.5 w-2.5 shrink-0" />
+						{contact.phone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3")}
+					</p>
+				</div>
+			</button>
+		);
+	}
+
 	return (
-		<button
-			type="button"
-			onClick={onSelect}
-			className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all active:scale-[0.98] ${
-				active
-					? "bg-indigo-500/20 border border-indigo-500/50"
-					: "hover:bg-slate-800/80 border border-transparent"
-			}`}
-		>
-			<div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
-				<span className="text-[10px] font-bold text-white">
-					{contact.firstInitial}
-					{contact.lastInitial}
+		<div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-transparent">
+			<div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+				<span className="text-[10px] font-bold text-slate-400">
+					{student.firstInitial}
+					{student.lastInitial}
 				</span>
 			</div>
 			<div className="flex-1 min-w-0">
-				<p className="text-xs font-semibold text-slate-200 truncate">
-					{contact.firstInitial}.{contact.lastInitial}.
-					{contact.parentName && (
-						<span className="text-slate-500 font-normal ml-1">— {contact.parentName}</span>
-					)}
-				</p>
-				<p className="text-[10px] text-slate-500 flex items-center gap-1">
-					<PhoneIcon className="h-2.5 w-2.5 shrink-0" />
-					{contact.phone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3")}
-				</p>
+				<p className="text-xs font-semibold text-slate-400 truncate">{student.displayName}</p>
+				<p className="text-[10px] text-slate-600">No contact</p>
 			</div>
-		</button>
+			<button
+				type="button"
+				onClick={onAdd}
+				className="flex items-center gap-1 rounded-full border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-400 hover:border-indigo-500/50 hover:text-indigo-300 transition-colors shrink-0"
+			>
+				<PlusIcon className="h-2.5 w-2.5" />
+				Add
+			</button>
+		</div>
 	);
 }
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
-export function ParentCommsPanel({ classId }: { classId: string }) {
+export function ParentCommsPanel({
+	classId,
+	students = [],
+}: {
+	classId: string;
+	students?: RosterStudent[];
+}) {
 	const [contacts, setContacts] = useState<Contact[]>([]);
 	const [contactsLoading, setContactsLoading] = useState(true);
 	const [selected, setSelected] = useState<Contact | null>(null);
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [msgsLoading, setMsgsLoading] = useState(false);
 	const [showThread, setShowThread] = useState(false);
+	const [addingFor, setAddingFor] = useState<RosterStudent | null>(null);
 
 	const fetchContacts = useCallback(async () => {
 		setContactsLoading(true);
@@ -302,6 +425,7 @@ export function ParentCommsPanel({ classId }: { classId: string }) {
 	function selectContact(c: Contact) {
 		setSelected(c);
 		setShowThread(true);
+		setAddingFor(null);
 		fetchMessages(c.rosterId);
 	}
 
@@ -309,15 +433,35 @@ export function ParentCommsPanel({ classId }: { classId: string }) {
 		if (selected) fetchMessages(selected.rosterId);
 	}
 
+	// Merge roster students with contacts — show all students
+	const rows =
+		students.length > 0
+			? students.map((s) => ({
+					student: s,
+					contact: contacts.find((c) => c.rosterId === s.rosterId),
+				}))
+			: contacts.map((c) => ({
+					student: {
+						rosterId: c.rosterId,
+						firstInitial: c.firstInitial,
+						lastInitial: c.lastInitial,
+						displayName: `${c.firstInitial}.${c.lastInitial}.`,
+					},
+					contact: c,
+				}));
+
 	return (
 		<div className="flex flex-col h-full min-h-0">
 			{/* Header */}
 			<div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between shrink-0">
 				<div className="flex items-center gap-2">
-					{showThread && selected && (
+					{(showThread || addingFor) && (
 						<button
 							type="button"
-							onClick={() => setShowThread(false)}
+							onClick={() => {
+								setShowThread(false);
+								setAddingFor(null);
+							}}
 							className="text-slate-500 hover:text-slate-300 transition-colors mr-1"
 						>
 							<ChevronLeftIcon className="h-4 w-4" />
@@ -327,10 +471,12 @@ export function ParentCommsPanel({ classId }: { classId: string }) {
 					<span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
 						{showThread && selected
 							? `${selected.firstInitial}.${selected.lastInitial}. — Parent`
-							: "Parent Comms"}
+							: addingFor
+								? `Add — ${addingFor.displayName}`
+								: "Parent Comms"}
 					</span>
 				</div>
-				{!showThread && (
+				{!showThread && !addingFor && (
 					<span className="text-[10px] text-slate-600">
 						{contactsLoading ? "…" : `${contacts.length} contacts`}
 					</span>
@@ -343,8 +489,18 @@ export function ParentCommsPanel({ classId }: { classId: string }) {
 					<MessageThread messages={messages} loading={msgsLoading} />
 					<ComposeBar classId={classId} rosterId={selected.rosterId} onSent={handleSent} />
 				</>
+			) : addingFor ? (
+				<AddContactForm
+					classId={classId}
+					rosterId={addingFor.rosterId}
+					onSaved={async () => {
+						await fetchContacts();
+						setAddingFor(null);
+					}}
+					onCancel={() => setAddingFor(null)}
+				/>
 			) : (
-				/* Contact list */
+				/* Student / contact list */
 				<div className="flex-1 overflow-y-auto min-h-0">
 					{contactsLoading ? (
 						<div className="flex items-center justify-center py-8">
@@ -358,23 +514,21 @@ export function ParentCommsPanel({ classId }: { classId: string }) {
 								))}
 							</div>
 						</div>
-					) : contacts.length === 0 ? (
+					) : rows.length === 0 ? (
 						<div className="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center">
 							<PhoneIcon className="h-8 w-8 text-slate-700" />
-							<p className="text-xs text-slate-500 leading-relaxed">
-								No parent contacts on file.
-								<br />
-								Add them in the class contact manager.
-							</p>
+							<p className="text-xs text-slate-500 leading-relaxed">No students on roster yet.</p>
 						</div>
 					) : (
 						<div className="px-2 py-2 flex flex-col gap-1">
-							{contacts.map((c) => (
-								<ContactRow
-									key={c.id}
-									contact={c}
-									active={selected?.id === c.id}
-									onSelect={() => selectContact(c)}
+							{rows.map(({ student, contact }) => (
+								<StudentRow
+									key={student.rosterId}
+									student={student}
+									contact={contact}
+									active={selected?.rosterId === student.rosterId}
+									onSelect={() => contact && selectContact(contact)}
+									onAdd={() => setAddingFor(student)}
 								/>
 							))}
 						</div>

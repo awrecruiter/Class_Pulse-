@@ -15,6 +15,13 @@
       "when": 1772742533901,
       "tag": "0001_brainy_killer_shrike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772805092700,
+      "tag": "0002_shocking_psylocke",
+      "breakpoints": true
     }
   ]
 }

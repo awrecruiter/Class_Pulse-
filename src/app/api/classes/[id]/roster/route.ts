@@ -8,6 +8,7 @@ import { sessionRateLimiter } from "@/lib/rate-limit";
 
 const addStudentSchema = z.object({
 	studentId: z.string().min(1).max(50),
+	firstName: z.string().min(1).max(50).optional(),
 	firstInitial: z
 		.string()
 		.length(1)
@@ -41,18 +42,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
+	const firstName = result.data.firstName?.trim() || null;
+	const firstInitial = firstName
+		? (firstName[0]?.toUpperCase() ?? result.data.firstInitial.toUpperCase())
+		: result.data.firstInitial.toUpperCase();
+
 	const [entry] = await db
 		.insert(rosterEntries)
 		.values({
 			classId,
 			studentId: result.data.studentId,
-			firstInitial: result.data.firstInitial.toUpperCase(),
+			firstName,
+			firstInitial,
 			lastInitial: result.data.lastInitial.toUpperCase(),
 		})
 		.onConflictDoUpdate({
 			target: [rosterEntries.classId, rosterEntries.studentId],
 			set: {
-				firstInitial: result.data.firstInitial.toUpperCase(),
+				firstName,
+				firstInitial,
 				lastInitial: result.data.lastInitial.toUpperCase(),
 				isActive: true,
 			},

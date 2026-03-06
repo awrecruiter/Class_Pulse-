@@ -78,6 +78,8 @@ export const teacherSettings = pgTable("teacher_settings", {
 	// RAM Buck store schedule: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'manual'
 	storeResetSchedule: text("store_reset_schedule").notNull().default("weekly"),
 	storeIsOpen: boolean("store_is_open").notNull().default(false),
+	// DI Group Sessions — RAM Bucks awarded to winners
+	diRewardAmount: integer("di_reward_amount").notNull().default(10),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -625,6 +627,67 @@ export const cfuEntries = pgTable(
 	],
 );
 
+// ─── DI Group Sessions ────────────────────────────────────────────────────────
+
+export const diSessions = pgTable(
+	"di_sessions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		classId: uuid("class_id")
+			.notNull()
+			.references(() => classes.id, { onDelete: "cascade" }),
+		teacherId: text("teacher_id").notNull(),
+		label: text("label").notNull().default("DI Activity"),
+		// "active" | "ended"
+		status: text("status").notNull().default("active"),
+		// Snapshot of diRewardAmount at session creation time
+		rewardAmount: integer("reward_amount").notNull().default(10),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		endedAt: timestamp("ended_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("idx_di_sessions_class_id").on(table.classId),
+		index("idx_di_sessions_teacher_id").on(table.teacherId),
+		index("idx_di_sessions_status").on(table.status),
+	],
+);
+
+export const diGroups = pgTable(
+	"di_groups",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		diSessionId: uuid("di_session_id")
+			.notNull()
+			.references(() => diSessions.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		color: text("color").notNull(),
+		points: integer("points").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [index("idx_di_groups_session_id").on(table.diSessionId)],
+);
+
+export const diGroupMembers = pgTable(
+	"di_group_members",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		diGroupId: uuid("di_group_id")
+			.notNull()
+			.references(() => diGroups.id, { onDelete: "cascade" }),
+		diSessionId: uuid("di_session_id")
+			.notNull()
+			.references(() => diSessions.id, { onDelete: "cascade" }),
+		rosterId: uuid("roster_id")
+			.notNull()
+			.references(() => rosterEntries.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		index("idx_di_group_members_session_id").on(table.diSessionId),
+		index("idx_di_group_members_group_id").on(table.diGroupId),
+		uniqueIndex("idx_di_group_members_unique").on(table.diSessionId, table.rosterId),
+	],
+);
+
 // ─── Relations ───────────────────────────────────────────────────────────────
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
@@ -653,6 +716,7 @@ export const classesRelations = relations(classes, ({ many }) => ({
 	ramBuckAccounts: many(ramBuckAccounts),
 	behaviorProfiles: many(behaviorProfiles),
 	cfuEntries: many(cfuEntries),
+	diSessions: many(diSessions),
 }));
 
 export const rosterEntriesRelations = relations(rosterEntries, ({ one, many }) => ({
@@ -841,5 +905,36 @@ export const ambientAlertsRelations = relations(ambientAlerts, ({ one }) => ({
 	session: one(classSessions, {
 		fields: [ambientAlerts.sessionId],
 		references: [classSessions.id],
+	}),
+}));
+
+export const diSessionsRelations = relations(diSessions, ({ one, many }) => ({
+	class: one(classes, {
+		fields: [diSessions.classId],
+		references: [classes.id],
+	}),
+	groups: many(diGroups),
+}));
+
+export const diGroupsRelations = relations(diGroups, ({ one, many }) => ({
+	session: one(diSessions, {
+		fields: [diGroups.diSessionId],
+		references: [diSessions.id],
+	}),
+	members: many(diGroupMembers),
+}));
+
+export const diGroupMembersRelations = relations(diGroupMembers, ({ one }) => ({
+	group: one(diGroups, {
+		fields: [diGroupMembers.diGroupId],
+		references: [diGroups.id],
+	}),
+	session: one(diSessions, {
+		fields: [diGroupMembers.diSessionId],
+		references: [diSessions.id],
+	}),
+	rosterEntry: one(rosterEntries, {
+		fields: [diGroupMembers.rosterId],
+		references: [rosterEntries.id],
 	}),
 }));

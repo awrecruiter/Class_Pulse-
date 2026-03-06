@@ -115,7 +115,9 @@ export function LectureVisualizer({ visual, loading, transcript }: Props) {
 											controls
 											loop
 											className="w-full max-h-48 bg-black"
-										/>
+										>
+											<track kind="captions" />
+										</video>
 									</div>
 								)}
 							</div>

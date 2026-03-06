@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
@@ -29,14 +29,17 @@ export async function GET(request: NextRequest) {
 	const { data } = await auth.getSession();
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-	const items = await db
+	const includeAll = request.nextUrl.searchParams.get("all") === "true";
+
+	// Check total count (active + inactive) before deciding to seed
+	const allItems = await db
 		.select()
 		.from(privilegeItems)
-		.where(and(eq(privilegeItems.teacherId, data.user.id), eq(privilegeItems.isActive, true)))
+		.where(eq(privilegeItems.teacherId, data.user.id))
 		.orderBy(privilegeItems.sortOrder);
 
-	// Seed defaults on first use
-	if (items.length === 0) {
+	// Seed defaults only if teacher has never had any items
+	if (allItems.length === 0) {
 		const seeded = await db
 			.insert(privilegeItems)
 			.values(DEFAULT_PRIVILEGE_ITEMS.map((item) => ({ ...item, teacherId: data.user.id })))
@@ -44,6 +47,7 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ items: seeded.sort((a, b) => a.sortOrder - b.sortOrder) });
 	}
 
+	const items = includeAll ? allItems : allItems.filter((i) => i.isActive);
 	return NextResponse.json({ items });
 }
 

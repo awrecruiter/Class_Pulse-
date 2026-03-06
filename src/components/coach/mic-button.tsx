@@ -122,7 +122,7 @@ export function MicButton({ state, onClick, disabled = false, size = "lg" }: Mic
 	// Center button dimensions (inner circle)
 	const innerPx = size === "lg" ? 68 : 52;
 	// Bar track radius from center, in px — bars live in a ring just inside outer
-	const trackRadius = outerPx / 2 - 10; // 10px inset from edge
+	const _trackRadius = outerPx / 2 - 10; // 10px inset from edge
 	// Bar dimensions
 	const barW = size === "lg" ? 3 : 2.5;
 	const barMaxH = size === "lg" ? 18 : 14;
@@ -160,13 +160,12 @@ export function MicButton({ state, onClick, disabled = false, size = "lg" }: Mic
 				 * In listening: bars animate with high amplitude staggered pulse.
 				 * In processing: bars sweep in a chasing pattern.
 				 */}
-				{Array.from({ length: BAR_COUNT }).map((_, i) => {
+				{BAR_DELAYS_MS.map((delayMs, i) => {
 					const angleDeg = (i / BAR_COUNT) * 360;
-					const delayMs = BAR_DELAYS_MS[i] ?? 0;
 
 					return (
 						<div
-							key={i}
+							key={angleDeg}
 							className="absolute"
 							style={{
 								width: barW,

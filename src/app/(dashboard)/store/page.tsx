@@ -4,9 +4,13 @@ import {
 	CheckIcon,
 	ClockIcon,
 	CoinsIcon,
+	EyeOffIcon,
 	GiftIcon,
+	PencilIcon,
+	PlusIcon,
 	ShoppingBagIcon,
 	ShoppingCartIcon,
+	Trash2Icon,
 	XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -65,15 +69,26 @@ function ItemCard({
 	classId,
 	roster,
 	onGranted,
+	onUpdate,
+	onDelete,
 }: {
 	item: PrivilegeItem;
 	classId: string;
 	roster: RosterEntry[];
 	onGranted: () => void;
+	onUpdate: (updated: PrivilegeItem) => void;
+	onDelete: (id: string) => void;
 }) {
 	const [showPicker, setShowPicker] = useState(false);
 	const [grantState, setGrantState] = useState<"idle" | "loading" | "done" | "error">("idle");
 	const [selectedRosterId, setSelectedRosterId] = useState("");
+	const [editing, setEditing] = useState(false);
+	const [draft, setDraft] = useState({
+		name: item.name,
+		cost: item.cost,
+		durationMinutes: item.durationMinutes,
+	});
+	const [saving, setSaving] = useState(false);
 	const pickerRef = useRef<HTMLDivElement>(null);
 
 	// Close picker on outside click
@@ -92,16 +107,13 @@ function ItemCard({
 		if (!selectedRosterId || !classId || grantState === "loading") return;
 		setGrantState("loading");
 		try {
-			// Create purchase
 			const createRes = await fetch(`/api/classes/${classId}/purchases`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ rosterId: selectedRosterId, itemId: item.id }),
 			});
 			const createData = await createRes.json();
-			if (!createRes.ok) throw new Error(createData.error ?? "Failed to create purchase");
-
-			// Immediately approve it
+			if (!createRes.ok) throw new Error(createData.error ?? "Failed");
 			const approveRes = await fetch(
 				`/api/classes/${classId}/purchases/${createData.purchase.id}`,
 				{
@@ -111,7 +123,6 @@ function ItemCard({
 				},
 			);
 			if (!approveRes.ok) throw new Error("Failed to approve");
-
 			setGrantState("done");
 			setTimeout(() => {
 				setGrantState("idle");
@@ -125,69 +136,218 @@ function ItemCard({
 		}
 	}
 
+	async function saveEdit() {
+		if (!draft.name.trim()) return;
+		setSaving(true);
+		try {
+			const res = await fetch(`/api/privilege-items/${item.id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: draft.name.trim(),
+					cost: draft.cost,
+					durationMinutes: draft.durationMinutes,
+				}),
+			});
+			if (!res.ok) throw new Error("Failed");
+			const json = await res.json();
+			onUpdate(json.item);
+			setEditing(false);
+		} catch {
+			/* noop */
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	async function toggleActive() {
+		const res = await fetch(`/api/privilege-items/${item.id}`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ isActive: !item.isActive }),
+		});
+		if (res.ok) {
+			const json = await res.json();
+			onUpdate(json.item);
+		}
+	}
+
+	async function handleDelete() {
+		const res = await fetch(`/api/privilege-items/${item.id}`, { method: "DELETE" });
+		if (res.ok) onDelete(item.id);
+	}
+
 	return (
-		<div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-primary/30 transition-colors relative">
-			<div className="flex items-start justify-between gap-2">
-				<div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-					<ShoppingBagIcon className="h-5 w-5 text-amber-400" />
-				</div>
-				<CostBadge cost={item.cost} />
-			</div>
-			<div>
-				<p className="text-sm font-semibold text-foreground">{item.name}</p>
-				{item.durationMinutes && (
-					<p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-						<ClockIcon className="h-3 w-3" />
-						{item.durationMinutes}min
-					</p>
-				)}
-			</div>
-
-			{/* Grant button */}
-			{classId && roster.length > 0 && (
-				<div className="relative" ref={pickerRef}>
-					<button
-						type="button"
-						onClick={() => setShowPicker((s) => !s)}
-						disabled={grantState === "loading"}
-						className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-500/40 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/10 active:scale-95 disabled:opacity-50 transition-all"
-					>
-						<GiftIcon className="h-3 w-3" />
-						Grant to student
-					</button>
-
-					{showPicker && (
-						<div className="absolute bottom-full mb-2 left-0 right-0 z-20 rounded-xl border border-border bg-popover shadow-xl p-2 flex flex-col gap-1.5">
-							<select
-								value={selectedRosterId}
-								onChange={(e) => setSelectedRosterId(e.target.value)}
-								className="w-full rounded-lg border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground focus:outline-none"
-							>
-								<option value="">Pick a student…</option>
-								{roster.map((s) => (
-									<option key={s.id} value={s.id}>
-										{s.firstInitial}.{s.lastInitial}. — 🐏 {s.balance}
-									</option>
-								))}
-							</select>
-
+		<div
+			className={`rounded-2xl border bg-card p-4 flex flex-col gap-3 transition-colors relative ${item.isActive ? "border-border hover:border-primary/30" : "border-border/50 opacity-60"}`}
+		>
+			{/* Edit mode */}
+			{editing ? (
+				<>
+					<input
+						type="text"
+						value={draft.name}
+						onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+						className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+						placeholder="Item name"
+					/>
+					<div className="flex gap-2">
+						<div className="flex items-center gap-1 flex-1">
+							<input
+								type="number"
+								min={0}
+								max={10000}
+								value={draft.cost}
+								onChange={(e) => setDraft((d) => ({ ...d, cost: Number(e.target.value) }))}
+								className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+							/>
+							<span className="text-xs text-muted-foreground shrink-0">RAM</span>
+						</div>
+						<div className="flex items-center gap-1 flex-1">
+							<input
+								type="number"
+								min={1}
+								max={300}
+								placeholder="min"
+								value={draft.durationMinutes ?? ""}
+								onChange={(e) =>
+									setDraft((d) => ({
+										...d,
+										durationMinutes: e.target.value ? Number(e.target.value) : null,
+									}))
+								}
+								className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+							/>
+							<span className="text-xs text-muted-foreground shrink-0">min</span>
+						</div>
+					</div>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							onClick={() => setEditing(false)}
+							className="flex-1 rounded-xl border border-border py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							onClick={saveEdit}
+							disabled={saving || !draft.name.trim()}
+							className="flex-1 rounded-xl bg-primary text-primary-foreground py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+						>
+							{saving ? "Saving…" : "Save"}
+						</button>
+					</div>
+				</>
+			) : (
+				<>
+					<div className="flex items-start justify-between gap-2">
+						<div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+							<ShoppingBagIcon className="h-5 w-5 text-amber-400" />
+						</div>
+						<div className="flex items-center gap-1">
+							<CostBadge cost={item.cost} />
+							{/* Edit button */}
 							<button
 								type="button"
-								onClick={handleGrant}
-								disabled={!selectedRosterId || grantState === "loading"}
-								className="w-full rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 active:scale-95 transition-all py-1.5 text-xs font-bold text-white"
+								onClick={() => {
+									setDraft({
+										name: item.name,
+										cost: item.cost,
+										durationMinutes: item.durationMinutes,
+									});
+									setEditing(true);
+								}}
+								className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+								aria-label="Edit item"
 							>
-								{grantState === "loading"
-									? "Granting…"
-									: grantState === "done"
-										? "✓ Granted!"
-										: grantState === "error"
-											? "Failed — try again"
-											: `Grant (${item.cost} 🐏)`}
+								<PencilIcon className="h-3.5 w-3.5" />
+							</button>
+							{/* Toggle hide/show */}
+							<button
+								type="button"
+								onClick={toggleActive}
+								className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+								aria-label={item.isActive ? "Hide from store" : "Show in store"}
+								title={item.isActive ? "Hide from store" : "Show in store"}
+							>
+								<EyeOffIcon className="h-3.5 w-3.5" />
+							</button>
+							{/* Delete */}
+							<button
+								type="button"
+								onClick={handleDelete}
+								className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+								aria-label="Delete item"
+							>
+								<Trash2Icon className="h-3.5 w-3.5" />
 							</button>
 						</div>
+					</div>
+					<div>
+						<p className="text-sm font-semibold text-foreground">{item.name}</p>
+						<div className="flex items-center gap-2 mt-1">
+							{item.durationMinutes && (
+								<p className="text-xs text-muted-foreground flex items-center gap-1">
+									<ClockIcon className="h-3 w-3" />
+									{item.durationMinutes}min
+								</p>
+							)}
+							{!item.isActive && (
+								<span className="text-xs text-muted-foreground flex items-center gap-1">
+									<EyeOffIcon className="h-3 w-3" />
+									Hidden
+								</span>
+							)}
+						</div>
+					</div>
+
+					{/* Grant button — only for active items */}
+					{item.isActive && classId && roster.length > 0 && (
+						<div className="relative" ref={pickerRef}>
+							<button
+								type="button"
+								onClick={() => setShowPicker((s) => !s)}
+								disabled={grantState === "loading"}
+								className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-500/40 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/10 active:scale-95 disabled:opacity-50 transition-all"
+							>
+								<GiftIcon className="h-3 w-3" />
+								Grant to student
+							</button>
+
+							{showPicker && (
+								<div className="absolute bottom-full mb-2 left-0 right-0 z-20 rounded-xl border border-border bg-popover shadow-xl p-2 flex flex-col gap-1.5">
+									<select
+										value={selectedRosterId}
+										onChange={(e) => setSelectedRosterId(e.target.value)}
+										className="w-full rounded-lg border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground focus:outline-none"
+									>
+										<option value="">Pick a student…</option>
+										{roster.map((s) => (
+											<option key={s.id} value={s.id}>
+												{s.firstInitial}.{s.lastInitial}. — 🐏 {s.balance}
+											</option>
+										))}
+									</select>
+									<button
+										type="button"
+										onClick={handleGrant}
+										disabled={!selectedRosterId || grantState === "loading"}
+										className="w-full rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 active:scale-95 transition-all py-1.5 text-xs font-bold text-white"
+									>
+										{grantState === "loading"
+											? "Granting…"
+											: grantState === "done"
+												? "✓ Granted!"
+												: grantState === "error"
+													? "Failed — try again"
+													: `Grant (${item.cost} 🐏)`}
+									</button>
+								</div>
+							)}
+						</div>
 					)}
-				</div>
+				</>
 			)}
 		</div>
 	);
@@ -342,6 +502,18 @@ export default function StorePage() {
 	const [purchases, setPurchases] = useState<Purchase[]>([]);
 	const [roster, setRoster] = useState<RosterEntry[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [addingItem, setAddingItem] = useState(false);
+	const [showHidden, setShowHidden] = useState(false);
+
+	const fetchItems = useCallback(async () => {
+		try {
+			const res = await fetch("/api/privilege-items?all=true");
+			const j = await res.json();
+			setItems(j.items ?? []);
+		} catch {
+			/* noop */
+		}
+	}, []);
 
 	useEffect(() => {
 		fetch("/api/classes")
@@ -355,11 +527,8 @@ export default function StorePage() {
 	}, []);
 
 	useEffect(() => {
-		fetch("/api/privilege-items")
-			.then((r) => r.json())
-			.then((j) => setItems((j.items ?? []).filter((i: PrivilegeItem) => i.isActive)))
-			.catch(() => {});
-	}, []);
+		fetchItems();
+	}, [fetchItems]);
 
 	const fetchPurchases = useCallback(async (classId: string) => {
 		if (!classId) return;
@@ -374,19 +543,20 @@ export default function StorePage() {
 		}
 	}, []);
 
-	// Fetch roster for grant picker
 	useEffect(() => {
 		if (!selectedClassId) return;
 		fetch(`/api/classes/${selectedClassId}/roster-overview`)
 			.then((r) => r.json())
 			.then((j) =>
 				setRoster(
-					(j.students ?? []).map((s: { rosterId: string; displayName: string; balance: number }) => ({
-						id: s.rosterId,
-						firstInitial: s.displayName.split(" ")[0]?.[0] ?? "?",
-						lastInitial: s.displayName.split(" ")[1]?.[0] ?? "",
-						balance: s.balance,
-					})),
+					(j.students ?? []).map(
+						(s: { rosterId: string; displayName: string; balance: number }) => ({
+							id: s.rosterId,
+							firstInitial: s.displayName.split(" ")[0]?.[0] ?? "?",
+							lastInitial: s.displayName.split(" ")[1]?.[0] ?? "",
+							balance: s.balance,
+						}),
+					),
 				),
 			)
 			.catch(() => setRoster([]));
@@ -396,6 +566,26 @@ export default function StorePage() {
 		if (selectedClassId) fetchPurchases(selectedClassId);
 	}, [selectedClassId, fetchPurchases]);
 
+	async function handleAddItem() {
+		setAddingItem(true);
+		try {
+			const res = await fetch("/api/privilege-items", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: "New Item", cost: 20 }),
+			});
+			if (!res.ok) throw new Error("Failed");
+			await fetchItems();
+		} catch {
+			/* noop */
+		} finally {
+			setAddingItem(false);
+		}
+	}
+
+	const activeItems = items.filter((i) => i.isActive);
+	const hiddenItems = items.filter((i) => !i.isActive);
+	const visibleItems = showHidden ? items : activeItems;
 	const pendingCount = purchases.filter((p) => p.status === "pending").length;
 
 	return (
@@ -436,26 +626,59 @@ export default function StorePage() {
 			<div className="mx-auto max-w-7xl px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
 				{/* ── LEFT: Privilege items ─────────────────────────────── */}
 				<div>
-					<h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-						Active Items ({items.length})
-					</h2>
-					{items.length === 0 ? (
+					<div className="flex items-center justify-between mb-4">
+						<div className="flex items-center gap-3">
+							<h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+								Items ({activeItems.length} active
+								{hiddenItems.length > 0 ? `, ${hiddenItems.length} hidden` : ""})
+							</h2>
+							{hiddenItems.length > 0 && (
+								<button
+									type="button"
+									onClick={() => setShowHidden((v) => !v)}
+									className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+								>
+									{showHidden ? "Hide inactive" : "Show all"}
+								</button>
+							)}
+						</div>
+						<button
+							type="button"
+							onClick={handleAddItem}
+							disabled={addingItem}
+							className="flex items-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted/50 active:scale-95 transition-all px-3 py-1.5 text-xs font-semibold text-foreground disabled:opacity-50"
+						>
+							<PlusIcon className="h-3.5 w-3.5" />
+							Add Item
+						</button>
+					</div>
+
+					{visibleItems.length === 0 ? (
 						<div className="rounded-2xl border border-dashed border-border p-10 flex flex-col items-center gap-3 text-center">
 							<ShoppingBagIcon className="h-10 w-10 text-muted-foreground/40" />
-							<p className="text-sm text-muted-foreground">No privilege items yet.</p>
-							<p className="text-xs text-muted-foreground/60">
-								Add items in Settings to populate the store.
-							</p>
+							<p className="text-sm text-muted-foreground">No items yet.</p>
+							<button
+								type="button"
+								onClick={handleAddItem}
+								className="flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
+							>
+								<PlusIcon className="h-3.5 w-3.5" />
+								Add your first item
+							</button>
 						</div>
 					) : (
 						<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-							{items.map((item) => (
+							{visibleItems.map((item) => (
 								<ItemCard
 									key={item.id}
 									item={item}
 									classId={selectedClassId}
 									roster={roster}
 									onGranted={() => fetchPurchases(selectedClassId)}
+									onUpdate={(updated) =>
+										setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
+									}
+									onDelete={(id) => setItems((prev) => prev.filter((i) => i.id !== id))}
 								/>
 							))}
 						</div>

@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-	title: "Student — UnGhettoMyLife",
+	title: "RAM Class — Student",
 };
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
-	return (
-		<div className="min-h-screen bg-gradient-to-br from-sky-400 via-indigo-500 to-violet-600">
-			{children}
-		</div>
-	);
+	return <div className="min-h-screen bg-[#0f1117]">{children}</div>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDownIcon, XIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FL_BEST_STANDARDS } from "@/data/fl-best-standards";
 
 const GRADES = [3, 4, 5] as const;
@@ -18,11 +18,16 @@ const STRANDS = [
 type StandardPickerProps = {
 	value: string[];
 	onChange: (codes: string[]) => void;
+	defaultGrade?: 3 | 4 | 5;
 };
 
-export function StandardPicker({ value, onChange }: StandardPickerProps) {
+export function StandardPicker({ value, onChange, defaultGrade }: StandardPickerProps) {
 	const [open, setOpen] = useState(false);
-	const [gradeFilter, setGradeFilter] = useState<number | null>(null);
+	const [gradeFilter, setGradeFilter] = useState<number | null>(defaultGrade ?? null);
+
+	useEffect(() => {
+		if (defaultGrade !== undefined) setGradeFilter(defaultGrade);
+	}, [defaultGrade]);
 	const [strandFilter, setStrandFilter] = useState<string | null>(null);
 
 	const filtered = FL_BEST_STANDARDS.filter((b) => {

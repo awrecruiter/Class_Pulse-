@@ -12,6 +12,7 @@ type Settings = {
 	useAliasMode: boolean;
 	storeResetSchedule: "daily" | "weekly" | "monthly" | "quarterly" | "manual";
 	storeIsOpen: boolean;
+	diRewardAmount: number;
 };
 
 type FeeEntry = {
@@ -80,7 +81,7 @@ export default function SettingsPage() {
 
 	const fetchPrivilegeItems = useCallback(async () => {
 		try {
-			const res = await fetch("/api/privilege-items");
+			const res = await fetch("/api/privilege-items?all=true");
 			const json = await res.json();
 			setPrivilegeItems(json.items ?? []);
 		} catch {
@@ -407,6 +408,50 @@ export default function SettingsPage() {
 								/>
 							</button>
 						</label>
+					</div>
+				</section>
+
+				{/* ── DI Group Sessions ───────────────────────────────────── */}
+				<section className="flex flex-col gap-4">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						DI Group Sessions
+					</h2>
+					<div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="text-sm font-medium text-foreground">RAM Bucks awarded to winners</p>
+								<p className="text-xs text-muted-foreground mt-0.5">
+									Given to each member of the winning group when a DI session ends
+								</p>
+							</div>
+							<div className="flex items-center gap-2 shrink-0">
+								<button
+									type="button"
+									onClick={() =>
+										setSettings((s) =>
+											s ? { ...s, diRewardAmount: Math.max(1, (s.diRewardAmount ?? 10) - 5) } : s,
+										)
+									}
+									className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors"
+								>
+									-
+								</button>
+								<span className="text-xl font-bold text-foreground w-10 text-center tabular-nums">
+									{settings.diRewardAmount ?? 10}
+								</span>
+								<button
+									type="button"
+									onClick={() =>
+										setSettings((s) =>
+											s ? { ...s, diRewardAmount: Math.min(500, (s.diRewardAmount ?? 10) + 5) } : s,
+										)
+									}
+									className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors"
+								>
+									+
+								</button>
+							</div>
+						</div>
 					</div>
 				</section>
 

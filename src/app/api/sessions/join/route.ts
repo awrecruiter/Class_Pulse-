@@ -8,7 +8,7 @@ import { joinRateLimiter } from "@/lib/rate-limit";
 
 const joinSchema = z.object({
 	joinCode: z.string().length(6).toUpperCase(),
-	rosterId: z.string().uuid(),
+	studentId: z.string().min(1).max(30),
 });
 
 export async function POST(request: NextRequest) {
@@ -33,13 +33,13 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Session not found or already ended" }, { status: 404 });
 	}
 
-	// Verify the chosen roster entry belongs to this session's class
+	// Look up roster entry by studentId within this class
 	const [rosterEntry] = await db
 		.select()
 		.from(rosterEntries)
 		.where(
 			and(
-				eq(rosterEntries.id, result.data.rosterId),
+				eq(rosterEntries.studentId, result.data.studentId),
 				eq(rosterEntries.classId, session.classId),
 				eq(rosterEntries.isActive, true),
 			),

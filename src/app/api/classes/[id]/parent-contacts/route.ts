@@ -8,10 +8,20 @@ import { sessionRateLimiter } from "@/lib/rate-limit";
 
 const PHONE_RE = /^\+1\d{10}$/;
 
+function normalizeToE164(raw: string): string {
+	const digits = raw.replace(/\D/g, "");
+	if (digits.length === 10) return `+1${digits}`;
+	if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+	return raw;
+}
+
 const contactSchema = z.object({
 	rosterId: z.string().uuid(),
 	parentName: z.string().max(100).default(""),
-	phone: z.string().regex(PHONE_RE, "Phone must be E.164 US format: +1XXXXXXXXXX"),
+	phone: z
+		.string()
+		.transform(normalizeToE164)
+		.refine((v) => PHONE_RE.test(v), "Invalid US phone number — enter 10 digits"),
 	notes: z.string().max(500).default(""),
 });
 

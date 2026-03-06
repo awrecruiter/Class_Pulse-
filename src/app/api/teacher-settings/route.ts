@@ -12,6 +12,7 @@ const updateSettingsSchema = z.object({
 	useAliasMode: z.boolean().optional(),
 	storeResetSchedule: z.enum(["daily", "weekly", "monthly", "quarterly", "manual"]).optional(),
 	storeIsOpen: z.boolean().optional(),
+	diRewardAmount: z.number().int().min(1).max(500).optional(),
 });
 
 export async function GET(request: NextRequest) {
