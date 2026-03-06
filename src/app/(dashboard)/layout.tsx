@@ -87,7 +87,7 @@ function UserMenu() {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary hover:bg-primary/20 transition-colors"
+				className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-bold text-indigo-300 hover:bg-indigo-500/30 transition-colors"
 				aria-label="Account menu"
 				aria-expanded={open}
 			>
@@ -95,28 +95,28 @@ function UserMenu() {
 			</button>
 
 			{open && (
-				<div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-xl border border-border bg-card shadow-xl py-1 overflow-hidden">
-					<div className="px-4 py-3 border-b border-border">
-						<p className="text-sm font-semibold text-foreground truncate">{name}</p>
-						{email && <p className="text-xs text-muted-foreground truncate mt-0.5">{email}</p>}
+				<div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-xl border border-slate-700 bg-slate-900 shadow-xl py-1 overflow-hidden">
+					<div className="px-4 py-3 border-b border-slate-800">
+						<p className="text-sm font-semibold text-slate-200 truncate">{name}</p>
+						{email && <p className="text-xs text-slate-500 truncate mt-0.5">{email}</p>}
 					</div>
 
 					<div className="py-1">
 						<Link
 							href="/settings"
 							onClick={() => setOpen(false)}
-							className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+							className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
 						>
-							<SettingsIcon className="h-4 w-4 text-muted-foreground" />
+							<SettingsIcon className="h-4 w-4 text-slate-500" />
 							Settings
 						</Link>
 					</div>
 
-					<div className="border-t border-border py-1">
+					<div className="border-t border-slate-800 py-1">
 						<button
 							type="button"
 							onClick={handleSignOut}
-							className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition-colors"
+							className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
 						>
 							<LogOutIcon className="h-4 w-4" />
 							Sign out
@@ -143,12 +143,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 	const pathname = usePathname();
 
 	return (
-		<div className="min-h-screen bg-background">
+		<div className="min-h-screen bg-slate-950">
 			<AiPresenceBorder />
-			<nav className="border-b bg-card sticky top-0 z-30">
+			<nav className="border-b border-slate-800 bg-slate-900 sticky top-0 z-30">
 				<div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
 					{/* Logo */}
-					<Link href="/coach" className="text-base font-bold shrink-0 text-foreground">
+					<Link href="/coach" className="text-base font-bold shrink-0 text-white">
 						UnGhettoMyLife
 					</Link>
 
@@ -162,8 +162,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 									href={href}
 									className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
 										active
-											? "bg-primary/10 text-primary font-medium"
-											: "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+											? "bg-indigo-500/20 text-indigo-300 font-medium"
+											: "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
 									}`}
 								>
 									{label}
@@ -172,9 +172,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 						})}
 					</div>
 
-					{/* Right — theme toggle + user menu */}
+					{/* Right — user menu */}
 					<div className="ml-auto flex items-center gap-1">
-						<ThemeToggle />
 						<UserMenu />
 					</div>
 				</div>

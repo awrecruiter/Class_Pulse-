@@ -7,13 +7,7 @@ import { useRef, useState } from "react";
 
 gsap.registerPlugin(useGSAP);
 
-type RosterItem = {
-	id: string;
-	display: string;
-	studentId: string;
-};
-
-type Phase = "enter-code" | "pick-name" | "joining";
+type Phase = "enter-code" | "enter-id" | "joining";
 
 // ─── RAM SVG — stylized ram head with curling horns ───────────────────────────
 function RamLogo({ size = 56 }: { size?: number }) {
@@ -64,10 +58,9 @@ export default function StudentJoinPage() {
 	const router = useRouter();
 	const [phase, setPhase] = useState<Phase>("enter-code");
 	const [code, setCode] = useState("");
+	const [studentId, setStudentId] = useState("");
 	const [sessionId, setSessionId] = useState("");
 	const [sessionLabel, setSessionLabel] = useState("");
-	const [roster, setRoster] = useState<RosterItem[]>([]);
-	const [selectedRosterId, setSelectedRosterId] = useState("");
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 
@@ -122,8 +115,7 @@ export default function StudentJoinPage() {
 			const json = await res.json();
 			setSessionId(json.sessionId);
 			setSessionLabel(json.sessionLabel);
-			setRoster(json.roster);
-			animateCardFlip(() => setPhase("pick-name"));
+			animateCardFlip(() => setPhase("enter-id"));
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Something went wrong");
 		} finally {
@@ -131,15 +123,20 @@ export default function StudentJoinPage() {
 		}
 	}
 
-	async function handleJoin() {
-		if (!selectedRosterId) return;
+	async function handleIdSubmit(e: React.FormEvent) {
+		e.preventDefault();
+		const trimmedId = studentId.trim();
+		if (!trimmedId) {
+			setError("Enter your student ID number");
+			return;
+		}
 		animateCardFlip(() => setPhase("joining"));
 		setError("");
 		try {
 			const res = await fetch("/api/sessions/join", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ joinCode: code.trim().toUpperCase(), rosterId: selectedRosterId }),
+				body: JSON.stringify({ joinCode: code.trim().toUpperCase(), studentId: trimmedId }),
 			});
 			if (!res.ok) {
 				const json = await res.json();
@@ -148,7 +145,7 @@ export default function StudentJoinPage() {
 			router.push(`/student/${sessionId}`);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to join");
-			animateCardFlip(() => setPhase("pick-name"));
+			animateCardFlip(() => setPhase("enter-id"));
 		}
 	}
 
@@ -210,47 +207,26 @@ export default function StudentJoinPage() {
 					</form>
 				)}
 
-				{phase === "pick-name" && (
-					<div className="flex flex-col gap-4 p-7">
+				{phase === "enter-id" && (
+					<form onSubmit={handleIdSubmit} className="flex flex-col gap-5 p-7">
 						<div className="text-center">
 							<p className="text-lg font-bold text-white">{sessionLabel}</p>
-							<p className="text-sm text-slate-400 mt-1">Tap your name below</p>
+							<p className="text-sm text-slate-400 mt-1">Enter your student ID number</p>
 						</div>
 
-						<div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-0.5">
-							{roster.map((student) => {
-								const isSelected = selectedRosterId === student.id;
-								return (
-									<button
-										key={student.id}
-										type="button"
-										onClick={() => setSelectedRosterId(student.id)}
-										className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-all text-left ${
-											isSelected
-												? "border-amber-500/60 bg-amber-500/10 ring-1 ring-amber-500/30"
-												: "border-white/8 bg-[#0f1117] hover:border-white/20"
-										}`}
-									>
-										<span
-											className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
-												isSelected ? "bg-amber-500 text-black" : "bg-white/8 text-slate-400"
-											}`}
-										>
-											{student.display.replace(/\./g, "").slice(0, 2).toUpperCase()}
-										</span>
-										<div>
-											<p className="text-sm font-semibold text-white">{student.display}</p>
-											<p className="text-xs text-slate-500">#{student.studentId}</p>
-										</div>
-										{isSelected && (
-											<span className="ml-auto text-[10px] font-bold text-amber-400 uppercase tracking-widest">
-												That&apos;s me
-											</span>
-										)}
-									</button>
-								);
-							})}
-						</div>
+						<input
+							type="text"
+							inputMode="numeric"
+							autoComplete="off"
+							maxLength={20}
+							placeholder="e.g. 10293847"
+							value={studentId}
+							onChange={(e) => {
+								setStudentId(e.target.value.replace(/\D/g, ""));
+								setError("");
+							}}
+							className="text-center font-mono text-2xl font-black tracking-widest rounded-xl border border-white/10 bg-[#0f1117] px-4 py-4 text-amber-400 placeholder:text-slate-700 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition-colors"
+						/>
 
 						{error && (
 							<p className="text-center text-sm text-red-400 font-medium bg-red-500/10 rounded-lg py-2">
@@ -259,9 +235,8 @@ export default function StudentJoinPage() {
 						)}
 
 						<button
-							type="button"
-							onClick={handleJoin}
-							disabled={!selectedRosterId}
+							type="submit"
+							disabled={loading || studentId.length === 0}
 							className="rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 px-6 py-3.5 text-base font-black text-black shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
 						>
 							Join Class →
@@ -269,17 +244,12 @@ export default function StudentJoinPage() {
 
 						<button
 							type="button"
-							onClick={() =>
-								animateCardFlip(() => {
-									setPhase("enter-code");
-									setSelectedRosterId("");
-								})
-							}
+							onClick={() => animateCardFlip(() => setPhase("enter-code"))}
 							className="text-sm text-slate-500 hover:text-slate-300 transition-colors text-center"
 						>
 							← Different code
 						</button>
-					</div>
+					</form>
 				)}
 
 				{phase === "joining" && (

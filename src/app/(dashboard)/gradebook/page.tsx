@@ -33,11 +33,11 @@ const SCORE_OPTIONS = [
 ] as const;
 
 const SCORE_COLORS: Record<number, string> = {
-	0: "bg-muted text-muted-foreground",
-	1: "bg-red-100 text-red-700",
-	2: "bg-orange-100 text-orange-700",
-	3: "bg-blue-100 text-blue-700",
-	4: "bg-green-100 text-green-700",
+	0: "bg-slate-800 text-slate-400",
+	1: "bg-red-500/20 text-red-300",
+	2: "bg-orange-500/20 text-orange-300",
+	3: "bg-blue-500/20 text-blue-300",
+	4: "bg-emerald-500/20 text-emerald-300",
 };
 
 function today(): string {
@@ -188,23 +188,23 @@ export default function GradebookPage() {
 	return (
 		<div className="mx-auto max-w-3xl px-4 py-8 flex flex-col gap-6">
 			<div>
-				<h1 className="text-xl font-bold text-foreground">Gradebook</h1>
-				<p className="text-sm text-muted-foreground mt-0.5">Record daily CFU scores per standard</p>
+				<h1 className="text-xl font-bold text-slate-200">Gradebook</h1>
+				<p className="text-sm text-slate-400 mt-0.5">Record daily CFU scores per standard</p>
 			</div>
 
 			{/* Controls */}
-			<div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+			<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">
 				<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
 					{/* Class selector */}
 					<div className="flex flex-col gap-1.5">
-						<label className="text-xs font-medium text-muted-foreground" htmlFor="class-select">
+						<label className="text-xs font-medium text-slate-400" htmlFor="class-select">
 							Class
 						</label>
 						<select
 							id="class-select"
 							value={selectedClassId}
 							onChange={(e) => setSelectedClassId(e.target.value)}
-							className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+							className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 						>
 							{classes.map((c) => (
 								<option key={c.id} value={c.id}>
@@ -217,7 +217,7 @@ export default function GradebookPage() {
 
 					{/* Date picker */}
 					<div className="flex flex-col gap-1.5">
-						<label className="text-xs font-medium text-muted-foreground" htmlFor="date-picker">
+						<label className="text-xs font-medium text-slate-400" htmlFor="date-picker">
 							Date
 						</label>
 						<input
@@ -225,13 +225,13 @@ export default function GradebookPage() {
 							type="date"
 							value={date}
 							onChange={(e) => setDate(e.target.value)}
-							className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+							className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 						/>
 					</div>
 
 					{/* Standard code */}
 					<div className="flex flex-col gap-1.5">
-						<label className="text-xs font-medium text-muted-foreground" htmlFor="standard-code">
+						<label className="text-xs font-medium text-slate-400" htmlFor="standard-code">
 							Standard Code
 						</label>
 						<input
@@ -240,7 +240,7 @@ export default function GradebookPage() {
 							placeholder="e.g. MA.5.FR.1.1"
 							value={standardCode}
 							onChange={(e) => setStandardCode(e.target.value.toUpperCase())}
-							className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+							className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 						/>
 					</div>
 				</div>
@@ -248,8 +248,8 @@ export default function GradebookPage() {
 
 			{/* Student score grid */}
 			{selectedClassId && roster.length === 0 && !loading && (
-				<div className="rounded-lg border border-dashed border-border p-6 text-center">
-					<p className="text-sm text-muted-foreground">
+				<div className="rounded-lg border border-dashed border-slate-800 p-6 text-center">
+					<p className="text-sm text-slate-400">
 						No students in this class. Add students from the Classes page.
 					</p>
 				</div>
@@ -258,7 +258,7 @@ export default function GradebookPage() {
 			{roster.length > 0 && (
 				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 					<div className="flex items-center justify-between">
-						<p className="text-sm font-semibold text-foreground">
+						<p className="text-sm font-semibold text-slate-200">
 							{selectedClass?.label} — {date}
 						</p>
 						<Button
@@ -285,12 +285,12 @@ export default function GradebookPage() {
 						))}
 					</div>
 
-					<div className="rounded-lg border border-border overflow-hidden">
+					<div className="rounded-lg border border-slate-800 overflow-hidden">
 						{/* Table header */}
-						<div className="grid grid-cols-[1fr,auto,1fr] gap-2 px-3 py-2 bg-muted/30 border-b border-border">
-							<span className="text-xs font-medium text-muted-foreground">Student</span>
-							<span className="text-xs font-medium text-muted-foreground text-center">Score</span>
-							<span className="text-xs font-medium text-muted-foreground">Notes</span>
+						<div className="grid grid-cols-[1fr,auto,1fr] gap-2 px-3 py-2 bg-slate-800/30 border-b border-slate-800">
+							<span className="text-xs font-medium text-slate-400">Student</span>
+							<span className="text-xs font-medium text-slate-400 text-center">Score</span>
+							<span className="text-xs font-medium text-slate-400">Notes</span>
 						</div>
 
 						{roster.map((student, i) => {
@@ -301,7 +301,7 @@ export default function GradebookPage() {
 								<div
 									key={student.id}
 									className={`grid grid-cols-[1fr,auto,1fr] gap-2 items-center px-3 py-2.5 ${
-										i !== roster.length - 1 ? "border-b border-border" : ""
+										i !== roster.length - 1 ? "border-b border-slate-800" : ""
 									}`}
 								>
 									{/* Student */}
@@ -313,10 +313,10 @@ export default function GradebookPage() {
 											{student.lastInitial}
 										</span>
 										<div>
-											<p className="text-sm font-medium text-foreground">
+											<p className="text-sm font-medium text-slate-200">
 												{student.firstInitial}.{student.lastInitial}.
 											</p>
-											<p className="text-xs text-muted-foreground">ID: {student.studentId}</p>
+											<p className="text-xs text-slate-400">ID: {student.studentId}</p>
 										</div>
 									</div>
 
@@ -324,7 +324,7 @@ export default function GradebookPage() {
 									<select
 										value={currentScore}
 										onChange={(e) => setScore(student.id, Number(e.target.value))}
-										className={`rounded border border-border px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-ring ${SCORE_COLORS[currentScore]}`}
+										className={`rounded border border-slate-800 px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-ring ${SCORE_COLORS[currentScore]}`}
 									>
 										{SCORE_OPTIONS.map((opt) => (
 											<option key={opt.value} value={opt.value}>
@@ -339,7 +339,7 @@ export default function GradebookPage() {
 										placeholder="Notes..."
 										value={currentNotes}
 										onChange={(e) => setNotes(student.id, e.target.value)}
-										className="rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+										className="rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
 									/>
 								</div>
 							);
@@ -354,12 +354,10 @@ export default function GradebookPage() {
 
 			{/* Export section */}
 			<section className="flex flex-col gap-3">
-				<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-					Export CSV
-				</h2>
-				<div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+				<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Export CSV</h2>
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-3 sm:flex-row sm:items-end">
 					<div className="flex flex-col gap-1.5">
-						<label className="text-xs text-muted-foreground" htmlFor="export-from">
+						<label className="text-xs text-slate-400" htmlFor="export-from">
 							From
 						</label>
 						<input
@@ -367,11 +365,11 @@ export default function GradebookPage() {
 							type="date"
 							value={exportFrom}
 							onChange={(e) => setExportFrom(e.target.value)}
-							className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+							className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 						/>
 					</div>
 					<div className="flex flex-col gap-1.5">
-						<label className="text-xs text-muted-foreground" htmlFor="export-to">
+						<label className="text-xs text-slate-400" htmlFor="export-to">
 							To
 						</label>
 						<input
@@ -379,7 +377,7 @@ export default function GradebookPage() {
 							type="date"
 							value={exportTo}
 							onChange={(e) => setExportTo(e.target.value)}
-							className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+							className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 						/>
 					</div>
 					<Button

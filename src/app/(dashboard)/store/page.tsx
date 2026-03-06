@@ -179,7 +179,7 @@ function ItemCard({
 
 	return (
 		<div
-			className={`rounded-2xl border bg-card p-4 flex flex-col gap-3 transition-colors relative ${item.isActive ? "border-border hover:border-primary/30" : "border-border/50 opacity-60"}`}
+			className={`rounded-2xl border bg-slate-900 p-4 flex flex-col gap-3 transition-colors relative ${item.isActive ? "border-slate-800 hover:border-primary/30" : "border-slate-800/50 opacity-60"}`}
 		>
 			{/* Edit mode */}
 			{editing ? (
@@ -188,7 +188,7 @@ function ItemCard({
 						type="text"
 						value={draft.name}
 						onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-						className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+						className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 						placeholder="Item name"
 					/>
 					<div className="flex gap-2">
@@ -199,9 +199,9 @@ function ItemCard({
 								max={10000}
 								value={draft.cost}
 								onChange={(e) => setDraft((d) => ({ ...d, cost: Number(e.target.value) }))}
-								className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+								className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 							/>
-							<span className="text-xs text-muted-foreground shrink-0">RAM</span>
+							<span className="text-xs text-slate-400 shrink-0">RAM</span>
 						</div>
 						<div className="flex items-center gap-1 flex-1">
 							<input
@@ -216,16 +216,16 @@ function ItemCard({
 										durationMinutes: e.target.value ? Number(e.target.value) : null,
 									}))
 								}
-								className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+								className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 							/>
-							<span className="text-xs text-muted-foreground shrink-0">min</span>
+							<span className="text-xs text-slate-400 shrink-0">min</span>
 						</div>
 					</div>
 					<div className="flex gap-2">
 						<button
 							type="button"
 							onClick={() => setEditing(false)}
-							className="flex-1 rounded-xl border border-border py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+							className="flex-1 rounded-xl border border-slate-800 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800/50 transition-colors"
 						>
 							Cancel
 						</button>
@@ -233,7 +233,7 @@ function ItemCard({
 							type="button"
 							onClick={saveEdit}
 							disabled={saving || !draft.name.trim()}
-							className="flex-1 rounded-xl bg-primary text-primary-foreground py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+							className="flex-1 rounded-xl bg-primary text-indigo-400-foreground py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
 						>
 							{saving ? "Saving…" : "Save"}
 						</button>
@@ -258,7 +258,7 @@ function ItemCard({
 									});
 									setEditing(true);
 								}}
-								className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+								className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-colors"
 								aria-label="Edit item"
 							>
 								<PencilIcon className="h-3.5 w-3.5" />
@@ -267,7 +267,7 @@ function ItemCard({
 							<button
 								type="button"
 								onClick={toggleActive}
-								className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+								className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-colors"
 								aria-label={item.isActive ? "Hide from store" : "Show in store"}
 								title={item.isActive ? "Hide from store" : "Show in store"}
 							>
@@ -277,7 +277,7 @@ function ItemCard({
 							<button
 								type="button"
 								onClick={handleDelete}
-								className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+								className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-destructive/10 transition-colors"
 								aria-label="Delete item"
 							>
 								<Trash2Icon className="h-3.5 w-3.5" />
@@ -285,16 +285,16 @@ function ItemCard({
 						</div>
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-foreground">{item.name}</p>
+						<p className="text-sm font-semibold text-slate-200">{item.name}</p>
 						<div className="flex items-center gap-2 mt-1">
 							{item.durationMinutes && (
-								<p className="text-xs text-muted-foreground flex items-center gap-1">
+								<p className="text-xs text-slate-400 flex items-center gap-1">
 									<ClockIcon className="h-3 w-3" />
 									{item.durationMinutes}min
 								</p>
 							)}
 							{!item.isActive && (
-								<span className="text-xs text-muted-foreground flex items-center gap-1">
+								<span className="text-xs text-slate-400 flex items-center gap-1">
 									<EyeOffIcon className="h-3 w-3" />
 									Hidden
 								</span>
@@ -316,11 +316,11 @@ function ItemCard({
 							</button>
 
 							{showPicker && (
-								<div className="absolute bottom-full mb-2 left-0 right-0 z-20 rounded-xl border border-border bg-popover shadow-xl p-2 flex flex-col gap-1.5">
+								<div className="absolute bottom-full mb-2 left-0 right-0 z-20 rounded-xl border border-slate-800 bg-popover shadow-xl p-2 flex flex-col gap-1.5">
 									<select
 										value={selectedRosterId}
 										onChange={(e) => setSelectedRosterId(e.target.value)}
-										className="w-full rounded-lg border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground focus:outline-none"
+										className="w-full rounded-lg border border-slate-800 bg-slate-800/30 px-2 py-1.5 text-sm text-slate-200 focus:outline-none"
 									>
 										<option value="">Pick a student…</option>
 										{roster.map((s) => (
@@ -391,7 +391,7 @@ function PurchaseCard({
 	}
 
 	return (
-		<div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
+		<div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 flex flex-col gap-3">
 			<div className="flex items-center gap-3">
 				<div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
 					<span className="text-[11px] font-bold text-white">
@@ -400,22 +400,22 @@ function PurchaseCard({
 					</span>
 				</div>
 				<div className="flex-1 min-w-0">
-					<p className="text-sm font-semibold text-foreground">
+					<p className="text-sm font-semibold text-slate-200">
 						{purchase.firstInitial}.{purchase.lastInitial}.
 					</p>
-					<p className="text-xs text-muted-foreground truncate">{purchase.itemName}</p>
+					<p className="text-xs text-slate-400 truncate">{purchase.itemName}</p>
 				</div>
 				<CostBadge cost={purchase.cost} />
 			</div>
 
 			{purchase.itemDurationMinutes && (
-				<p className="text-xs text-muted-foreground flex items-center gap-1">
+				<p className="text-xs text-slate-400 flex items-center gap-1">
 					<ClockIcon className="h-3 w-3" />
 					{purchase.itemDurationMinutes}min
 				</p>
 			)}
 
-			<p className="text-[10px] text-muted-foreground">Requested {fmtTime(purchase.requestedAt)}</p>
+			<p className="text-[10px] text-slate-400">Requested {fmtTime(purchase.requestedAt)}</p>
 
 			<div className="flex gap-2">
 				<button
@@ -431,7 +431,7 @@ function PurchaseCard({
 					type="button"
 					onClick={() => process("reject")}
 					disabled={state === "loading"}
-					className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-muted hover:bg-muted/70 active:scale-95 disabled:opacity-50 transition-all py-2 text-xs font-semibold text-muted-foreground"
+					className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-800/70 active:scale-95 disabled:opacity-50 transition-all py-2 text-xs font-semibold text-slate-400"
 				>
 					<XIcon className="h-3.5 w-3.5" />
 					Reject
@@ -482,11 +482,11 @@ function StoreStatusToggle() {
 			className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-95 disabled:opacity-60 ${
 				open
 					? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
-					: "bg-muted text-muted-foreground border border-border hover:bg-muted/70"
+					: "bg-slate-800 text-slate-400 border border-slate-800 hover:bg-slate-800/70"
 			}`}
 		>
 			<span
-				className={`h-2 w-2 rounded-full ${open ? "bg-emerald-400 animate-pulse" : "bg-muted-foreground"}`}
+				className={`h-2 w-2 rounded-full ${open ? "bg-emerald-400 animate-pulse" : "bg-slate-800-foreground"}`}
 			/>
 			{open ? "Store Open" : "Store Closed"}
 		</button>
@@ -589,17 +589,17 @@ export default function StorePage() {
 	const pendingCount = purchases.filter((p) => p.status === "pending").length;
 
 	return (
-		<div className="min-h-[calc(100vh-3.5rem)] bg-background">
+		<div className="min-h-[calc(100vh-3.5rem)] bg-slate-950">
 			{/* Page header */}
-			<div className="border-b bg-card">
+			<div className="border-b bg-slate-900">
 				<div className="mx-auto max-w-7xl px-4 py-5 flex flex-col sm:flex-row sm:items-center gap-3">
 					<div className="flex items-center gap-3 flex-1">
 						<div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
 							<ShoppingCartIcon className="h-5 w-5 text-amber-400" />
 						</div>
 						<div>
-							<h1 className="text-lg font-bold text-foreground">Privilege Store</h1>
-							<p className="text-xs text-muted-foreground">
+							<h1 className="text-lg font-bold text-slate-200">Privilege Store</h1>
+							<p className="text-xs text-slate-400">
 								Grant items, approve requests, control store hours
 							</p>
 						</div>
@@ -609,7 +609,7 @@ export default function StorePage() {
 							<select
 								value={selectedClassId}
 								onChange={(e) => setSelectedClassId(e.target.value)}
-								className="rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+								className="rounded-lg border border-slate-800 bg-slate-800/30 px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary"
 							>
 								{classes.map((c) => (
 									<option key={c.id} value={c.id}>
@@ -628,7 +628,7 @@ export default function StorePage() {
 				<div>
 					<div className="flex items-center justify-between mb-4">
 						<div className="flex items-center gap-3">
-							<h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+							<h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
 								Items ({activeItems.length} active
 								{hiddenItems.length > 0 ? `, ${hiddenItems.length} hidden` : ""})
 							</h2>
@@ -636,7 +636,7 @@ export default function StorePage() {
 								<button
 									type="button"
 									onClick={() => setShowHidden((v) => !v)}
-									className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+									className="text-xs text-slate-400 underline underline-offset-2 hover:text-slate-200 transition-colors"
 								>
 									{showHidden ? "Hide inactive" : "Show all"}
 								</button>
@@ -646,7 +646,7 @@ export default function StorePage() {
 							type="button"
 							onClick={handleAddItem}
 							disabled={addingItem}
-							className="flex items-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted/50 active:scale-95 transition-all px-3 py-1.5 text-xs font-semibold text-foreground disabled:opacity-50"
+							className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800/50 active:scale-95 transition-all px-3 py-1.5 text-xs font-semibold text-slate-200 disabled:opacity-50"
 						>
 							<PlusIcon className="h-3.5 w-3.5" />
 							Add Item
@@ -654,13 +654,13 @@ export default function StorePage() {
 					</div>
 
 					{visibleItems.length === 0 ? (
-						<div className="rounded-2xl border border-dashed border-border p-10 flex flex-col items-center gap-3 text-center">
-							<ShoppingBagIcon className="h-10 w-10 text-muted-foreground/40" />
-							<p className="text-sm text-muted-foreground">No items yet.</p>
+						<div className="rounded-2xl border border-dashed border-slate-800 p-10 flex flex-col items-center gap-3 text-center">
+							<ShoppingBagIcon className="h-10 w-10 text-slate-400/40" />
+							<p className="text-sm text-slate-400">No items yet.</p>
 							<button
 								type="button"
 								onClick={handleAddItem}
-								className="flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
+								className="flex items-center gap-1.5 rounded-xl bg-primary text-indigo-400-foreground px-4 py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
 							>
 								<PlusIcon className="h-3.5 w-3.5" />
 								Add your first item
@@ -687,7 +687,7 @@ export default function StorePage() {
 
 				{/* ── RIGHT: Pending approvals ──────────────────────────── */}
 				<div>
-					<h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+					<h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
 						Pending Requests
 						{pendingCount > 0 && (
 							<span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-400 px-1.5">
@@ -702,17 +702,17 @@ export default function StorePage() {
 								{[0, 1, 2].map((i) => (
 									<span
 										key={i}
-										className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce"
+										className="h-2 w-2 rounded-full bg-slate-800-foreground/40 animate-bounce"
 										style={{ animationDelay: `${i * 150}ms` }}
 									/>
 								))}
 							</div>
 						</div>
 					) : purchases.length === 0 ? (
-						<div className="rounded-2xl border border-dashed border-border p-8 flex flex-col items-center gap-2 text-center">
+						<div className="rounded-2xl border border-dashed border-slate-800 p-8 flex flex-col items-center gap-2 text-center">
 							<CheckIcon className="h-8 w-8 text-emerald-500/40" />
-							<p className="text-sm text-muted-foreground">All caught up</p>
-							<p className="text-xs text-muted-foreground/60">No pending purchase requests</p>
+							<p className="text-sm text-slate-400">All caught up</p>
+							<p className="text-xs text-slate-400/60">No pending purchase requests</p>
 						</div>
 					) : (
 						<div className="flex flex-col gap-3">

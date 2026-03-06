@@ -3,9 +3,11 @@
 import {
 	ActivityIcon,
 	CheckCircleIcon,
+	CheckIcon,
 	ClipboardListIcon,
 	CopyIcon,
 	HistoryIcon,
+	PencilIcon,
 	PhoneIcon,
 	PlayIcon,
 	PlusIcon,
@@ -117,6 +119,9 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 	const [loading, setLoading] = useState(true);
 	const [sessionLoading, setSessionLoading] = useState(false);
 	const [codeCopied, setCodeCopied] = useState(false);
+	const [editingLabel, setEditingLabel] = useState(false);
+	const [labelInput, setLabelInput] = useState("");
+	const [savingLabel, setSavingLabel] = useState(false);
 
 	// Add student form
 	const [showAddForm, setShowAddForm] = useState(false);
@@ -436,8 +441,8 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 	if (loading) {
 		return (
 			<div className="mx-auto max-w-2xl px-4 py-8">
-				<div className="h-8 w-48 rounded bg-muted/40 animate-pulse mb-6" />
-				<div className="h-32 rounded-lg bg-muted/30 animate-pulse" />
+				<div className="h-8 w-48 rounded bg-slate-800/40 animate-pulse mb-6" />
+				<div className="h-32 rounded-lg bg-slate-800/30 animate-pulse" />
 			</div>
 		);
 	}
@@ -445,27 +450,93 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 	if (!cls) {
 		return (
 			<div className="mx-auto max-w-2xl px-4 py-8">
-				<p className="text-sm text-muted-foreground">Class not found.</p>
+				<p className="text-sm text-slate-400">Class not found.</p>
 			</div>
 		);
+	}
+
+	async function saveLabel() {
+		const trimmed = labelInput.trim();
+		if (!trimmed || trimmed === cls?.label) {
+			setEditingLabel(false);
+			return;
+		}
+		setSavingLabel(true);
+		try {
+			const res = await fetch(`/api/classes/${id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ label: trimmed }),
+			});
+			if (!res.ok) throw new Error("Failed");
+			setCls((prev) => (prev ? { ...prev, label: trimmed } : prev));
+			setEditingLabel(false);
+		} catch {
+			toast.error("Failed to rename class");
+		} finally {
+			setSavingLabel(false);
+		}
 	}
 
 	return (
 		<div className="mx-auto max-w-2xl px-4 py-8 flex flex-col gap-6">
 			{/* Header */}
 			<div>
-				<h1 className="text-xl font-bold text-foreground">{cls.label}</h1>
-				<p className="text-sm text-muted-foreground mt-0.5">
+				{editingLabel ? (
+					<form
+						onSubmit={(e) => {
+							e.preventDefault();
+							saveLabel();
+						}}
+						className="flex items-center gap-2"
+					>
+						<input
+							value={labelInput}
+							onChange={(e) => setLabelInput(e.target.value)}
+							maxLength={100}
+							className="text-xl font-bold bg-slate-800 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-64"
+						/>
+						<button
+							type="submit"
+							disabled={savingLabel}
+							className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+						>
+							<CheckIcon className="h-3.5 w-3.5" />
+						</button>
+						<button
+							type="button"
+							onClick={() => setEditingLabel(false)}
+							className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+						>
+							Cancel
+						</button>
+					</form>
+				) : (
+					<div className="flex items-center gap-2">
+						<h1 className="text-xl font-bold text-slate-200">{cls.label}</h1>
+						<button
+							type="button"
+							onClick={() => {
+								setLabelInput(cls.label);
+								setEditingLabel(true);
+							}}
+							className="text-slate-600 hover:text-slate-400 transition-colors"
+						>
+							<PencilIcon className="h-3.5 w-3.5" />
+						</button>
+					</div>
+				)}
+				<p className="text-sm text-slate-400 mt-0.5">
 					{cls.periodTime && `${cls.periodTime} · `}Grade {cls.gradeLevel} {cls.subject}
 				</p>
 			</div>
 
 			{/* Tab strip */}
-			<div className="flex rounded-lg overflow-hidden border border-border text-xs font-semibold self-start">
+			<div className="flex rounded-lg overflow-hidden border border-slate-800 text-xs font-semibold self-start">
 				<button
 					type="button"
 					onClick={() => setActiveTab("roster")}
-					className={`px-4 py-2 transition-colors ${activeTab === "roster" ? "bg-primary/10 text-primary" : "bg-background text-muted-foreground hover:text-foreground"}`}
+					className={`px-4 py-2 transition-colors ${activeTab === "roster" ? "bg-indigo-500/20 text-indigo-400" : "bg-slate-950 text-slate-400 hover:text-slate-200"}`}
 				>
 					Roster &amp; Groups
 				</button>
@@ -475,7 +546,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 						setActiveTab("di-history");
 						fetchDiSessions();
 					}}
-					className={`px-4 py-2 transition-colors ${activeTab === "di-history" ? "bg-primary/10 text-primary" : "bg-background text-muted-foreground hover:text-foreground"}`}
+					className={`px-4 py-2 transition-colors ${activeTab === "di-history" ? "bg-indigo-500/20 text-indigo-400" : "bg-slate-950 text-slate-400 hover:text-slate-200"}`}
 				>
 					🏆 DI History
 				</button>
@@ -486,7 +557,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					{/* Session card */}
 					<div
 						className={`rounded-lg border p-4 flex flex-col gap-3 ${
-							activeSession ? "border-green-300 bg-green-50/60" : "border-border bg-card"
+							activeSession ? "border-green-300 bg-green-50/60" : "border-slate-800 bg-slate-900"
 						}`}
 					>
 						{activeSession ? (
@@ -494,7 +565,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 								<div className="flex items-center justify-between gap-2">
 									<div className="flex items-center gap-2">
 										<span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-										<p className="text-sm font-semibold text-foreground">Session active</p>
+										<p className="text-sm font-semibold text-slate-200">Session active</p>
 									</div>
 									<div className="flex items-center gap-1">
 										<Button size="sm" variant="outline" asChild>
@@ -508,7 +579,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 											variant="ghost"
 											onClick={endSession}
 											disabled={sessionLoading}
-											className="text-destructive hover:text-destructive"
+											className="text-red-400 hover:text-red-400"
 										>
 											<SquareIcon className="h-3.5 w-3.5 mr-1" />
 											End
@@ -517,17 +588,17 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 								</div>
 								{/* Join code — large and prominent */}
 								<div className="flex flex-col items-center gap-2 py-3">
-									<p className="text-xs text-muted-foreground">
+									<p className="text-xs text-slate-400">
 										Students go to unghettoMyLife.com/student and enter:
 									</p>
 									<div className="flex items-center gap-3">
-										<span className="font-mono text-4xl font-bold tracking-[0.25em] text-foreground">
+										<span className="font-mono text-4xl font-bold tracking-[0.25em] text-slate-200">
 											{activeSession.joinCode}
 										</span>
 										<button
 											type="button"
 											onClick={copyJoinCode}
-											className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+											className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition-colors"
 										>
 											{codeCopied ? (
 												<CheckCircleIcon className="h-4 w-4 text-green-600" />
@@ -543,8 +614,8 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 							<div className="flex flex-col gap-3">
 								<div className="flex items-center justify-between gap-2">
 									<div>
-										<p className="text-sm font-medium text-foreground">No active session</p>
-										<p className="text-xs text-muted-foreground mt-0.5">
+										<p className="text-sm font-medium text-slate-200">No active session</p>
+										<p className="text-xs text-slate-400 mt-0.5">
 											Start a session to generate a join code for students
 										</p>
 									</div>
@@ -569,8 +640,8 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					<div className="flex flex-col gap-3">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-2">
-								<UsersIcon className="h-4 w-4 text-muted-foreground" />
-								<p className="text-sm font-semibold text-foreground">
+								<UsersIcon className="h-4 w-4 text-slate-400" />
+								<p className="text-sm font-semibold text-slate-200">
 									Roster ({roster.length} students)
 								</p>
 							</div>
@@ -602,12 +673,12 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 						{showAddForm && (
 							<form
 								onSubmit={handleAddStudent}
-								className="rounded-lg border border-border bg-muted/20 p-3 flex flex-col gap-3"
+								className="rounded-lg border border-slate-800 bg-slate-800/20 p-3 flex flex-col gap-3"
 							>
-								<p className="text-xs font-medium text-muted-foreground">Add student</p>
+								<p className="text-xs font-medium text-slate-400">Add student</p>
 								<div className="grid grid-cols-2 gap-2">
 									<div className="flex flex-col gap-1">
-										<label className="text-xs text-muted-foreground" htmlFor="studentId">
+										<label className="text-xs text-slate-400" htmlFor="studentId">
 											Student ID *
 										</label>
 										<input
@@ -617,11 +688,11 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 											placeholder="10293847"
 											value={addForm.studentId}
 											onChange={(e) => setAddForm((f) => ({ ...f, studentId: e.target.value }))}
-											className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 										/>
 									</div>
 									<div className="flex flex-col gap-1">
-										<label className="text-xs text-muted-foreground" htmlFor="firstName">
+										<label className="text-xs text-slate-400" htmlFor="firstName">
 											First name *
 										</label>
 										<input
@@ -631,12 +702,12 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 											placeholder="Jordan"
 											value={addForm.firstName}
 											onChange={(e) => setAddForm((f) => ({ ...f, firstName: e.target.value }))}
-											className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 										/>
 									</div>
 								</div>
 								<div className="flex flex-col gap-1">
-									<label className="text-xs text-muted-foreground" htmlFor="lastInitial">
+									<label className="text-xs text-slate-400" htmlFor="lastInitial">
 										Last initial *
 									</label>
 									<input
@@ -649,7 +720,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 										onChange={(e) =>
 											setAddForm((f) => ({ ...f, lastInitial: e.target.value.slice(-1) }))
 										}
-										className="rounded border border-border bg-background px-2 py-1.5 text-sm uppercase focus:outline-none focus:ring-1 focus:ring-ring w-20"
+										className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm uppercase focus:outline-none focus:ring-1 focus:ring-ring w-20"
 									/>
 								</div>
 								<div className="flex gap-2 justify-end">
@@ -670,8 +741,8 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 
 						{/* Student avatar grid */}
 						{roster.length === 0 ? (
-							<div className="rounded-lg border border-dashed border-border p-6 text-center">
-								<p className="text-sm text-muted-foreground">
+							<div className="rounded-lg border border-dashed border-slate-800 p-6 text-center">
+								<p className="text-sm text-slate-400">
 									No students yet. Add students above or import a CSV.
 								</p>
 							</div>
@@ -680,22 +751,22 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 								{roster.map((student) => (
 									<div
 										key={student.id}
-										className="group relative flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-center hover:bg-muted/30 transition-colors"
+										className="group relative flex flex-col items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-2 py-3 text-center hover:bg-slate-800/30 transition-colors"
 									>
 										{/* Avatar circle */}
-										<div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+										<div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
 											{studentAvatarInitials(student).toUpperCase()}
 										</div>
 										{/* Name */}
-										<p className="text-xs font-medium text-foreground leading-tight">
+										<p className="text-xs font-medium text-slate-200 leading-tight">
 											{studentDisplayName(student)}
 										</p>
-										<p className="text-[10px] text-muted-foreground">#{student.studentId}</p>
+										<p className="text-[10px] text-slate-400">#{student.studentId}</p>
 										{/* Remove button */}
 										<button
 											type="button"
 											onClick={() => removeStudent(student.id)}
-											className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-0.5"
+											className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all p-0.5"
 											aria-label="Remove student"
 										>
 											<Trash2Icon className="h-3 w-3" />
@@ -709,7 +780,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					{/* Groups */}
 					<div className="flex flex-col gap-3">
 						<div className="flex items-center justify-between">
-							<p className="text-sm font-semibold text-foreground">Groups</p>
+							<p className="text-sm font-semibold text-slate-200">Groups</p>
 							<Button
 								size="sm"
 								variant="outline"
@@ -730,7 +801,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 						)}
 
 						{groupsLoading ? (
-							<div className="h-32 rounded-lg bg-muted/30 animate-pulse" />
+							<div className="h-32 rounded-lg bg-slate-800/30 animate-pulse" />
 						) : (
 							<GroupsKanban
 								classId={id}
@@ -752,7 +823,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					{/* RAM Buck Economy */}
 					<div className="flex flex-col gap-3">
 						<div className="flex items-center justify-between">
-							<p className="text-sm font-semibold text-foreground">🐏 RAM Bucks</p>
+							<p className="text-sm font-semibold text-slate-200">🐏 RAM Bucks</p>
 						</div>
 						<RamBucksPanel classId={id} />
 					</div>
@@ -761,8 +832,8 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					<div className="flex flex-col gap-3">
 						<div className="flex items-center justify-between gap-2">
 							<div className="flex items-center gap-2">
-								<PhoneIcon className="h-4 w-4 text-muted-foreground" />
-								<p className="text-sm font-semibold text-foreground">Parent Contacts</p>
+								<PhoneIcon className="h-4 w-4 text-slate-400" />
+								<p className="text-sm font-semibold text-slate-200">Parent Contacts</p>
 							</div>
 							<div className="flex items-center gap-2">
 								<input
@@ -783,13 +854,13 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 								</Button>
 							</div>
 						</div>
-						<p className="text-xs text-muted-foreground">
+						<p className="text-xs text-slate-400">
 							CSV columns: studentId, parentName, phone, notes
 						</p>
 						{roster.length === 0 ? (
-							<p className="text-xs text-muted-foreground">Add students to the roster first.</p>
+							<p className="text-xs text-slate-400">Add students to the roster first.</p>
 						) : (
-							<div className="rounded-lg border border-border overflow-hidden">
+							<div className="rounded-lg border border-slate-800 overflow-hidden">
 								{roster.map((student, i) => {
 									const contact = contacts.find((c) => c.rosterId === student.id);
 									const isExpanded = expandedContact === student.id;
@@ -801,17 +872,17 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 									return (
 										<div
 											key={student.id}
-											className={`flex flex-col px-3 py-2.5 ${i !== roster.length - 1 ? "border-b border-border" : ""}`}
+											className={`flex flex-col px-3 py-2.5 ${i !== roster.length - 1 ? "border-b border-slate-800" : ""}`}
 										>
 											<div className="flex items-center justify-between">
 												<div className="flex items-center gap-2">
 													<span className="text-sm font-medium">{studentDisplayName(student)}</span>
 													{contact ? (
-														<span className="text-xs rounded-full bg-green-100 text-green-700 px-2 py-0.5">
+														<span className="text-xs rounded-full bg-emerald-500/20 text-emerald-300 px-2 py-0.5">
 															{formatPhoneDisplay(contact.phone)}
 														</span>
 													) : (
-														<span className="text-xs text-muted-foreground">No contact</span>
+														<span className="text-xs text-slate-400">No contact</span>
 													)}
 												</div>
 												<button
@@ -829,7 +900,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 															}));
 														}
 													}}
-													className="text-xs text-primary underline"
+													className="text-xs text-indigo-400 underline"
 												>
 													{isExpanded ? "Cancel" : contact ? "Edit" : "Add"}
 												</button>
@@ -846,7 +917,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 																[student.id]: { ...form, parentName: e.target.value },
 															}))
 														}
-														className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+														className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 													/>
 													<input
 														type="tel"
@@ -858,7 +929,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 																[student.id]: { ...form, phone: e.target.value },
 															}))
 														}
-														className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+														className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 													/>
 													<input
 														type="text"
@@ -870,14 +941,14 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 																[student.id]: { ...form, notes: e.target.value },
 															}))
 														}
-														className="rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+														className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 													/>
 													<div className="flex gap-2 justify-end">
 														{contact && (
 															<Button
 																size="sm"
 																variant="ghost"
-																className="text-destructive hover:text-destructive"
+																className="text-red-400 hover:text-red-400"
 																disabled={savingContact === student.id}
 																onClick={async () => {
 																	try {
@@ -943,23 +1014,21 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					{/* Student Timeline (Black Box) */}
 					<div className="flex flex-col gap-3">
 						<div className="flex items-center gap-2">
-							<HistoryIcon className="h-4 w-4 text-muted-foreground" />
-							<p className="text-sm font-semibold text-foreground">Student Timeline</p>
+							<HistoryIcon className="h-4 w-4 text-slate-400" />
+							<p className="text-sm font-semibold text-slate-200">Student Timeline</p>
 						</div>
 						{roster.length === 0 ? (
-							<p className="text-xs text-muted-foreground">Add students to view their timeline.</p>
+							<p className="text-xs text-slate-400">Add students to view their timeline.</p>
 						) : (
-							<div className="rounded-lg border border-border overflow-hidden">
+							<div className="rounded-lg border border-slate-800 overflow-hidden">
 								{roster.map((student, i) => (
 									<div
 										key={student.id}
-										className={`flex items-center justify-between px-3 py-2.5 ${i !== roster.length - 1 ? "border-b border-border" : ""}`}
+										className={`flex items-center justify-between px-3 py-2.5 ${i !== roster.length - 1 ? "border-b border-slate-800" : ""}`}
 									>
 										<span className="text-sm font-medium">
 											{studentDisplayName(student)}
-											<span className="ml-2 text-xs text-muted-foreground">
-												{student.studentId}
-											</span>
+											<span className="ml-2 text-xs text-slate-400">{student.studentId}</span>
 										</span>
 										<button
 											type="button"
@@ -967,7 +1036,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 												setSelectedStudent(student);
 												fetchTimeline(student.id);
 											}}
-											className="text-xs text-primary underline"
+											className="text-xs text-indigo-400 underline"
 										>
 											View
 										</button>
@@ -980,8 +1049,8 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					{/* Timeline Modal */}
 					{selectedStudent && (
 						<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-							<div className="bg-background rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
-								<div className="flex items-center justify-between px-4 py-3 border-b border-border">
+							<div className="bg-slate-950 rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+								<div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
 									<p className="text-sm font-semibold">
 										{studentDisplayName(selectedStudent)} — Full History
 									</p>
@@ -992,18 +1061,18 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 											setTimelineEvents([]);
 										}}
 									>
-										<XIcon className="h-4 w-4 text-muted-foreground" />
+										<XIcon className="h-4 w-4 text-slate-400" />
 									</button>
 								</div>
 								<div className="overflow-y-auto flex-1 px-4 py-3 flex flex-col gap-2">
 									{timelineLoading ? (
 										<div className="flex flex-col gap-2">
 											{[1, 2, 3].map((k) => (
-												<div key={k} className="h-12 rounded-lg bg-muted animate-pulse" />
+												<div key={k} className="h-12 rounded-lg bg-slate-800 animate-pulse" />
 											))}
 										</div>
 									) : timelineEvents.length === 0 ? (
-										<p className="text-sm text-muted-foreground text-center py-8">
+										<p className="text-sm text-slate-400 text-center py-8">
 											No events recorded yet.
 										</p>
 									) : (
@@ -1027,14 +1096,14 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 											return (
 												<div
 													key={event.id}
-													className={`border-l-4 ${borderColor} rounded-r-lg bg-muted/30 px-3 py-2 flex flex-col gap-0.5`}
+													className={`border-l-4 ${borderColor} rounded-r-lg bg-slate-800/30 px-3 py-2 flex flex-col gap-0.5`}
 												>
 													<div className="flex items-center gap-1.5">
 														<span className="text-sm">{icon}</span>
 														<p className="text-sm font-medium">{event.title}</p>
 													</div>
-													<p className="text-xs text-muted-foreground">{event.detail}</p>
-													<p className="text-xs text-muted-foreground/60">
+													<p className="text-xs text-slate-400">{event.detail}</p>
+													<p className="text-xs text-slate-400/60">
 														{new Date(event.date).toLocaleDateString("en-US", {
 															month: "short",
 															day: "numeric",
@@ -1055,15 +1124,15 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 			{/* DI History tab */}
 			{activeTab === "di-history" && (
 				<div className="flex flex-col gap-3">
-					<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+					<p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
 						DI Session History
 					</p>
 					{diSessionsLoading ? (
-						<div className="h-32 rounded-lg bg-muted/30 animate-pulse" />
+						<div className="h-32 rounded-lg bg-slate-800/30 animate-pulse" />
 					) : diSessions.length === 0 ? (
-						<div className="rounded-lg border border-border bg-card p-6 text-center">
-							<p className="text-sm text-muted-foreground">No completed DI sessions yet.</p>
-							<p className="text-xs text-muted-foreground mt-1">
+						<div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
+							<p className="text-sm text-slate-400">No completed DI sessions yet.</p>
+							<p className="text-xs text-slate-400 mt-1">
 								Start a DI session from the Coach page to see results here.
 							</p>
 						</div>
@@ -1077,12 +1146,12 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 									return (
 										<div
 											key={session.id}
-											className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3"
+											className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-3"
 										>
 											<div className="flex items-center justify-between">
 												<div>
-													<p className="text-sm font-bold text-foreground">{session.label}</p>
-													<p className="text-xs text-muted-foreground mt-0.5">
+													<p className="text-sm font-bold text-slate-200">{session.label}</p>
+													<p className="text-xs text-slate-400 mt-0.5">
 														{new Date(session.createdAt).toLocaleDateString("en-US", {
 															month: "short",
 															day: "numeric",
@@ -1100,20 +1169,20 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 													return (
 														<div
 															key={group.id}
-															className={`rounded-lg border p-2 flex flex-col gap-1 ${isWinner ? "border-amber-400 bg-amber-50/50" : "border-border bg-muted/20"}`}
+															className={`rounded-lg border p-2 flex flex-col gap-1 ${isWinner ? "border-amber-400 bg-amber-50/50" : "border-slate-800 bg-slate-800/20"}`}
 														>
 															<div className="flex items-center justify-between">
-																<span className="text-xs font-semibold text-foreground">
+																<span className="text-xs font-semibold text-slate-200">
 																	{group.name}
 																</span>
 																{isWinner && <span className="text-xs">🏆</span>}
 															</div>
 															<span
-																className={`text-lg font-black tabular-nums ${isWinner ? "text-amber-600" : "text-foreground"}`}
+																className={`text-lg font-black tabular-nums ${isWinner ? "text-amber-600" : "text-slate-200"}`}
 															>
 																{group.points}
 															</span>
-															<span className="text-[10px] text-muted-foreground">
+															<span className="text-[10px] text-slate-400">
 																{group.members.length} students
 															</span>
 														</div>

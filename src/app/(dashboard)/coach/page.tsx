@@ -807,7 +807,7 @@ export default function CoachPage() {
 										}}
 										className={`px-4 py-2 transition-colors ${inputMode === "ask" ? "bg-indigo-600/30 text-indigo-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
 									>
-										🎓 Ask Coach
+										🎓 Instruction
 									</button>
 									<button
 										type="button"

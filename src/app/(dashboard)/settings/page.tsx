@@ -197,7 +197,7 @@ export default function SettingsPage() {
 		return (
 			<div className="mx-auto max-w-lg px-4 py-8 flex flex-col gap-4">
 				{[1, 2, 3].map((i) => (
-					<div key={i} className="h-16 rounded-lg bg-muted/30 animate-pulse" />
+					<div key={i} className="h-16 rounded-lg bg-slate-800/30 animate-pulse" />
 				))}
 			</div>
 		);
@@ -206,16 +206,16 @@ export default function SettingsPage() {
 	if (loadError || !settings) {
 		return (
 			<div className="mx-auto max-w-lg px-4 py-16 flex flex-col items-center gap-4 text-center">
-				<AlertCircleIcon className="h-10 w-10 text-muted-foreground/50" />
+				<AlertCircleIcon className="h-10 w-10 text-slate-400/50" />
 				<div>
-					<p className="text-sm font-medium text-foreground">Couldn't load settings</p>
-					<p className="text-xs text-muted-foreground mt-1">
+					<p className="text-sm font-medium text-slate-200">Couldn't load settings</p>
+					<p className="text-xs text-slate-400 mt-1">
 						Make sure you're signed in. If this persists, try signing out and back in.
 					</p>
 				</div>
 				<Link
 					href="/login"
-					className="text-xs text-primary underline underline-offset-2 hover:no-underline"
+					className="text-xs text-indigo-400 underline underline-offset-2 hover:no-underline"
 				>
 					Go to sign in →
 				</Link>
@@ -226,22 +226,22 @@ export default function SettingsPage() {
 	return (
 		<div className="mx-auto max-w-lg px-4 py-8">
 			<div className="mb-6">
-				<h1 className="text-xl font-bold text-foreground">Settings</h1>
-				<p className="text-sm text-muted-foreground mt-0.5">Configure your classroom preferences</p>
+				<h1 className="text-xl font-bold text-slate-200">Settings</h1>
+				<p className="text-sm text-slate-400 mt-0.5">Configure your classroom preferences</p>
 			</div>
 
 			<form onSubmit={handleSave} className="flex flex-col gap-6">
 				{/* ── Mastery Loop ────────────────────────────────── */}
 				<section className="flex flex-col gap-4">
-					<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						Mastery Loop
 					</h2>
 
-					<div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">
 						<div className="flex items-center justify-between gap-4">
 							<div>
-								<p className="text-sm font-medium text-foreground">Consecutive correct to master</p>
-								<p className="text-xs text-muted-foreground mt-0.5">
+								<p className="text-sm font-medium text-slate-200">Consecutive correct to master</p>
+								<p className="text-xs text-slate-400 mt-0.5">
 									How many right answers in a row = mastered
 								</p>
 							</div>
@@ -253,11 +253,11 @@ export default function SettingsPage() {
 											s ? { ...s, masteryThreshold: Math.max(1, s.masteryThreshold - 1) } : s,
 										)
 									}
-									className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors"
+									className="h-8 w-8 rounded-lg border border-slate-800 flex items-center justify-center text-lg font-bold hover:bg-slate-800 transition-colors"
 								>
 									-
 								</button>
-								<span className="text-xl font-bold text-foreground w-8 text-center tabular-nums">
+								<span className="text-xl font-bold text-slate-200 w-8 text-center tabular-nums">
 									{settings.masteryThreshold}
 								</span>
 								<button
@@ -267,7 +267,7 @@ export default function SettingsPage() {
 											s ? { ...s, masteryThreshold: Math.min(10, s.masteryThreshold + 1) } : s,
 										)
 									}
-									className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors"
+									className="h-8 w-8 rounded-lg border border-slate-800 flex items-center justify-center text-lg font-bold hover:bg-slate-800 transition-colors"
 								>
 									+
 								</button>
@@ -278,20 +278,20 @@ export default function SettingsPage() {
 
 				{/* ── Comprehension Pulse ─────────────────────────── */}
 				<section className="flex flex-col gap-4">
-					<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						Comprehension Pulse
 					</h2>
 
-					<div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">
 						<div>
 							<div className="flex items-center justify-between mb-2">
 								<div>
-									<p className="text-sm font-medium text-foreground">Confusion alert threshold</p>
-									<p className="text-xs text-muted-foreground mt-0.5">
+									<p className="text-sm font-medium text-slate-200">Confusion alert threshold</p>
+									<p className="text-xs text-slate-400 mt-0.5">
 										Alert when this % of class signals "Lost"
 									</p>
 								</div>
-								<span className="text-xl font-bold text-foreground tabular-nums">
+								<span className="text-xl font-bold text-slate-200 tabular-nums">
 									{settings.confusionAlertPercent}%
 								</span>
 							</div>
@@ -308,7 +308,7 @@ export default function SettingsPage() {
 								}
 								className="w-full accent-primary"
 							/>
-							<div className="flex justify-between text-xs text-muted-foreground mt-1">
+							<div className="flex justify-between text-xs text-slate-400 mt-1">
 								<span>10%</span>
 								<span>90%</span>
 							</div>
@@ -318,15 +318,13 @@ export default function SettingsPage() {
 
 				{/* ── Privacy ─────────────────────────────────────── */}
 				<section className="flex flex-col gap-4">
-					<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-						Privacy
-					</h2>
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Privacy</h2>
 
-					<div className="rounded-lg border border-border bg-card p-4">
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
 						<label className="flex items-center justify-between gap-3 cursor-pointer">
 							<div>
-								<p className="text-sm font-medium text-foreground">Alias mode</p>
-								<p className="text-xs text-muted-foreground mt-0.5">
+								<p className="text-sm font-medium text-slate-200">Alias mode</p>
+								<p className="text-xs text-slate-400 mt-0.5">
 									Replace student initials with animal names in reports
 								</p>
 							</div>
@@ -338,7 +336,7 @@ export default function SettingsPage() {
 									setSettings((s) => (s ? { ...s, useAliasMode: !s.useAliasMode } : s))
 								}
 								className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${
-									settings.useAliasMode ? "bg-primary" : "bg-muted"
+									settings.useAliasMode ? "bg-primary" : "bg-slate-800"
 								}`}
 							>
 								<span
@@ -353,16 +351,14 @@ export default function SettingsPage() {
 
 				{/* ── RAM Buck Store ───────────────────────────────── */}
 				<section className="flex flex-col gap-4">
-					<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						RAM Buck Store
 					</h2>
 
-					<div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">
 						<div className="flex flex-col gap-1.5">
-							<p className="text-sm font-medium text-foreground">Store open schedule</p>
-							<p className="text-xs text-muted-foreground">
-								When students can browse and spend RAM Bucks
-							</p>
+							<p className="text-sm font-medium text-slate-200">Store open schedule</p>
+							<p className="text-xs text-slate-400">When students can browse and spend RAM Bucks</p>
 							<div className="grid grid-cols-3 gap-2 mt-1 sm:grid-cols-5">
 								{(["daily", "weekly", "monthly", "quarterly", "manual"] as const).map(
 									(schedule) => (
@@ -374,8 +370,8 @@ export default function SettingsPage() {
 											}
 											className={`rounded-lg border px-2 py-2 text-xs font-medium capitalize transition-colors ${
 												settings.storeResetSchedule === schedule
-													? "border-primary bg-primary/10 text-primary"
-													: "border-border bg-background text-muted-foreground hover:bg-muted/50"
+													? "border-primary bg-indigo-500/20 text-indigo-400"
+													: "border-slate-800 bg-slate-950 text-slate-400 hover:bg-slate-800/50"
 											}`}
 										>
 											{schedule}
@@ -385,10 +381,10 @@ export default function SettingsPage() {
 							</div>
 						</div>
 
-						<label className="flex items-center justify-between gap-3 cursor-pointer border-t border-border pt-4">
+						<label className="flex items-center justify-between gap-3 cursor-pointer border-t border-slate-800 pt-4">
 							<div>
-								<p className="text-sm font-medium text-foreground">Store is open now</p>
-								<p className="text-xs text-muted-foreground mt-0.5">
+								<p className="text-sm font-medium text-slate-200">Store is open now</p>
+								<p className="text-xs text-slate-400 mt-0.5">
 									Toggle to open or close the store immediately
 								</p>
 							</div>
@@ -398,7 +394,7 @@ export default function SettingsPage() {
 								aria-checked={settings.storeIsOpen}
 								onClick={() => setSettings((s) => (s ? { ...s, storeIsOpen: !s.storeIsOpen } : s))}
 								className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-									settings.storeIsOpen ? "bg-green-500" : "bg-muted"
+									settings.storeIsOpen ? "bg-green-500" : "bg-slate-800"
 								}`}
 							>
 								<span
@@ -413,14 +409,14 @@ export default function SettingsPage() {
 
 				{/* ── DI Group Sessions ───────────────────────────────────── */}
 				<section className="flex flex-col gap-4">
-					<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						DI Group Sessions
 					</h2>
-					<div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">
 						<div className="flex items-center justify-between gap-4">
 							<div>
-								<p className="text-sm font-medium text-foreground">RAM Bucks awarded to winners</p>
-								<p className="text-xs text-muted-foreground mt-0.5">
+								<p className="text-sm font-medium text-slate-200">RAM Bucks awarded to winners</p>
+								<p className="text-xs text-slate-400 mt-0.5">
 									Given to each member of the winning group when a DI session ends
 								</p>
 							</div>
@@ -432,11 +428,11 @@ export default function SettingsPage() {
 											s ? { ...s, diRewardAmount: Math.max(1, (s.diRewardAmount ?? 10) - 5) } : s,
 										)
 									}
-									className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors"
+									className="h-8 w-8 rounded-lg border border-slate-800 flex items-center justify-center text-lg font-bold hover:bg-slate-800 transition-colors"
 								>
 									-
 								</button>
-								<span className="text-xl font-bold text-foreground w-10 text-center tabular-nums">
+								<span className="text-xl font-bold text-slate-200 w-10 text-center tabular-nums">
 									{settings.diRewardAmount ?? 10}
 								</span>
 								<button
@@ -446,7 +442,7 @@ export default function SettingsPage() {
 											s ? { ...s, diRewardAmount: Math.min(500, (s.diRewardAmount ?? 10) + 5) } : s,
 										)
 									}
-									className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors"
+									className="h-8 w-8 rounded-lg border border-slate-800 flex items-center justify-center text-lg font-bold hover:bg-slate-800 transition-colors"
 								>
 									+
 								</button>
@@ -462,35 +458,35 @@ export default function SettingsPage() {
 
 			{/* ── Fee Schedule ─────────────────────────────────── */}
 			<div className="mt-8 flex flex-col gap-4">
-				<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+				<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 					Behavior Fee Schedule
 				</h2>
-				<p className="text-xs text-muted-foreground -mt-2">
+				<p className="text-xs text-slate-400 -mt-2">
 					RAM Buck deductions applied automatically at each behavior step
 				</p>
 
 				{feeLoading ? (
-					<div className="h-48 rounded-lg bg-muted/30 animate-pulse" />
+					<div className="h-48 rounded-lg bg-slate-800/30 animate-pulse" />
 				) : (
-					<div className="rounded-lg border border-border bg-card overflow-hidden">
+					<div className="rounded-lg border border-slate-800 bg-slate-900 overflow-hidden">
 						{feeSchedule.map((entry, i) => (
 							<div
 								key={entry.step}
 								className={`flex items-center gap-3 px-3 py-2.5 ${
-									i !== feeSchedule.length - 1 ? "border-b border-border" : ""
+									i !== feeSchedule.length - 1 ? "border-b border-slate-800" : ""
 								}`}
 							>
-								<span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+								<span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-400">
 									{entry.step}
 								</span>
 								<input
 									type="text"
 									value={entry.label}
 									onChange={(e) => updateFeeEntry(entry.step, "label", e.target.value)}
-									className="flex-1 rounded border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+									className="flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 								/>
 								<div className="flex items-center gap-1 shrink-0">
-									<span className="text-xs text-muted-foreground">-</span>
+									<span className="text-xs text-slate-400">-</span>
 									<input
 										type="number"
 										min={0}
@@ -499,9 +495,9 @@ export default function SettingsPage() {
 										onChange={(e) =>
 											updateFeeEntry(entry.step, "deductionAmount", Number(e.target.value))
 										}
-										className="w-16 rounded border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+										className="w-16 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 									/>
-									<span className="text-xs text-muted-foreground">RAM</span>
+									<span className="text-xs text-slate-400">RAM</span>
 								</div>
 							</div>
 						))}
@@ -523,10 +519,10 @@ export default function SettingsPage() {
 			<div className="mt-8 flex flex-col gap-4">
 				<div className="flex items-center justify-between">
 					<div>
-						<h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 							Store Items
 						</h2>
-						<p className="text-xs text-muted-foreground mt-0.5">
+						<p className="text-xs text-slate-400 mt-0.5">
 							Privileges students can purchase with RAM Bucks
 						</p>
 					</div>
@@ -537,19 +533,19 @@ export default function SettingsPage() {
 				</div>
 
 				{itemsLoading ? (
-					<div className="h-48 rounded-lg bg-muted/30 animate-pulse" />
+					<div className="h-48 rounded-lg bg-slate-800/30 animate-pulse" />
 				) : (
-					<div className="rounded-lg border border-border bg-card overflow-hidden">
+					<div className="rounded-lg border border-slate-800 bg-slate-900 overflow-hidden">
 						{privilegeItems.length === 0 ? (
 							<div className="p-6 text-center">
-								<p className="text-sm text-muted-foreground">No items yet. Add one above.</p>
+								<p className="text-sm text-slate-400">No items yet. Add one above.</p>
 							</div>
 						) : (
 							privilegeItems.map((item, i) => (
 								<div
 									key={item.id}
 									className={`flex flex-col gap-2 px-3 py-3 ${
-										i !== privilegeItems.length - 1 ? "border-b border-border" : ""
+										i !== privilegeItems.length - 1 ? "border-b border-slate-800" : ""
 									} ${!item.isActive ? "opacity-50" : ""}`}
 								>
 									<div className="flex items-center gap-2">
@@ -560,7 +556,7 @@ export default function SettingsPage() {
 											aria-checked={item.isActive}
 											onClick={() => handleToggleItem(item)}
 											className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-												item.isActive ? "bg-primary" : "bg-muted"
+												item.isActive ? "bg-primary" : "bg-slate-800"
 											}`}
 										>
 											<span
@@ -576,7 +572,7 @@ export default function SettingsPage() {
 											value={item.name}
 											onChange={(e) => updateLocalItem(item.id, "name", e.target.value)}
 											onBlur={() => handleUpdateItem(item)}
-											className="flex-1 rounded border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											className="flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 										/>
 
 										{/* Cost */}
@@ -588,9 +584,9 @@ export default function SettingsPage() {
 												value={item.cost}
 												onChange={(e) => updateLocalItem(item.id, "cost", Number(e.target.value))}
 												onBlur={() => handleUpdateItem(item)}
-												className="w-16 rounded border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+												className="w-16 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 											/>
-											<span className="text-xs text-muted-foreground">RAM</span>
+											<span className="text-xs text-slate-400">RAM</span>
 										</div>
 
 										{/* Duration */}
@@ -609,9 +605,9 @@ export default function SettingsPage() {
 													)
 												}
 												onBlur={() => handleUpdateItem(item)}
-												className="w-14 rounded border border-border bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+												className="w-14 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 											/>
-											<span className="text-xs text-muted-foreground">min</span>
+											<span className="text-xs text-slate-400">min</span>
 										</div>
 									</div>
 								</div>

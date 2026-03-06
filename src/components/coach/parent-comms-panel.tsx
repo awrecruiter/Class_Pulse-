@@ -3,6 +3,8 @@
 import {
 	CheckIcon,
 	ChevronLeftIcon,
+	EyeIcon,
+	EyeOffIcon,
 	MessageSquareIcon,
 	PhoneIcon,
 	PlusIcon,
@@ -389,6 +391,7 @@ export function ParentCommsPanel({
 	const [msgsLoading, setMsgsLoading] = useState(false);
 	const [showThread, setShowThread] = useState(false);
 	const [addingFor, setAddingFor] = useState<RosterStudent | null>(null);
+	const [hidden, setHidden] = useState(false);
 
 	const fetchContacts = useCallback(async () => {
 		setContactsLoading(true);
@@ -476,15 +479,30 @@ export function ParentCommsPanel({
 								: "Parent Comms"}
 					</span>
 				</div>
-				{!showThread && !addingFor && (
-					<span className="text-[10px] text-slate-600">
-						{contactsLoading ? "…" : `${contacts.length} contacts`}
-					</span>
-				)}
+				<div className="flex items-center gap-2">
+					{!showThread && !addingFor && (
+						<span className="text-[10px] text-slate-600">
+							{contactsLoading ? "…" : `${contacts.length} contacts`}
+						</span>
+					)}
+					<button
+						type="button"
+						onClick={() => setHidden((v) => !v)}
+						title={hidden ? "Show content" : "Hide sensitive content"}
+						className="text-slate-600 hover:text-slate-400 transition-colors"
+					>
+						{hidden ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeOffIcon className="h-3.5 w-3.5" />}
+					</button>
+				</div>
 			</div>
 
-			{/* Thread view */}
-			{showThread && selected ? (
+			{/* Hidden overlay */}
+			{hidden ? (
+				<div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-600">
+					<EyeOffIcon className="h-6 w-6" />
+					<p className="text-xs">Content hidden</p>
+				</div>
+			) : showThread && selected ? (
 				<>
 					<MessageThread messages={messages} loading={msgsLoading} />
 					<ComposeBar classId={classId} rosterId={selected.rosterId} onSent={handleSent} />
