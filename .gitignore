@@ -37,6 +37,9 @@ yarn-error.log*
 # E2E screenshots
 tests/e2e/screenshots/
 
+# Generated Manim animations (runtime artifacts)
+/public/generated-animations/
+
 # vercel
 .vercel
 

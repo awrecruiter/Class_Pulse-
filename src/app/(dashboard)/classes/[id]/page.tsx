@@ -5,6 +5,7 @@ import {
 	CheckCircleIcon,
 	CheckIcon,
 	ClipboardListIcon,
+	CoinsIcon,
 	CopyIcon,
 	HistoryIcon,
 	PencilIcon,
@@ -23,6 +24,7 @@ import { toast } from "sonner";
 import { GroupsKanban } from "@/components/classes/groups-kanban";
 import { RamBucksPanel } from "@/components/classes/ram-bucks-panel";
 import { Button } from "@/components/ui/button";
+import { useVoiceQueue } from "@/contexts/voice-queue";
 
 type RosterEntry = {
 	id: string;
@@ -34,7 +36,7 @@ type RosterEntry = {
 };
 
 function studentDisplayName(s: RosterEntry): string {
-	return s.firstName ? `${s.firstName} ${s.lastInitial}.` : `${s.firstInitial}.${s.lastInitial}.`;
+	return s.firstName ?? `${s.firstInitial}${s.lastInitial}`;
 }
 
 function studentAvatarInitials(s: RosterEntry): string {
@@ -112,6 +114,7 @@ type StudentGroup = {
 
 export default function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id } = use(params);
+	const { setActiveClassId } = useVoiceQueue();
 	const [cls, setCls] = useState<ClassData | null>(null);
 	const [roster, setRoster] = useState<RosterEntry[]>([]);
 	const [activeSession, setActiveSession] = useState<ClassSession | null>(null);
@@ -133,12 +136,23 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 	});
 	const [adding, setAdding] = useState(false);
 
+	// Edit student state
+	const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+	const [editStudentForm, setEditStudentForm] = useState({ firstName: "", lastInitial: "" });
+	const [savingStudent, setSavingStudent] = useState(false);
+
 	// Groups state
 	const [groups, setGroups] = useState<StudentGroup[]>([]);
 	const [groupsLoading, setGroupsLoading] = useState(false);
 	const [autoAssigning, setAutoAssigning] = useState(false);
 	const [importingCsv, setImportingCsv] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	// Group milestones (activities unlocked by coins)
+	type GroupMilestone = { id: string; name: string; coinsRequired: number };
+	const [milestones, setMilestones] = useState<GroupMilestone[]>([]);
+	const [milestoneForm, setMilestoneForm] = useState({ name: "", coins: "" });
+	const [addingMilestone, setAddingMilestone] = useState(false);
 	const [importingParentCsv, setImportingParentCsv] = useState(false);
 	const parentCsvRef = useRef<HTMLInputElement>(null);
 
@@ -207,6 +221,18 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 		}
 	}, [id]);
 
+	const fetchMilestones = useCallback(async () => {
+		try {
+			const res = await fetch(`/api/classes/${id}/group-milestones`);
+			if (res.ok) {
+				const json = await res.json();
+				setMilestones(json.milestones ?? []);
+			}
+		} catch {
+			// non-critical
+		}
+	}, [id]);
+
 	const fetchContacts = useCallback(async () => {
 		try {
 			const res = await fetch(`/api/classes/${id}/parent-contacts`);
@@ -238,10 +264,15 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 	);
 
 	useEffect(() => {
+		setActiveClassId(id);
+	}, [id, setActiveClassId]);
+
+	useEffect(() => {
 		fetchData();
 		fetchGroups();
+		fetchMilestones();
 		fetchContacts();
-	}, [fetchData, fetchGroups, fetchContacts]);
+	}, [fetchData, fetchGroups, fetchMilestones, fetchContacts]);
 
 	const fetchDiSessions = useCallback(async () => {
 		if (diSessionsLoaded) return;
@@ -343,6 +374,40 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 			toast.success("Student removed");
 		} catch {
 			toast.error("Failed to remove student");
+		}
+	}
+
+	async function saveEditStudent() {
+		if (!editingStudentId) return;
+		const firstName = editStudentForm.firstName.trim();
+		const lastInitial = editStudentForm.lastInitial.trim();
+		if (!firstName || !lastInitial) return;
+		setSavingStudent(true);
+		try {
+			const res = await fetch(`/api/classes/${id}/roster/${editingStudentId}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ firstName, lastInitial }),
+			});
+			if (!res.ok) throw new Error("Failed");
+			setRoster((prev) =>
+				prev.map((s) =>
+					s.id === editingStudentId
+						? {
+								...s,
+								firstName,
+								firstInitial: firstName[0]?.toUpperCase() ?? s.firstInitial,
+								lastInitial: lastInitial.toUpperCase(),
+							}
+						: s,
+				),
+			);
+			setEditingStudentId(null);
+			toast.success("Student updated");
+		} catch {
+			toast.error("Failed to update student");
+		} finally {
+			setSavingStudent(false);
 		}
 	}
 
@@ -536,7 +601,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 				<button
 					type="button"
 					onClick={() => setActiveTab("roster")}
-					className={`px-4 py-2 transition-colors ${activeTab === "roster" ? "bg-indigo-500/20 text-indigo-400" : "bg-slate-950 text-slate-400 hover:text-slate-200"}`}
+					className={`px-4 py-2 transition-colors ${activeTab === "roster" ? "bg-indigo-500/20 text-indigo-400" : "bg-[#0d1525] text-slate-400 hover:text-slate-200"}`}
 				>
 					Roster &amp; Groups
 				</button>
@@ -546,7 +611,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 						setActiveTab("di-history");
 						fetchDiSessions();
 					}}
-					className={`px-4 py-2 transition-colors ${activeTab === "di-history" ? "bg-indigo-500/20 text-indigo-400" : "bg-slate-950 text-slate-400 hover:text-slate-200"}`}
+					className={`px-4 py-2 transition-colors ${activeTab === "di-history" ? "bg-indigo-500/20 text-indigo-400" : "bg-[#0d1525] text-slate-400 hover:text-slate-200"}`}
 				>
 					🏆 DI History
 				</button>
@@ -688,7 +753,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 											placeholder="10293847"
 											value={addForm.studentId}
 											onChange={(e) => setAddForm((f) => ({ ...f, studentId: e.target.value }))}
-											className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											className="rounded border border-slate-800 bg-[#0d1525] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 										/>
 									</div>
 									<div className="flex flex-col gap-1">
@@ -702,7 +767,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 											placeholder="Jordan"
 											value={addForm.firstName}
 											onChange={(e) => setAddForm((f) => ({ ...f, firstName: e.target.value }))}
-											className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											className="rounded border border-slate-800 bg-[#0d1525] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 										/>
 									</div>
 								</div>
@@ -720,7 +785,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 										onChange={(e) =>
 											setAddForm((f) => ({ ...f, lastInitial: e.target.value.slice(-1) }))
 										}
-										className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm uppercase focus:outline-none focus:ring-1 focus:ring-ring w-20"
+										className="rounded border border-slate-800 bg-[#0d1525] px-2 py-1.5 text-sm uppercase focus:outline-none focus:ring-1 focus:ring-ring w-20"
 									/>
 								</div>
 								<div className="flex gap-2 justify-end">
@@ -753,24 +818,87 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 										key={student.id}
 										className="group relative flex flex-col items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-2 py-3 text-center hover:bg-slate-800/30 transition-colors"
 									>
-										{/* Avatar circle */}
-										<div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
-											{studentAvatarInitials(student).toUpperCase()}
-										</div>
-										{/* Name */}
-										<p className="text-xs font-medium text-slate-200 leading-tight">
-											{studentDisplayName(student)}
-										</p>
-										<p className="text-[10px] text-slate-400">#{student.studentId}</p>
-										{/* Remove button */}
-										<button
-											type="button"
-											onClick={() => removeStudent(student.id)}
-											className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all p-0.5"
-											aria-label="Remove student"
-										>
-											<Trash2Icon className="h-3 w-3" />
-										</button>
+										{editingStudentId === student.id ? (
+											<div className="flex flex-col gap-1.5 w-full px-0.5">
+												<input
+													// biome-ignore lint/a11y/noAutofocus: intentional — auto-focus inline edit field
+													autoFocus
+													type="text"
+													placeholder="First name"
+													value={editStudentForm.firstName}
+													onChange={(e) =>
+														setEditStudentForm((f) => ({ ...f, firstName: e.target.value }))
+													}
+													className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-slate-200 w-full focus:outline-none focus:ring-1 focus:ring-indigo-500"
+												/>
+												<input
+													type="text"
+													placeholder="Last init"
+													maxLength={1}
+													value={editStudentForm.lastInitial}
+													onChange={(e) =>
+														setEditStudentForm((f) => ({
+															...f,
+															lastInitial: e.target.value.slice(-1),
+														}))
+													}
+													className="rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-slate-200 w-full uppercase focus:outline-none focus:ring-1 focus:ring-indigo-500"
+												/>
+												<div className="flex gap-1 justify-center">
+													<button
+														type="button"
+														onClick={saveEditStudent}
+														disabled={savingStudent}
+														className="rounded bg-indigo-600 hover:bg-indigo-500 px-2 py-0.5 text-[10px] font-bold text-white disabled:opacity-40"
+													>
+														<CheckIcon className="h-3 w-3" />
+													</button>
+													<button
+														type="button"
+														onClick={() => setEditingStudentId(null)}
+														className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-200"
+													>
+														<XIcon className="h-3 w-3" />
+													</button>
+												</div>
+											</div>
+										) : (
+											<>
+												{/* Avatar circle */}
+												<div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
+													{studentAvatarInitials(student).toUpperCase()}
+												</div>
+												{/* Name */}
+												<p className="text-xs font-medium text-slate-200 leading-tight">
+													{studentDisplayName(student)}
+												</p>
+												<p className="text-[10px] text-slate-400">#{student.studentId}</p>
+												{/* Edit button */}
+												<button
+													type="button"
+													onClick={() => {
+														setEditStudentForm({
+															firstName: student.firstName ?? "",
+															lastInitial: student.lastInitial,
+														});
+														setEditingStudentId(student.id);
+													}}
+													className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-400 transition-all p-0.5"
+													aria-label="Edit student"
+												>
+													<PencilIcon className="h-3 w-3" />
+												</button>
+												{/* Remove button */}
+												<button
+													type="button"
+													onClick={() => removeStudent(student.id)}
+													className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all p-0.5"
+													aria-label="Remove student"
+												>
+													<Trash2Icon className="h-3 w-3" />
+												</button>
+											</>
+										)}
 									</div>
 								))}
 							</div>
@@ -818,6 +946,101 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 								}}
 							/>
 						)}
+					</div>
+
+					{/* Group Coin Activities */}
+					<div className="flex flex-col gap-3">
+						<div>
+							<p className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+								<CoinsIcon className="h-4 w-4 text-amber-400" />
+								Coin Activities
+							</p>
+							<p className="text-xs text-slate-400 mt-0.5">
+								Groups earn coins to unlock these daily activities
+							</p>
+						</div>
+						{milestones.length > 0 && (
+							<div className="flex flex-col gap-1.5">
+								{milestones
+									.slice()
+									.sort((a, b) => a.coinsRequired - b.coinsRequired)
+									.map((m) => (
+										<div
+											key={m.id}
+											className="flex items-center justify-between rounded-lg bg-slate-800/50 border border-slate-700/50 px-3 py-2"
+										>
+											<div className="flex items-center gap-2 min-w-0">
+												<CoinsIcon className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+												<span className="text-sm text-slate-200 truncate">{m.name}</span>
+											</div>
+											<div className="flex items-center gap-2 shrink-0">
+												<span className="text-xs font-bold text-amber-400">
+													{m.coinsRequired.toLocaleString()} coins
+												</span>
+												<button
+													type="button"
+													onClick={async () => {
+														await fetch(`/api/classes/${id}/group-milestones?milestoneId=${m.id}`, {
+															method: "DELETE",
+														});
+														fetchMilestones();
+													}}
+													className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+													aria-label="Delete activity"
+												>
+													<Trash2Icon className="h-3.5 w-3.5" />
+												</button>
+											</div>
+										</div>
+									))}
+							</div>
+						)}
+						<div className="flex gap-2">
+							<input
+								type="text"
+								value={milestoneForm.name}
+								onChange={(e) => setMilestoneForm((f) => ({ ...f, name: e.target.value }))}
+								placeholder="Activity (e.g. PE, Gym)"
+								className="flex-1 min-w-0 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+							/>
+							<input
+								type="number"
+								min={1}
+								value={milestoneForm.coins}
+								onChange={(e) => setMilestoneForm((f) => ({ ...f, coins: e.target.value }))}
+								placeholder="Coins"
+								className="w-20 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 text-center focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+							/>
+							<button
+								type="button"
+								disabled={addingMilestone || !milestoneForm.name.trim() || !milestoneForm.coins}
+								onClick={async () => {
+									const coins = Number(milestoneForm.coins);
+									if (!milestoneForm.name.trim() || !coins) return;
+									setAddingMilestone(true);
+									try {
+										const res = await fetch(`/api/classes/${id}/group-milestones`, {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({
+												name: milestoneForm.name.trim(),
+												coinsRequired: coins,
+											}),
+										});
+										if (res.ok) {
+											setMilestoneForm({ name: "", coins: "" });
+											fetchMilestones();
+										}
+									} finally {
+										setAddingMilestone(false);
+									}
+								}}
+								className="flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/40 px-2.5 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/30 disabled:opacity-40 transition-colors"
+							>
+								<PlusIcon className="h-3.5 w-3.5" />
+								Add
+							</button>
+						</div>
 					</div>
 
 					{/* RAM Buck Economy */}
@@ -917,7 +1140,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 																[student.id]: { ...form, parentName: e.target.value },
 															}))
 														}
-														className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+														className="rounded border border-slate-800 bg-[#0d1525] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 													/>
 													<input
 														type="tel"
@@ -929,7 +1152,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 																[student.id]: { ...form, phone: e.target.value },
 															}))
 														}
-														className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+														className="rounded border border-slate-800 bg-[#0d1525] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 													/>
 													<input
 														type="text"
@@ -941,7 +1164,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 																[student.id]: { ...form, notes: e.target.value },
 															}))
 														}
-														className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+														className="rounded border border-slate-800 bg-[#0d1525] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 													/>
 													<div className="flex gap-2 justify-end">
 														{contact && (
@@ -1049,7 +1272,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					{/* Timeline Modal */}
 					{selectedStudent && (
 						<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-							<div className="bg-slate-950 rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+							<div className="bg-[#0d1525] rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
 								<div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
 									<p className="text-sm font-semibold">
 										{studentDisplayName(selectedStudent)} — Full History

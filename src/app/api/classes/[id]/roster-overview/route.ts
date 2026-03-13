@@ -12,7 +12,7 @@ export type StudentOverview = {
 	lastName: string | null;
 	firstInitial: string;
 	lastInitial: string;
-	displayName: string; // firstName if available, else "J.M."
+	displayName: string; // firstName if available, else initials
 	balance: number;
 	behaviorStep: number;
 };
@@ -64,9 +64,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		lastName: r.lastName,
 		firstInitial: r.firstInitial,
 		lastInitial: r.lastInitial,
-		displayName: r.firstName
-			? `${r.firstName} ${r.lastInitial}.`
-			: `${r.firstInitial}.${r.lastInitial}.`,
+		displayName: r.firstName ?? `${r.firstInitial}${r.lastInitial}`,
 		balance: r.balance ?? 0,
 		behaviorStep: r.behaviorStep ?? 0,
 	}));

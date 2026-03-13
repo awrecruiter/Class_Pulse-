@@ -627,6 +627,41 @@ export const cfuEntries = pgTable(
 	],
 );
 
+// ─── Confusion Marks ─────────────────────────────────────────────────────────
+// Each row = one student tap on "confused here". Multiple rows per student per session.
+export const confusionMarks = pgTable(
+	"confusion_marks",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		sessionId: uuid("session_id")
+			.notNull()
+			.references(() => classSessions.id, { onDelete: "cascade" }),
+		rosterId: text("roster_id").notNull(),
+		markedAt: timestamp("marked_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_confusion_marks_session_id").on(table.sessionId),
+		index("idx_confusion_marks_marked_at").on(table.markedAt),
+	],
+);
+
+// ─── Group Milestones (privilege checkpoints on the RAM Buck ring) ────────────
+
+export const groupMilestones = pgTable(
+	"group_milestones",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		classId: uuid("class_id")
+			.notNull()
+			.references(() => classes.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		coinsRequired: integer("coins_required").notNull(),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [index("idx_group_milestones_class_id").on(table.classId)],
+);
+
 // ─── DI Group Sessions ────────────────────────────────────────────────────────
 
 export const diSessions = pgTable(
@@ -709,6 +744,13 @@ export const clickEventsRelations = relations(clickEvents, ({ one }) => ({
 	}),
 }));
 
+export const groupMilestonesRelations = relations(groupMilestones, ({ one }) => ({
+	class: one(classes, {
+		fields: [groupMilestones.classId],
+		references: [classes.id],
+	}),
+}));
+
 export const classesRelations = relations(classes, ({ many }) => ({
 	rosterEntries: many(rosterEntries),
 	classSessions: many(classSessions),
@@ -717,6 +759,7 @@ export const classesRelations = relations(classes, ({ many }) => ({
 	behaviorProfiles: many(behaviorProfiles),
 	cfuEntries: many(cfuEntries),
 	diSessions: many(diSessions),
+	groupMilestones: many(groupMilestones),
 }));
 
 export const rosterEntriesRelations = relations(rosterEntries, ({ one, many }) => ({

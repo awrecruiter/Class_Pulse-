@@ -2,16 +2,22 @@
 
 import {
 	CheckIcon,
-	ChevronLeftIcon,
+	ChevronRightIcon,
+	ClockIcon,
 	EyeIcon,
 	EyeOffIcon,
 	MessageSquareIcon,
+	MicIcon,
 	PhoneIcon,
 	PlusIcon,
 	SendIcon,
+	UserPlusIcon,
 	XCircleIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useVoiceQueue } from "@/contexts/voice-queue";
+import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
+import { playQueueChime } from "@/lib/chime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,7 +38,15 @@ type RosterStudent = {
 	displayName: string;
 };
 
-type Message = {
+type QueuedMessage = {
+	id: string;
+	rosterId: string;
+	studentName: string;
+	body: string;
+	errored: boolean;
+};
+
+type SentMessage = {
 	id: string;
 	body: string;
 	status: "sent" | "failed";
@@ -43,22 +57,6 @@ type Message = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function triggerLabel(trigger: string) {
-	const map: Record<string, string> = {
-		incident: "Incident",
-		manual: "Manual",
-		broadcast: "Broadcast",
-		"academic-guidance": "Academic",
-	};
-	return map[trigger] ?? trigger;
-}
-
-function triggerColor(trigger: string) {
-	if (trigger === "incident") return "bg-orange-500/20 text-orange-300 border-orange-500/30";
-	if (trigger === "academic-guidance") return "bg-blue-500/20 text-blue-300 border-blue-500/30";
-	return "bg-slate-700/60 text-slate-400 border-slate-600/40";
-}
-
 function fmtTime(iso: string) {
 	return new Date(iso).toLocaleString(undefined, {
 		month: "short",
@@ -68,168 +66,16 @@ function fmtTime(iso: string) {
 	});
 }
 
-// ─── Message thread ───────────────────────────────────────────────────────────
-
-function MessageThread({ messages, loading }: { messages: Message[]; loading: boolean }) {
-	const bottomRef = useRef<HTMLDivElement>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll on change
-	useEffect(() => {
-		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages]);
-
-	if (loading) {
-		return (
-			<div className="flex-1 flex items-center justify-center">
-				<div className="flex gap-1.5">
-					{[0, 1, 2].map((i) => (
-						<span
-							key={i}
-							className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
-							style={{ animationDelay: `${i * 150}ms` }}
-						/>
-					))}
-				</div>
-			</div>
-		);
-	}
-
-	if (messages.length === 0) {
-		return (
-			<div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
-				<MessageSquareIcon className="h-8 w-8 text-slate-600" />
-				<p className="text-xs text-slate-500">No messages sent yet</p>
-			</div>
-		);
-	}
-
-	const sorted = [...messages].reverse();
-
-	return (
-		<div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3 min-h-0">
-			{sorted.map((msg) => (
-				<div key={msg.id} className="flex flex-col gap-1">
-					<div className="flex items-center gap-1.5 flex-wrap">
-						<span
-							className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${triggerColor(msg.triggeredBy)}`}
-						>
-							{triggerLabel(msg.triggeredBy)}
-						</span>
-						{msg.status === "sent" ? (
-							<span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-400">
-								<CheckIcon className="h-2.5 w-2.5" />
-								Delivered
-							</span>
-						) : (
-							<span className="inline-flex items-center gap-0.5 text-[10px] text-red-400">
-								<XCircleIcon className="h-2.5 w-2.5" />
-								Failed
-							</span>
-						)}
-						<span className="text-[10px] text-slate-600 ml-auto shrink-0">
-							{fmtTime(msg.sentAt)}
-						</span>
-					</div>
-					<div
-						className={`rounded-xl rounded-tl-sm px-3 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
-							msg.status === "sent"
-								? "bg-slate-800 border border-slate-700 text-slate-200"
-								: "bg-red-950/40 border border-red-500/20 text-slate-400"
-						}`}
-					>
-						{msg.body}
-					</div>
-				</div>
-			))}
-			<div ref={bottomRef} />
-		</div>
-	);
-}
-
-// ─── Compose bar ──────────────────────────────────────────────────────────────
-
-function ComposeBar({
-	classId,
-	rosterId,
-	onSent,
-}: {
-	classId: string;
-	rosterId: string;
-	onSent: () => void;
-}) {
-	const [text, setText] = useState("");
-	const [state, setState] = useState<"idle" | "loading" | "error">("idle");
-	const [errMsg, setErrMsg] = useState("");
-
-	async function send() {
-		const trimmed = text.trim();
-		if (!trimmed || state === "loading") return;
-		setState("loading");
-		setErrMsg("");
-		try {
-			const res = await fetch(`/api/classes/${classId}/parent-message`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ rosterId, body: trimmed, triggeredBy: "manual" }),
-			});
-			const json = await res.json();
-			if (json.error) {
-				setErrMsg(json.error);
-				setState("error");
-			} else {
-				setText("");
-				setState("idle");
-				onSent();
-			}
-		} catch {
-			setErrMsg("Network error");
-			setState("error");
-		}
-	}
-
-	return (
-		<div className="border-t border-slate-800 px-3 py-3 flex flex-col gap-2 shrink-0">
-			{errMsg && <p className="text-[10px] text-red-400">{errMsg}</p>}
-			<div className="flex gap-2 items-end">
-				<textarea
-					rows={2}
-					value={text}
-					onChange={(e) => {
-						setText(e.target.value);
-						if (state === "error") setState("idle");
-					}}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && !e.shiftKey) {
-							e.preventDefault();
-							send();
-						}
-					}}
-					placeholder="Type a message to parent…"
-					className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-					disabled={state === "loading"}
-				/>
-				<button
-					type="button"
-					onClick={send}
-					disabled={!text.trim() || state === "loading"}
-					className="h-9 w-9 shrink-0 rounded-full flex items-center justify-center bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-500 active:scale-95 transition-all"
-				>
-					<SendIcon className="h-3.5 w-3.5" />
-				</button>
-			</div>
-		</div>
-	);
-}
-
-// ─── Add contact inline form ──────────────────────────────────────────────────
+// ─── Add contact form ─────────────────────────────────────────────────────────
 
 function AddContactForm({
 	classId,
-	rosterId,
+	student,
 	onSaved,
 	onCancel,
 }: {
 	classId: string;
-	rosterId: string;
+	student: RosterStudent;
 	onSaved: () => void;
 	onCancel: () => void;
 }) {
@@ -250,7 +96,12 @@ function AddContactForm({
 			const res = await fetch(`/api/classes/${classId}/parent-contacts`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ rosterId, parentName: parentName.trim(), phone: p, notes: "" }),
+				body: JSON.stringify({
+					rosterId: student.rosterId,
+					parentName: parentName.trim(),
+					phone: p,
+					notes: "",
+				}),
 			});
 			const json = await res.json();
 			if (json.error) {
@@ -267,6 +118,9 @@ function AddContactForm({
 
 	return (
 		<div className="px-3 py-3 flex flex-col gap-2 border-t border-slate-800">
+			<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+				Add contact — {student.displayName}
+			</p>
 			{err && <p className="text-[10px] text-red-400">{err}</p>}
 			<input
 				type="text"
@@ -280,6 +134,9 @@ function AddContactForm({
 				placeholder="+12125551234"
 				value={phone}
 				onChange={(e) => setPhone(e.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") save();
+				}}
 				className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
 			/>
 			<div className="flex gap-2">
@@ -303,74 +160,51 @@ function AddContactForm({
 	);
 }
 
-// ─── Student row (with or without contact) ────────────────────────────────────
+// ─── Sent history drawer ──────────────────────────────────────────────────────
 
-function StudentRow({
-	student,
-	contact,
-	active,
-	onSelect,
-	onAdd,
-}: {
-	student: RosterStudent;
-	contact: Contact | undefined;
-	active: boolean;
-	onSelect: () => void;
-	onAdd: () => void;
-}) {
-	if (contact) {
+function SentHistory({ messages, loading }: { messages: SentMessage[]; loading: boolean }) {
+	if (loading) {
 		return (
-			<button
-				type="button"
-				onClick={onSelect}
-				className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all active:scale-[0.98] ${
-					active
-						? "bg-indigo-500/20 border border-indigo-500/50"
-						: "hover:bg-slate-800/80 border border-transparent"
-				}`}
-			>
-				<div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
-					<span className="text-[10px] font-bold text-white">
-						{student.firstInitial}
-						{student.lastInitial}
-					</span>
+			<div className="flex justify-center py-3">
+				<div className="flex gap-1">
+					{[0, 1, 2].map((i) => (
+						<span
+							key={i}
+							className="h-1 w-1 rounded-full bg-slate-600 animate-bounce"
+							style={{ animationDelay: `${i * 150}ms` }}
+						/>
+					))}
 				</div>
-				<div className="flex-1 min-w-0">
-					<p className="text-xs font-semibold text-slate-200 truncate">
-						{student.displayName}
-						{contact.parentName && (
-							<span className="text-slate-500 font-normal ml-1">— {contact.parentName}</span>
-						)}
-					</p>
-					<p className="text-[10px] text-slate-500 flex items-center gap-1">
-						<PhoneIcon className="h-2.5 w-2.5 shrink-0" />
-						{contact.phone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3")}
-					</p>
-				</div>
-			</button>
+			</div>
 		);
 	}
-
+	if (messages.length === 0) return null;
 	return (
-		<div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-transparent">
-			<div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
-				<span className="text-[10px] font-bold text-slate-400">
-					{student.firstInitial}
-					{student.lastInitial}
-				</span>
-			</div>
-			<div className="flex-1 min-w-0">
-				<p className="text-xs font-semibold text-slate-400 truncate">{student.displayName}</p>
-				<p className="text-[10px] text-slate-600">No contact</p>
-			</div>
-			<button
-				type="button"
-				onClick={onAdd}
-				className="flex items-center gap-1 rounded-full border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-400 hover:border-indigo-500/50 hover:text-indigo-300 transition-colors shrink-0"
-			>
-				<PlusIcon className="h-2.5 w-2.5" />
-				Add
-			</button>
+		<div className="flex flex-col gap-2 px-3 pb-2">
+			<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+				Sent history
+			</p>
+			{[...messages].reverse().map((msg) => (
+				<div key={msg.id} className="flex flex-col gap-0.5">
+					<div className="flex items-center gap-1.5">
+						{msg.status === "sent" ? (
+							<span className="flex items-center gap-0.5 text-[10px] text-emerald-400">
+								<CheckIcon className="h-2.5 w-2.5" />
+								Sent
+							</span>
+						) : (
+							<span className="flex items-center gap-0.5 text-[10px] text-red-400">
+								<XCircleIcon className="h-2.5 w-2.5" />
+								Failed
+							</span>
+						)}
+						<span className="text-[10px] text-slate-600 ml-auto">{fmtTime(msg.sentAt)}</span>
+					</div>
+					<p className="text-xs text-slate-500 leading-snug whitespace-pre-wrap bg-slate-900/50 rounded-lg px-2.5 py-2 border border-slate-800">
+						{msg.body}
+					</p>
+				</div>
+			))}
 		</div>
 	);
 }
@@ -380,18 +214,30 @@ function StudentRow({
 export function ParentCommsPanel({
 	classId,
 	students = [],
+	externalPreselect,
+	onCollapse,
 }: {
 	classId: string;
 	students?: RosterStudent[];
+	externalPreselect?: { rosterId: string; text: string; nonce: number } | null;
+	onCollapse?: () => void;
 }) {
 	const [contacts, setContacts] = useState<Contact[]>([]);
 	const [contactsLoading, setContactsLoading] = useState(true);
-	const [selected, setSelected] = useState<Contact | null>(null);
-	const [messages, setMessages] = useState<Message[]>([]);
-	const [msgsLoading, setMsgsLoading] = useState(false);
-	const [showThread, setShowThread] = useState(false);
+	const [selectedRosterId, setSelectedRosterId] = useState<string | null>(null);
+	const [text, setText] = useState("");
+	const [queue, setQueue] = useState<QueuedMessage[]>([]);
+	const [sendingId, setSendingId] = useState<string | null>(null);
 	const [addingFor, setAddingFor] = useState<RosterStudent | null>(null);
 	const [hidden, setHidden] = useState(false);
+	const [sentMsgs, setSentMsgs] = useState<SentMessage[]>([]);
+	const [sentLoading, setSentLoading] = useState(false);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const [isDictating, setIsDictating] = useState(false);
+	const dictationRef = useRef<SpeechRecognition | null>(null);
+	const committedRef = useRef(""); // finalized words during dictation
+	const { setCommsDictating } = useVoiceQueue();
+	const addToQueueRef = useRef<() => void>(() => {});
 
 	const fetchContacts = useCallback(async () => {
 		setContactsLoading(true);
@@ -410,33 +256,167 @@ export function ParentCommsPanel({
 		fetchContacts();
 	}, [classId]);
 
-	const fetchMessages = useCallback(
+	const fetchSent = useCallback(
 		async (rosterId: string) => {
-			setMsgsLoading(true);
+			setSentLoading(true);
 			try {
 				const res = await fetch(`/api/classes/${classId}/parent-message?rosterId=${rosterId}`);
-				if (res.ok) setMessages((await res.json()).messages ?? []);
+				if (res.ok) setSentMsgs((await res.json()).messages ?? []);
 			} catch {
 				/* noop */
 			} finally {
-				setMsgsLoading(false);
+				setSentLoading(false);
 			}
 		},
 		[classId],
 	);
 
-	function selectContact(c: Contact) {
-		setSelected(c);
-		setShowThread(true);
+	function selectStudent(rosterId: string) {
+		setSelectedRosterId(rosterId);
 		setAddingFor(null);
-		fetchMessages(c.rosterId);
+		setSentMsgs([]);
+		fetchSent(rosterId);
+		textareaRef.current?.focus();
 	}
 
-	function handleSent() {
-		if (selected) fetchMessages(selected.rosterId);
+	addToQueueRef.current = addToQueue;
+
+	// React to voice-command preselect (nonce changes = new trigger)
+	const preselectNonce = externalPreselect?.nonce ?? 0;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: nonce is the intentional trigger
+	useEffect(() => {
+		if (!externalPreselect) return;
+		selectStudent(externalPreselect.rosterId);
+		if (externalPreselect.text) setText(externalPreselect.text);
+		// Auto-start dictation after a short delay so the panel renders first
+		setTimeout(() => {
+			committedRef.current = externalPreselect?.text ?? "";
+			dictStartRef.current?.();
+		}, 600);
+	}, [preselectNonce]);
+
+	function addToQueue() {
+		const trimmed = text.trim();
+		if (!trimmed || !selectedRosterId) return;
+		const student =
+			students.find((s) => s.rosterId === selectedRosterId) ??
+			contacts.find((c) => c.rosterId === selectedRosterId);
+		const studentName = student
+			? "displayName" in student
+				? student.displayName
+				: `${student.firstInitial}.${student.lastInitial}.`
+			: selectedRosterId;
+		setQueue((prev) => [
+			...prev,
+			{
+				id: crypto.randomUUID(),
+				rosterId: selectedRosterId,
+				studentName,
+				body: trimmed,
+				errored: false,
+			},
+		]);
+		setText("");
+		playQueueChime();
 	}
 
-	// Merge roster students with contacts — show all students
+	// ── Dictation via mic manager ────────────────────────────────────────────────
+	const textRef = useRef(text);
+	textRef.current = text;
+	const dictStartRef = useRef<(() => void) | null>(null);
+	const dictStopRef = useRef<(() => void) | null>(null);
+
+	const dictConfig: MicConfig = {
+		continuous: true as const,
+		interimResults: true as const,
+		onResult: (word: string, isFinal: boolean) => {
+			if (!isFinal) {
+				// Show interim text
+				setText(committedRef.current ? `${committedRef.current} ${word}` : word);
+				return;
+			}
+			const w = word.trim();
+			if (!w) return;
+			if (w.toLowerCase() === "cancel") {
+				dictStopRef.current?.();
+				setText(committedRef.current);
+				return;
+			}
+			if (w.toLowerCase() === "save") {
+				addToQueueRef.current();
+				committedRef.current = "";
+				dictStopRef.current?.();
+				return;
+			}
+			committedRef.current = committedRef.current ? `${committedRef.current} ${w}` : w;
+			setText(committedRef.current);
+		},
+		onNaturalEnd: () => {
+			setIsDictating(false);
+			setCommsDictating(false);
+		},
+		onError: (err: string) => {
+			if (err === "no-speech") return;
+			setIsDictating(false);
+			setCommsDictating(false);
+		},
+	};
+
+	const {
+		isActive: dictActive,
+		start: dictStartFn,
+		stop: dictStopFn,
+	} = useMicSlot("dictation", dictConfig);
+	dictStopRef.current = dictStopFn;
+	dictStartRef.current = dictStartFn;
+
+	// Sync isDictating + commsDictating with mic ownership
+	useEffect(() => {
+		setIsDictating(dictActive);
+		setCommsDictating(dictActive);
+	}, [dictActive, setCommsDictating]);
+
+	function toggleDictation() {
+		if (isDictating) {
+			dictStopFn();
+			return;
+		}
+		committedRef.current = textRef.current; // seed with any existing text
+		dictStartFn();
+	}
+
+	async function sendQueued(item: QueuedMessage) {
+		if (sendingId) return;
+		setSendingId(item.id);
+		setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: false } : q)));
+		try {
+			const res = await fetch(`/api/classes/${classId}/parent-message`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterId: item.rosterId, body: item.body, triggeredBy: "manual" }),
+			});
+			if (res.ok) {
+				// Stop continuous dictation now that the message is sent
+				if (dictationRef.current) {
+					dictationRef.current.onend = null;
+					dictationRef.current.stop();
+					dictationRef.current = null;
+					setIsDictating(false);
+					setCommsDictating(false);
+				}
+				setQueue((prev) => prev.filter((q) => q.id !== item.id));
+				if (item.rosterId === selectedRosterId) fetchSent(item.rosterId);
+			} else {
+				setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: true } : q)));
+			}
+		} catch {
+			setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: true } : q)));
+		} finally {
+			setSendingId(null);
+		}
+	}
+
+	// Rows: merge roster students with contacts
 	const rows =
 		students.length > 0
 			? students.map((s) => ({
@@ -449,108 +429,264 @@ export function ParentCommsPanel({
 						firstInitial: c.firstInitial,
 						lastInitial: c.lastInitial,
 						displayName: `${c.firstInitial}.${c.lastInitial}.`,
-					},
+					} as RosterStudent,
 					contact: c,
 				}));
+
+	const selectedRow = rows.find((r) => r.student.rosterId === selectedRosterId);
+	const selectedContact = selectedRow?.contact;
+	const selectedStudent = selectedRow?.student;
 
 	return (
 		<div className="flex flex-col h-full min-h-0">
 			{/* Header */}
 			<div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between shrink-0">
 				<div className="flex items-center gap-2">
-					{(showThread || addingFor) && (
-						<button
-							type="button"
-							onClick={() => {
-								setShowThread(false);
-								setAddingFor(null);
-							}}
-							className="text-slate-500 hover:text-slate-300 transition-colors mr-1"
-						>
-							<ChevronLeftIcon className="h-4 w-4" />
-						</button>
-					)}
 					<MessageSquareIcon className="h-4 w-4 text-indigo-400" />
 					<span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-						{showThread && selected
-							? `${selected.firstInitial}.${selected.lastInitial}. — Parent`
-							: addingFor
-								? `Add — ${addingFor.displayName}`
-								: "Parent Comms"}
+						Parent Comms
 					</span>
-				</div>
-				<div className="flex items-center gap-2">
-					{!showThread && !addingFor && (
-						<span className="text-[10px] text-slate-600">
-							{contactsLoading ? "…" : `${contacts.length} contacts`}
+					{queue.length > 0 && (
+						<span className="rounded-full bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 leading-tight">
+							{queue.length}
 						</span>
 					)}
+				</div>
+				<div className="flex items-center gap-1">
 					<button
 						type="button"
 						onClick={() => setHidden((v) => !v)}
-						title={hidden ? "Show content" : "Hide sensitive content"}
+						title={hidden ? "Show" : "Hide sensitive content"}
 						className="text-slate-600 hover:text-slate-400 transition-colors"
 					>
 						{hidden ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeOffIcon className="h-3.5 w-3.5" />}
 					</button>
+					{onCollapse && (
+						<button
+							type="button"
+							onClick={onCollapse}
+							title="Collapse"
+							className="text-slate-600 hover:text-slate-400 transition-colors"
+						>
+							<ChevronRightIcon className="h-3.5 w-3.5" />
+						</button>
+					)}
 				</div>
 			</div>
 
-			{/* Hidden overlay */}
 			{hidden ? (
 				<div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-600">
 					<EyeOffIcon className="h-6 w-6" />
 					<p className="text-xs">Content hidden</p>
 				</div>
-			) : showThread && selected ? (
-				<>
-					<MessageThread messages={messages} loading={msgsLoading} />
-					<ComposeBar classId={classId} rosterId={selected.rosterId} onSent={handleSent} />
-				</>
-			) : addingFor ? (
-				<AddContactForm
-					classId={classId}
-					rosterId={addingFor.rosterId}
-					onSaved={async () => {
-						await fetchContacts();
-						setAddingFor(null);
-					}}
-					onCancel={() => setAddingFor(null)}
-				/>
 			) : (
-				/* Student / contact list */
-				<div className="flex-1 overflow-y-auto min-h-0">
-					{contactsLoading ? (
-						<div className="flex items-center justify-center py-8">
-							<div className="flex gap-1.5">
-								{[0, 1, 2].map((i) => (
-									<span
-										key={i}
-										className="h-1.5 w-1.5 rounded-full bg-slate-600 animate-bounce"
-										style={{ animationDelay: `${i * 150}ms` }}
-									/>
-								))}
+				<div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+					{/* Student pills */}
+					<div className="px-3 pt-3 pb-2 shrink-0">
+						{contactsLoading ? (
+							<p className="text-[10px] text-slate-600">Loading…</p>
+						) : rows.length === 0 ? (
+							<p className="text-[10px] text-slate-600">No students on roster.</p>
+						) : (
+							<div className="flex gap-1.5 flex-wrap">
+								{rows.map(({ student, contact }) => {
+									const isSelected = selectedRosterId === student.rosterId;
+									const hasContact = !!contact;
+									return (
+										<div key={student.rosterId} className="relative">
+											<button
+												type="button"
+												onClick={() => selectStudent(student.rosterId)}
+												className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-95 ${
+													isSelected
+														? "bg-indigo-600 text-white ring-2 ring-indigo-400/40"
+														: hasContact
+															? "bg-slate-800 border border-slate-700 text-slate-300 hover:border-indigo-500/50 hover:text-indigo-300"
+															: "bg-slate-900 border border-slate-800 text-slate-600 hover:border-slate-700"
+												}`}
+											>
+												{student.firstInitial}
+												{student.lastInitial}
+												{hasContact && (
+													<PhoneIcon
+														className={`h-2.5 w-2.5 ${isSelected ? "text-indigo-200" : "text-slate-600"}`}
+													/>
+												)}
+											</button>
+											{!hasContact && (
+												<button
+													type="button"
+													onClick={() => setAddingFor(student)}
+													title="Add phone"
+													className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-slate-700 flex items-center justify-center hover:bg-indigo-600 transition-colors"
+												>
+													<PlusIcon className="h-2 w-2 text-slate-400" />
+												</button>
+											)}
+										</div>
+									);
+								})}
+							</div>
+						)}
+					</div>
+
+					{/* Add contact form (inline) */}
+					{addingFor && (
+						<AddContactForm
+							classId={classId}
+							student={addingFor}
+							onSaved={async () => {
+								await fetchContacts();
+								setAddingFor(null);
+							}}
+							onCancel={() => setAddingFor(null)}
+						/>
+					)}
+
+					{/* Compose area */}
+					{!addingFor && (
+						<div className="px-3 pb-3 shrink-0">
+							<div
+								className={`rounded-xl border transition-colors ${
+									selectedRosterId
+										? "border-slate-700 bg-slate-800/60 focus-within:border-indigo-500/60"
+										: "border-slate-800 bg-slate-900/40"
+								}`}
+							>
+								{/* To: label */}
+								<div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5 border-b border-slate-700/60">
+									<span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest shrink-0">
+										To:
+									</span>
+									{selectedStudent ? (
+										<span className="text-[11px] font-semibold text-slate-300">
+											{selectedStudent.displayName}
+											{selectedContact?.parentName && (
+												<span className="text-slate-500 font-normal ml-1">
+													— {selectedContact.parentName}
+												</span>
+											)}
+											{!selectedContact && (
+												<span className="text-amber-500/80 font-normal ml-1">(no phone)</span>
+											)}
+										</span>
+									) : (
+										<span className="text-[11px] text-slate-600">Select a student above</span>
+									)}
+									{selectedStudent && !selectedContact && (
+										<button
+											type="button"
+											onClick={() => setAddingFor(selectedStudent)}
+											className="ml-auto flex items-center gap-0.5 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors"
+										>
+											<UserPlusIcon className="h-3 w-3" />
+											Add phone
+										</button>
+									)}
+								</div>
+								<textarea
+									ref={textareaRef}
+									rows={3}
+									value={text}
+									onChange={(e) => setText(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" && !e.shiftKey) {
+											e.preventDefault();
+											addToQueue();
+										}
+									}}
+									placeholder={
+										selectedRosterId ? "Type message… Enter to queue" : "Select a student first"
+									}
+									disabled={!selectedRosterId}
+									className="w-full resize-none bg-transparent px-3 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:cursor-not-allowed"
+								/>
+								<div className="px-3 pb-2.5 flex items-center justify-between">
+									<span className="text-[10px] text-slate-700">
+										{text.length > 0 ? `${text.length} chars` : "Enter ↵ to queue"}
+									</span>
+									<div className="flex items-center gap-1.5">
+										<button
+											type="button"
+											onClick={toggleDictation}
+											disabled={!selectedRosterId}
+											title={isDictating ? "Stop dictation" : "Dictate message"}
+											className={`h-7 w-7 rounded-full flex items-center justify-center border transition-all active:scale-95 disabled:opacity-30 ${isDictating ? "border-red-500/60 bg-red-500/20 text-red-400 animate-pulse" : "border-slate-700 bg-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-600"}`}
+										>
+											<MicIcon className="h-3.5 w-3.5" />
+										</button>
+										<button
+											type="button"
+											onClick={addToQueue}
+											disabled={!text.trim() || !selectedRosterId}
+											title="Queue message"
+											className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-30 hover:bg-amber-400 active:scale-95 transition-all"
+										>
+											<ClockIcon className="h-3 w-3" />
+											Queue
+										</button>
+									</div>
+								</div>
 							</div>
 						</div>
-					) : rows.length === 0 ? (
-						<div className="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center">
-							<PhoneIcon className="h-8 w-8 text-slate-700" />
-							<p className="text-xs text-slate-500 leading-relaxed">No students on roster yet.</p>
-						</div>
-					) : (
-						<div className="px-2 py-2 flex flex-col gap-1">
-							{rows.map(({ student, contact }) => (
-								<StudentRow
-									key={student.rosterId}
-									student={student}
-									contact={contact}
-									active={selected?.rosterId === student.rosterId}
-									onSelect={() => contact && selectContact(contact)}
-									onAdd={() => setAddingFor(student)}
-								/>
+					)}
+
+					{/* Queue list */}
+					{queue.length > 0 && (
+						<div className="px-3 pb-3 flex flex-col gap-2 shrink-0">
+							<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+								Queued to send ({queue.length})
+							</p>
+							{queue.map((item) => (
+								<div
+									key={item.id}
+									className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 ${
+										item.errored
+											? "border-red-500/30 bg-red-950/20"
+											: "border-amber-500/20 bg-amber-500/5"
+									}`}
+								>
+									<div className="flex-1 min-w-0">
+										<p className="text-[10px] font-bold text-slate-400 mb-0.5">
+											{item.studentName}
+										</p>
+										<p className="text-xs text-slate-200 leading-snug whitespace-pre-wrap break-words">
+											{item.body}
+										</p>
+										{item.errored && (
+											<p className="text-[10px] text-red-400 mt-0.5">Send failed — retry?</p>
+										)}
+									</div>
+									<div className="flex flex-col gap-1 shrink-0">
+										<button
+											type="button"
+											onClick={() => sendQueued(item)}
+											disabled={sendingId === item.id}
+											title="Send now"
+											className="h-7 w-7 rounded-full flex items-center justify-center bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 active:scale-95 transition-all"
+										>
+											{sendingId === item.id ? (
+												<span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+											) : (
+												<SendIcon className="h-3.5 w-3.5" />
+											)}
+										</button>
+										<button
+											type="button"
+											onClick={() => setQueue((prev) => prev.filter((q) => q.id !== item.id))}
+											title="Discard"
+											className="h-7 w-7 rounded-full flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-slate-800 transition-colors"
+										>
+											<XCircleIcon className="h-3.5 w-3.5" />
+										</button>
+									</div>
+								</div>
 							))}
 						</div>
 					)}
+
+					{/* Sent history for selected student */}
+					{selectedRosterId && <SentHistory messages={sentMsgs} loading={sentLoading} />}
 				</div>
 			)}
 		</div>

@@ -12,6 +12,8 @@ export interface MicButtonProps {
 	disabled?: boolean;
 	/** 96 = sm, 128 = lg (default) */
 	size?: "sm" | "lg";
+	/** Real-time amplitude levels (0–1) per bar, length must equal BAR_COUNT=12 */
+	levels?: number[];
 }
 
 // ─── Bar count options ───────────────────────────────────────────────────────
@@ -114,7 +116,14 @@ function SpinningArc({ radius }: { radius: number }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function MicButton({ state, onClick, disabled = false, size = "lg" }: MicButtonProps) {
+export function MicButton({
+	state,
+	onClick,
+	disabled = false,
+	size = "lg",
+	levels,
+}: MicButtonProps) {
+	const hasLiveLevels = state === "listening" && levels && levels.length === BAR_COUNT;
 	const cfg = STATE_CONFIG[state];
 
 	// Outer container dimensions
@@ -162,6 +171,7 @@ export function MicButton({ state, onClick, disabled = false, size = "lg" }: Mic
 				 */}
 				{BAR_DELAYS_MS.map((delayMs, i) => {
 					const angleDeg = (i / BAR_COUNT) * 360;
+					const liveScale = hasLiveLevels ? Math.max(0.08, (levels as number[])[i]) : null;
 
 					return (
 						<div
@@ -170,29 +180,26 @@ export function MicButton({ state, onClick, disabled = false, size = "lg" }: Mic
 							style={{
 								width: barW,
 								height: barMaxH,
-								// Position bar at edge of track
 								top: "50%",
 								left: "50%",
-								// Pivot at center of entire container
 								transformOrigin: `${barW / 2}px ${outerPx / 2}px`,
 								transform: `translateX(-${barW / 2}px) translateY(-${outerPx / 2}px) rotate(${angleDeg}deg)`,
 							}}
 						>
-							{/* The actual animated bar pill */}
 							<div
 								className={cn(
 									"w-full rounded-full transition-colors duration-500",
 									cfg.barColor,
-									cfg.barAnimClass,
+									!liveScale && cfg.barAnimClass,
 									state === "idle" && "opacity-40",
 									state === "listening" && "opacity-90",
 									state === "processing" && "opacity-80",
 								)}
 								style={{
 									height: "100%",
-									animationDelay: `${delayMs}ms`,
-									// scaleY origin at bottom so bars grow upward from the ring
+									animationDelay: liveScale ? undefined : `${delayMs}ms`,
 									transformOrigin: "center bottom",
+									transform: liveScale ? `scaleY(${liveScale})` : undefined,
 								}}
 							/>
 						</div>
@@ -231,8 +238,28 @@ export function MicButton({ state, onClick, disabled = false, size = "lg" }: Mic
 									: "0 0 0 4px rgba(245,158,11,0.25), 0 4px 16px rgba(245,158,11,0.3)",
 					}}
 				>
-					{/* Microphone icon */}
-					<MicIcon className={cn("transition-colors duration-300", cfg.iconColor, iconSize)} />
+					{/* Live listening: inline equalizer bars replace the mic icon */}
+					{hasLiveLevels ? (
+						<div className="flex items-end gap-[2px]" style={{ height: size === "lg" ? 22 : 16 }}>
+							{[2, 5, 8, 11, 6, 3, 9].map((barIdx, j) => {
+								const amp = Math.max(0.08, (levels as number[])[barIdx % BAR_COUNT]);
+								return (
+									<div
+										// biome-ignore lint/suspicious/noArrayIndexKey: stable positions
+										key={j}
+										className="rounded-full bg-white"
+										style={{
+											width: size === "lg" ? 3 : 2,
+											height: `${amp * 100}%`,
+											minHeight: "10%",
+										}}
+									/>
+								);
+							})}
+						</div>
+					) : (
+						<MicIcon className={cn("transition-colors duration-300", cfg.iconColor, iconSize)} />
+					)}
 
 					{/* Processing: spinning inner ring overlay */}
 					{state === "processing" && (

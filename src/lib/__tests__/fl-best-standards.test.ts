@@ -60,7 +60,7 @@ describe("FL_BEST_STANDARDS data integrity", () => {
 		const codeToGrade = new Map(FL_BEST_STANDARDS.map((b) => [b.code, b.grade]));
 		for (const b of FL_BEST_STANDARDS) {
 			for (const prereq of b.prerequisites) {
-				const prereqGrade = codeToGrade.get(prereq)!;
+				const prereqGrade = codeToGrade.get(prereq) ?? -1;
 				expect(
 					prereqGrade <= b.grade,
 					`${b.code} (grade ${b.grade}) prereq ${prereq} is grade ${prereqGrade}`,

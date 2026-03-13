@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <rect width="24" height="24" rx="5" fill="#1a3a5c"/>
+  <!-- Rising bar chart -->
+  <rect x="3.5" y="16" width="4" height="5" rx="1" fill="#4a9eff" opacity="0.6"/>
+  <rect x="9.5" y="12" width="4" height="9" rx="1" fill="#4a9eff" opacity="0.8"/>
+  <rect x="15.5" y="7" width="4" height="14" rx="1" fill="white"/>
+  <!-- Up arrow on last bar -->
+  <polygon points="17.5,4 19.5,8 15.5,8" fill="#4a9eff"/>
+</svg>

@@ -1,20 +1,39 @@
 "use client";
 
-import { CheckIcon, ClipboardIcon, MicIcon, SendIcon, Volume2Icon, XIcon } from "lucide-react";
+import {
+	BanknoteIcon,
+	CheckIcon,
+	ChevronDownIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	ClipboardIcon,
+	MicIcon,
+	SendIcon,
+	Volume2Icon,
+	XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
 import type { VisualResponse } from "@/app/api/coach/visualize/route";
 import { AmbientHud } from "@/components/coach/ambient-hud";
 import { ComprehensionPanel } from "@/components/coach/comprehension-panel";
 import { DiPanel } from "@/components/coach/di-panel";
+import { GroupsSidebarPanel } from "@/components/coach/groups-sidebar-panel";
 import { LectureVisualizer } from "@/components/coach/lecture-visualizer";
-import { MicButton, type MicState } from "@/components/coach/mic-button";
+import type { MicState } from "@/components/coach/mic-button";
 import { ParentCommsPanel } from "@/components/coach/parent-comms-panel";
-import { ScaffoldCard } from "@/components/coach/scaffold-card";
+import { RemediationFlow } from "@/components/coach/remediation-flow";
 import { StandardPicker } from "@/components/coach/standard-picker";
+import { WaveformMeter } from "@/components/coach/waveform-meter";
+import { useVoiceQueue } from "@/contexts/voice-queue";
+import { parseCommand } from "@/hooks/use-global-voice-commands";
 import { useLectureTranscript } from "@/hooks/use-lecture-transcript";
+import { useMicAnalyser } from "@/hooks/use-mic-analyser";
+import { useMicSlot } from "@/hooks/use-mic-manager";
 import type { CoachResponse } from "@/lib/ai/coach";
+import { playActivationChime } from "@/lib/chime";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -88,36 +107,36 @@ function StudentChip({
 		<button
 			type="button"
 			onClick={() => onTap(student)}
-			className={`relative flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-all shrink-0 active:scale-95 border ${
+			className={`relative flex flex-col items-center gap-1 rounded-xl p-2 transition-all active:scale-95 border ${
 				active
 					? "bg-indigo-500/20 border-indigo-500 ring-1 ring-indigo-500"
 					: "bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-slate-600"
 			}`}
 		>
-			{/* Behavior dot */}
+			{/* Behavior dot — top right */}
 			<span
-				className={`w-2 h-2 rounded-full shrink-0 ${stepDotColor(student.behaviorStep)} ${student.behaviorStep >= 5 ? "animate-pulse" : ""}`}
+				className={`absolute top-1 right-1 w-2 h-2 rounded-full ${stepDotColor(student.behaviorStep)} ${student.behaviorStep >= 5 ? "animate-pulse" : ""}`}
 			/>
 			{/* Avatar */}
 			<div
-				className={`h-7 w-7 rounded-lg ${avatarColor(student.rosterId)} flex items-center justify-center shrink-0`}
+				className={`h-9 w-9 rounded-lg ${avatarColor(student.rosterId)} flex items-center justify-center shrink-0`}
 			>
-				<span className="text-[11px] font-bold leading-none select-none text-white/90">
+				<span className="text-[12px] font-bold leading-none select-none text-white/90">
 					{(student.firstName ? student.firstName[0] : student.firstInitial).toUpperCase()}
 					{student.lastInitial.toUpperCase()}
 				</span>
 			</div>
-			{/* Name + balance */}
-			<div className="flex flex-col">
-				<span className="text-xs font-medium text-slate-200 leading-none">
-					{student.displayName}
-				</span>
-				<span
-					className={`text-[10px] tabular-nums leading-none mt-0.5 ${student.balance > 0 ? "text-amber-400 font-bold" : "text-slate-500"}`}
-				>
-					🐏 {student.balance}
-				</span>
-			</div>
+			{/* Name */}
+			<span className="text-[10px] font-medium text-slate-200 leading-tight text-center w-full truncate px-0.5">
+				{student.displayName}
+			</span>
+			{/* Balance */}
+			<span
+				className={`inline-flex items-center gap-0.5 text-[9px] tabular-nums leading-none ${student.balance > 0 ? "text-amber-400 font-bold" : "text-slate-500"}`}
+			>
+				<BanknoteIcon className="h-2.5 w-2.5 shrink-0 text-emerald-400" />
+				{student.balance}
+			</span>
 		</button>
 	);
 }
@@ -279,6 +298,46 @@ type ClassRow = { id: string; label: string; gradeLevel?: string; activeSessionI
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CoachPage() {
+	// Voice queue — used to pipe lecture finals through command parser
+	const {
+		queue,
+		enqueue,
+		confirm,
+		setDrawerOpen,
+		setLectureMicActive,
+		setActiveClassId,
+		stopCommandsNow,
+	} = useVoiceQueue();
+
+	const handleFinalResult = useCallback(
+		(text: string) => {
+			const cmd = parseCommand(text);
+			if (!cmd) return;
+			let label = "";
+			switch (cmd.type) {
+				case "consequence":
+					label = `Queued: ${cmd.stepLabel} for ${cmd.studentName}`;
+					break;
+				case "ram_bucks":
+					label = `Queued: +${cmd.amount} RAM Bucks for ${cmd.studentName}`;
+					break;
+				case "group_coins":
+					label = `Queued: +${cmd.amount} coins for ${cmd.group}`;
+					break;
+				case "parent_message":
+					label = `Queued: message to ${cmd.studentName}'s parent`;
+					break;
+			}
+			enqueue(cmd, text);
+			toast.success(label, {
+				description: "Tap Voice Queue to review",
+				duration: 4000,
+				action: { label: "Review", onClick: () => setDrawerOpen(true) },
+			});
+		},
+		[enqueue, setDrawerOpen],
+	);
+
 	// Lecture transcript
 	const {
 		transcript,
@@ -288,7 +347,27 @@ export default function CoachPage() {
 		startListening,
 		stopListening,
 		clearTranscript,
-	} = useLectureTranscript();
+	} = useLectureTranscript({ onFinalResult: handleFinalResult });
+
+	// Signal to VoiceCommandProvider to yield its mic while lecture is active
+	useEffect(() => {
+		setLectureMicActive(isListening);
+		return () => setLectureMicActive(false);
+	}, [isListening, setLectureMicActive]);
+
+	// Flash "saved" indicator when mic stops with captured words
+	const [savedWordCount, setSavedWordCount] = useState(0);
+	const [showSaved, setShowSaved] = useState(false);
+	const prevListeningRef = useRef(false);
+	useEffect(() => {
+		if (prevListeningRef.current && !isListening && wordCount > 0) {
+			setSavedWordCount(wordCount);
+			setShowSaved(true);
+			const t = setTimeout(() => setShowSaved(false), 4000);
+			return () => clearTimeout(t);
+		}
+		prevListeningRef.current = isListening;
+	}, [isListening, wordCount]);
 
 	// Lecture visualizer
 	const [visual, setVisual] = useState<VisualResponse | null>(null);
@@ -329,8 +408,9 @@ export default function CoachPage() {
 
 	// Groups for differentiated instruction filtering
 	type GroupRow = { id: string; name: string; emoji: string; memberRosterIds: string[] };
-	const [groups, setGroups] = useState<GroupRow[]>([]);
-	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+	const [_groups, setGroups] = useState<GroupRow[]>([]);
+	const [_selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+	const [showGroups, setShowGroups] = useState(true);
 
 	useEffect(() => {
 		fetch("/api/classes")
@@ -371,6 +451,35 @@ export default function CoachPage() {
 	}, [selectedClassId, fetchStudents]);
 
 	useEffect(() => {
+		if (selectedClassId) setActiveClassId(selectedClassId);
+	}, [selectedClassId, setActiveClassId]);
+
+	// Sync selected class to localStorage for board view
+	useEffect(() => {
+		if (selectedClassId) localStorage.setItem("board-class-id", selectedClassId);
+	}, [selectedClassId]);
+
+	// Route parent_message voice commands → Parent Comms panel
+	useEffect(() => {
+		const item = queue.find((q) => q.data.type === "parent_message");
+		if (!item || item.data.type !== "parent_message") return;
+		const { studentName, messageText } = item.data;
+		const needle = studentName.toLowerCase();
+		const match = students.find(
+			(s) => s.firstName?.toLowerCase() === needle || s.firstInitial.toLowerCase() === needle[0],
+		);
+		if (!match) return;
+		confirm(item.id);
+		setRightOpen(true);
+		setParentCommsPreselect({ rosterId: match.rosterId, text: messageText, nonce: Date.now() });
+		playActivationChime();
+		setTimeout(() => {
+			const utt = new SpeechSynthesisUtterance("Go ahead");
+			window.speechSynthesis.speak(utt);
+		}, 500);
+	}, [queue, students, confirm]);
+
+	useEffect(() => {
 		if (!selectedClassId) return;
 		setSelectedGroupId(null);
 		fetch(`/api/classes/${selectedClassId}/groups`)
@@ -390,15 +499,36 @@ export default function CoachPage() {
 			.catch(() => setGroups([]));
 	}, [selectedClassId]);
 
+	// Track whether DiPanel has a live session (so we keep it visible when user switches modes)
+	const [diSessionActive, setDiSessionActive] = useState(false);
+
 	// Orb + input state
-	const [inputMode, setInputMode] = useState<"behavior" | "ask" | "di">("behavior");
+	const [inputMode, setInputMode] = useState<"behavior" | "ask" | "di">("ask");
 	const [isOrbRecording, setIsOrbRecording] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [textInput, setTextInput] = useState("");
-	const [showTextInput, setShowTextInput] = useState(false);
+	const [, setShowTextInput] = useState(false);
+	// Panel collapse state
+	const [leftOpen, setLeftOpen] = useState(true);
+	const [studentsOpen, setStudentsOpen] = useState(true);
+	const [rightOpen, setRightOpen] = useState(true);
+	const [parentCommsPreselect, setParentCommsPreselect] = useState<{
+		rosterId: string;
+		text: string;
+		nonce: number;
+	} | null>(null);
+	// Auto command mode — activates when lecture mic is off
+	const autoCommandRef = useRef(false);
+	const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const isLoadingRef = useRef(false);
+	isLoadingRef.current = isLoading;
+	const startOrbRef = useRef<() => void>(() => {});
+	// Only auto-enable command mode after teacher has used lecture recording at least once
+	const _hasEverListenedRef = useRef(false);
 
 	// Derive mic button state
 	const micState: MicState = isOrbRecording ? "listening" : isLoading ? "processing" : "idle";
+	const _micLevels = useMicAnalyser(isOrbRecording);
 
 	// Sync AI state to <html data-ai-state> so the AiPresenceBorder CSS reacts
 	useEffect(() => {
@@ -446,6 +576,7 @@ export default function CoachPage() {
 		return null;
 	}
 
+	// biome-ignore lint/correctness/noUnusedVariables: chip helper — used by future behavior chip buttons
 	function applyChip(template: string, autoSend = false) {
 		const name = activeStudent ? activeStudent.displayName : null;
 		const phrase = name
@@ -480,7 +611,11 @@ export default function CoachPage() {
 				res = await fetch("/api/coach/behavior", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ message: trimmed, history: historyRef.current.slice(-20) }),
+					body: JSON.stringify({
+						message: trimmed,
+						history: historyRef.current.slice(-20),
+						lessonTranscript: transcript || undefined,
+					}),
 					signal: controller.signal,
 				});
 			} finally {
@@ -563,7 +698,7 @@ export default function CoachPage() {
 	}
 
 	const sendAcademic = useCallback(
-		async (query: string, priorAttempts: typeof scaffoldAttempts = []) => {
+		async (query: string, priorAttempts: typeof scaffoldAttempts = [], grade?: number) => {
 			const q = query.trim();
 			if (!q || isLoading) return;
 			setLastAcademicQuery(q);
@@ -585,6 +720,7 @@ export default function CoachPage() {
 							studentQuery: q,
 							pinnedStandards,
 							priorAttempts,
+							scaffoldGrade: grade,
 						}),
 						signal: controller.signal,
 					});
@@ -617,47 +753,99 @@ export default function CoachPage() {
 		[scaffoldAttempts, lastAcademicQuery, sendAcademic],
 	);
 
-	// Orb recording
-	const recognitionRef = useRef<SpeechRecognition | null>(null);
+	const handleGradeChange = useCallback(
+		(grade: number) => {
+			sendAcademic(lastAcademicQuery, scaffoldAttempts, grade);
+		},
+		[lastAcademicQuery, scaffoldAttempts, sendAcademic],
+	);
+
+	// DI voice dispatch ref — DiPanel sets this so global mic can route commands to it
+	const diDispatchRef = useRef<((transcript: string) => void) | null>(null);
+
+	// ── Orb recording via mic manager ────────────────────────────────────────────
+	// inputMode and dispatch refs for use inside config callback
+	const inputModeRef = useRef(inputMode);
+	inputModeRef.current = inputMode;
+	const sendAcademicRef = useRef(sendAcademic);
+	sendAcademicRef.current = sendAcademic;
+	const sendBehaviorRef = useRef(sendBehavior);
+	sendBehaviorRef.current = sendBehavior;
+
+	const orbConfig = {
+		continuous: false as const,
+		interimResults: false as const,
+		onResult: (t: string, isFinal: boolean) => {
+			if (!isFinal || !t.trim()) return;
+			if (inputModeRef.current === "di" && diDispatchRef.current) {
+				diDispatchRef.current(t);
+			} else if (inputModeRef.current === "ask") {
+				sendAcademicRef.current(t);
+			} else {
+				sendBehaviorRef.current(t);
+			}
+		},
+		onNaturalEnd: () => setIsOrbRecording(false),
+	};
+
+	const { isActive: orbActive, start: orbStart, stop: orbStop } = useMicSlot("orb", orbConfig);
+
+	// Keep isOrbRecording in sync with actual mic ownership
+	useEffect(() => {
+		if (!orbActive && isOrbRecording) setIsOrbRecording(false);
+	}, [orbActive, isOrbRecording]);
+
 	function toggleOrb() {
 		if (isLoading) return;
 		if (isOrbRecording) {
-			recognitionRef.current?.stop();
+			autoCommandRef.current = false;
+			orbStop();
 			setIsOrbRecording(false);
 			return;
 		}
-		const SR =
-			typeof window !== "undefined"
-				? (window.SpeechRecognition ?? window.webkitSpeechRecognition)
-				: null;
-		if (!SR) {
+		const hasSpeech =
+			typeof window !== "undefined" &&
+			!!(window.SpeechRecognition ?? window.webkitSpeechRecognition);
+		if (!hasSpeech) {
 			setShowTextInput(true);
 			return;
 		}
-		const r = new SR();
-		r.continuous = false;
-		r.interimResults = false;
-		r.lang = "en-US";
-		r.onresult = (e: SpeechRecognitionEvent) => {
-			const t = e.results[0]?.[0]?.transcript ?? "";
-			if (t) {
-				if (inputMode === "ask") sendAcademic(t);
-				else sendBehavior(t);
-			}
-		};
-		r.onend = () => setIsOrbRecording(false);
-		r.onerror = () => setIsOrbRecording(false);
-		recognitionRef.current = r;
-		r.start();
+		orbStart();
 		setIsOrbRecording(true);
 	}
+	startOrbRef.current = toggleOrb;
+
+	// Auto command mode: off when lecture is on, on when lecture is off
+	// The mic manager handles priority — orb will naturally yield to lecture (priority 4 > 2)
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useEffect(() => {
+		if (isListening) {
+			autoCommandRef.current = false;
+			if (restartTimerRef.current) {
+				clearTimeout(restartTimerRef.current);
+				restartTimerRef.current = null;
+			}
+			setIsOrbRecording(false);
+		} else {
+			autoCommandRef.current = true;
+			restartTimerRef.current = setTimeout(() => {
+				if (autoCommandRef.current && !isLoadingRef.current) startOrbRef.current();
+			}, 700);
+		}
+		return () => {
+			if (restartTimerRef.current) {
+				clearTimeout(restartTimerRef.current);
+				restartTimerRef.current = null;
+			}
+		};
+	}, [isListening]);
 
 	const lectureMinutes = wordCount > 0 ? Math.max(1, Math.round(wordCount / 130)) : 0;
-	const showOrbArea = inputMode !== "di";
+	const showOrbArea = true;
 	const selectedClass = classes.find((c) => c.id === selectedClassId);
 
 	return (
-		<div className="h-[calc(100vh-3.5rem)] bg-slate-950 flex flex-col overflow-hidden">
+		<div className="h-[calc(100vh-3.5rem)] bg-[#0d1525] flex flex-col overflow-hidden">
 			{/* ── Top bar ──────────────────────────────────────────────── */}
 			<div className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center gap-3 flex-wrap">
 				{/* Session status dot */}
@@ -670,12 +858,47 @@ export default function CoachPage() {
 					{activeSessionId ? "Session live" : "No active session"}
 				</span>
 
+				{/* Panels toggle */}
+				<button
+					type="button"
+					onClick={() => {
+						const anyOpen = leftOpen || rightOpen;
+						setLeftOpen(!anyOpen);
+						setRightOpen(!anyOpen);
+					}}
+					className="text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors px-2 py-1 rounded hover:bg-slate-800"
+				>
+					{leftOpen || rightOpen ? "⊟ Panels" : "⊞ Panels"}
+				</button>
+
 				<div className="ml-auto flex items-center gap-2">
+					{/* Saved flash */}
+					{showSaved && (
+						<span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 animate-pulse">
+							<CheckIcon className="h-3 w-3" />
+							{savedWordCount.toLocaleString()} words captured
+						</span>
+					)}
 					{/* Record lesson */}
 					{isSupported && (
 						<button
 							type="button"
-							onClick={isListening ? stopListening : startListening}
+							onClick={() => {
+								if (isListening) {
+									stopListening();
+								} else {
+									// Kill command mode before starting lecture recording
+									autoCommandRef.current = false;
+									if (restartTimerRef.current) {
+										clearTimeout(restartTimerRef.current);
+										restartTimerRef.current = null;
+									}
+									stopCommandsNow();
+									setIsOrbRecording(false);
+									playActivationChime();
+									setTimeout(startListening, 350);
+								}
+							}}
 							className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
 								isListening
 									? "bg-red-500/20 text-red-300 ring-1 ring-red-500/50"
@@ -685,7 +908,7 @@ export default function CoachPage() {
 							{isListening ? (
 								<>
 									<span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-									{lectureMinutes}m recording
+									Stop · {lectureMinutes}m
 								</>
 							) : (
 								<>
@@ -708,441 +931,519 @@ export default function CoachPage() {
 			</div>
 
 			{/* ── Main grid ─────────────────────────────────────────────── */}
-			<div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[300px_1fr] xl:grid-cols-[320px_1fr_300px] gap-0">
+			<div
+				className="flex-1 min-h-0 grid gap-0"
+				style={{
+					gridTemplateColumns: [
+						leftOpen ? "320px" : "2rem",
+						"1fr",
+						selectedClassId ? (rightOpen ? "300px" : "2rem") : "0px",
+					].join(" "),
+				}}
+			>
 				{/* ── LEFT: Roster + Comprehension ─────────────────────── */}
-				<div className="border-r border-slate-800 flex flex-col gap-0 overflow-y-auto min-h-0">
-					{/* Student roster */}
-					<div className="p-4 border-b border-slate-800">
-						<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-3">
-							{studentsLoading ? "Loading…" : `${students.length} Students`}
-						</p>
-						{students.length > 0 ? (
-							<div className="flex flex-col gap-1.5">
-								{students.map((s) => (
-									<StudentChip
-										key={s.rosterId}
-										student={s}
-										active={activeStudent?.rosterId === s.rosterId}
-										onTap={handleStudentTap}
-									/>
-								))}
+				<div
+					className={`border-r border-slate-800 flex flex-col gap-0 min-h-0 overflow-hidden relative ${leftOpen ? "overflow-y-auto" : "items-center py-3"}`}
+				>
+					{leftOpen ? (
+						<>
+							{/* Sidebar header — collapse arrow only */}
+							<div className="sticky top-0 z-10 bg-[#0d1525] border-b border-slate-800 flex items-center justify-end px-3 py-2">
+								<button
+									type="button"
+									onClick={() => setLeftOpen(false)}
+									title="Collapse sidebar"
+									className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
+								>
+									<ChevronLeftIcon className="h-3.5 w-3.5" />
+								</button>
 							</div>
-						) : !studentsLoading ? (
-							<p className="text-xs text-slate-500">No students on roster yet.</p>
-						) : null}
-					</div>
 
-					{/* Comprehension panel */}
-					<div className="p-4">
-						{selectedClassId && (
-							<ComprehensionPanel classId={selectedClassId} activeSessionId={activeSessionId} />
-						)}
-					</div>
+							{/* Comprehension panel — Student Understanding */}
+							<div className="p-4 border-b border-slate-800">
+								{selectedClassId && (
+									<ComprehensionPanel classId={selectedClassId} activeSessionId={activeSessionId} />
+								)}
+							</div>
+
+							{/* Student roster — collapsible */}
+							<div className="border-b border-slate-800">
+								<button
+									type="button"
+									onClick={() => setStudentsOpen((o) => !o)}
+									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+								>
+									<ChevronDownIcon
+										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${studentsOpen ? "" : "-rotate-90"}`}
+									/>
+									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+										{studentsLoading ? "Loading…" : `${students.length} Students`}
+									</p>
+								</button>
+								{studentsOpen && (
+									<div className="px-4 pb-3 pt-2">
+										{students.length > 0 ? (
+											<div className="grid grid-cols-3 gap-1.5">
+												{students.map((s) => (
+													<StudentChip
+														key={s.rosterId}
+														student={s}
+														active={activeStudent?.rosterId === s.rosterId}
+														onTap={handleStudentTap}
+													/>
+												))}
+											</div>
+										) : !studentsLoading ? (
+											<p className="text-xs text-slate-500">No students on roster yet.</p>
+										) : null}
+									</div>
+								)}
+							</div>
+						</>
+					) : (
+						<button
+							type="button"
+							onClick={() => setLeftOpen(true)}
+							title="Expand left panel"
+							className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
+						>
+							<ChevronRightIcon className="h-3.5 w-3.5" />
+						</button>
+					)}
 				</div>
 
 				{/* ── CENTER: Voice cockpit ─────────────────────────────── */}
-				<div className="flex flex-col overflow-y-auto min-h-0">
-					{/* Active student bar */}
-					{activeStudent && (
-						<div className="bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2 flex items-center justify-between">
-							<span className="text-xs font-medium text-indigo-300">
-								<span className="text-slate-400 mr-1">Focused:</span>
-								{activeStudent.displayName}
-								<span className="text-slate-500 mx-1.5">·</span>
-								<span className="text-amber-400">🐏 {activeStudent.balance}</span>
-								<span className="text-slate-500 mx-1.5">·</span>
-								<span
-									className={
-										activeStudent.behaviorStep > 0 ? "text-orange-400" : "text-emerald-400"
-									}
-								>
-									Step {activeStudent.behaviorStep}
-								</span>
-							</span>
+				<div className="flex flex-col min-h-0 overflow-hidden">
+					{/* Mode toggle — always visible */}
+					<div
+						className={`flex justify-center px-6 ${scaffoldResponse ? "pt-3 pb-3" : "pt-6 pb-2"}`}
+					>
+						<div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs font-semibold">
 							<button
 								type="button"
 								onClick={() => {
-									setActiveStudent(null);
-									pendingStudentRef.current = null;
+									if (inputMode === "ask") {
+										setInputMode("di");
+									} else if (inputMode === "di") {
+										setInputMode("ask");
+									} else {
+										setInputMode("ask");
+										setShowTextInput(true);
+									}
 								}}
-								className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+								className={`px-4 py-2 transition-colors ${
+									inputMode === "ask" || inputMode === "di"
+										? "bg-indigo-600/30 text-indigo-300"
+										: "bg-slate-800 text-slate-400 hover:text-slate-200"
+								}`}
 							>
-								<XIcon className="h-3 w-3" />
-								Dismiss
+								🎓 Instruction
+								{inputMode === "ask" || inputMode === "di"
+									? inputMode === "di"
+										? " ▴"
+										: " ▾"
+									: ""}
 							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setInputMode("behavior");
+									setScaffoldResponse(null);
+									setScaffoldError(null);
+								}}
+								className={`px-4 py-2 transition-colors ${inputMode === "behavior" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
+							>
+								🧑‍🏫 Behavior
+							</button>
+						</div>
+					</div>
+
+					{/* DI Panel */}
+					{(inputMode === "di" || diSessionActive) && (
+						<div className={`flex-1 min-h-0 overflow-y-auto${inputMode !== "di" ? " hidden" : ""}`}>
+							{selectedClassId ? (
+								<DiPanel
+									classId={selectedClassId}
+									students={students}
+									onSessionEnd={() => fetchStudents(selectedClassId)}
+									dispatchRef={diDispatchRef}
+									onActiveSessionChange={setDiSessionActive}
+								/>
+							) : (
+								<div className="flex items-center justify-center h-32">
+									<p className="text-sm text-slate-500">Select a class to use DI groups.</p>
+								</div>
+							)}
 						</div>
 					)}
 
-					{/* DI Panel — replaces center when DI mode active */}
-					{inputMode === "di" && selectedClassId && (
-						<DiPanel
-							classId={selectedClassId}
-							students={students}
-							onSessionEnd={() => fetchStudents(selectedClassId)}
-						/>
-					)}
-
-					{showOrbArea && (
-						<>
-							{/* Orb area */}
-							<div className="flex flex-col items-center gap-5 px-6 py-8 w-full">
-								{/* Mode toggle */}
-								<div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs font-semibold">
+					{/* Reserved space — mic button at rest, waveform when capturing */}
+					{showOrbArea && inputMode !== "di" && !(inputMode === "ask" && scaffoldResponse) && (
+						<div className="shrink-0 flex items-center justify-center px-6" style={{ height: 160 }}>
+							{isListening || isOrbRecording ? (
+								<WaveformMeter
+									active={isListening || isOrbRecording}
+									height={136}
+									className="w-full"
+								/>
+							) : (
+								<div className="relative flex items-center justify-center">
+									<span className="absolute h-20 w-20 rounded-full border border-slate-600/40 [animation:mic-center-pulse_2.8s_ease-in-out_infinite]" />
+									<span className="absolute h-24 w-24 rounded-full border border-slate-700/25 [animation:mic-center-pulse_2.8s_ease-in-out_infinite_0.4s]" />
 									<button
 										type="button"
-										onClick={() => {
-											setInputMode("behavior");
-											setScaffoldResponse(null);
-											setScaffoldError(null);
-										}}
-										className={`px-4 py-2 transition-colors ${inputMode === "behavior" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
+										onClick={toggleOrb}
+										disabled={isLoading}
+										title="Voice input"
+										className="relative z-10 h-16 w-16 rounded-full flex items-center justify-center border-2 border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:border-slate-500 hover:text-slate-200 transition-all active:scale-95 disabled:opacity-40"
 									>
-										🧑‍🏫 Behavior
-									</button>
-									<button
-										type="button"
-										onClick={() => {
-											setInputMode("ask");
-											setShowTextInput(true);
-										}}
-										className={`px-4 py-2 transition-colors ${inputMode === "ask" ? "bg-indigo-600/30 text-indigo-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
-									>
-										🎓 Instruction
-									</button>
-									<button
-										type="button"
-										onClick={() => setInputMode("di")}
-										className={`px-4 py-2 transition-colors ${(inputMode as string) === "di" ? "bg-emerald-600/30 text-emerald-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
-									>
-										🏆 DI Groups
+										<MicIcon className="h-7 w-7" />
 									</button>
 								</div>
+							)}
+						</div>
+					)}
 
-								{/* Mic button */}
-								<MicButton state={micState} onClick={toggleOrb} disabled={isLoading} size="lg" />
-
-								{/* Quick action chips */}
-								{inputMode === "behavior" && (
-									<div className="flex flex-wrap gap-2 justify-center">
+					{/* Groups zone — fixed height, no scroll */}
+					{showOrbArea && inputMode !== "di" && (
+						<div className="shrink-0 flex flex-col">
+							{/* Class selector + group cards */}
+							{classes.length > 0 && (
+								<div className="flex gap-1.5 justify-center px-4 pt-3 pb-2">
+									{classes.map((c) => (
 										<button
+											key={c.id}
 											type="button"
-											onClick={() => applyChip("Give {} bucks for ")}
-											className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all"
-										>
-											🏆 Reward
-										</button>
-										<button
-											type="button"
-											onClick={() => applyChip("Step up for {}", !!activeStudent)}
-											className="rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-xs font-semibold text-orange-300 hover:bg-orange-500/20 active:scale-95 transition-all"
-										>
-											⚠️ Step Up
-										</button>
-										<button
-											type="button"
-											onClick={() => applyChip("Call home for {}", !!activeStudent)}
-											className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 active:scale-95 transition-all"
-										>
-											📞 Call Home
-										</button>
-										<button
-											type="button"
-											onClick={() => setShowTextInput((v) => !v)}
-											className="rounded-full border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:bg-slate-700 active:scale-95 transition-all"
-										>
-											✏️ Type
-										</button>
-									</div>
-								)}
-
-								{/* Standard picker — ask mode only */}
-								{inputMode === "ask" && (
-									<div className="w-full max-w-md">
-										<StandardPicker
-											value={pinnedStandards}
-											onChange={setPinnedStandards}
-											defaultGrade={
-												selectedClass?.gradeLevel
-													? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
-													: undefined
-											}
-										/>
-									</div>
-								)}
-
-								{/* Text input */}
-								{(showTextInput || inputMode === "ask") && (
-									<div className="flex gap-2 items-end w-full max-w-md">
-										<textarea
-											rows={2}
-											value={textInput}
-											onChange={(e) => setTextInput(e.target.value)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter" && !e.shiftKey) {
-													e.preventDefault();
-													if (inputMode === "ask") sendAcademic(textInput);
-													else sendBehavior(textInput);
+											onClick={() => {
+												if (selectedClassId === c.id) {
+													setShowGroups((v) => !v);
+												} else {
+													setSelectedClassId(c.id);
+													setShowGroups(true);
+													setSelectedGroupId(null);
 												}
 											}}
-											placeholder={
-												inputMode === "ask"
-													? "What are your students struggling with?"
-													: '"Give Jordan 15 bucks for great focus"'
-											}
-											className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-											disabled={isLoading}
-										/>
-										<button
-											type="button"
-											disabled={!textInput.trim() || isLoading}
-											onClick={() => {
-												if (inputMode === "ask") sendAcademic(textInput);
-												else sendBehavior(textInput);
-											}}
-											className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-500 transition-colors"
+											className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedClassId === c.id ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"}`}
 										>
-											<SendIcon className="h-4 w-4" />
+											{c.label}
+											{selectedClassId === c.id ? (showGroups ? " ▴" : " ▾") : ""}
 										</button>
-									</div>
-								)}
-							</div>
-
-							{/* Class + group selector — radio pills, left-justified */}
-							<div className="px-6 pb-3 w-full flex flex-col gap-2">
-								{classes.length > 0 && (
-									<div className="flex flex-wrap gap-1.5">
-										{classes.map((c) => (
-											<button
-												key={c.id}
-												type="button"
-												onClick={() => setSelectedClassId(c.id)}
-												className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedClassId === c.id ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"}`}
-											>
-												{c.label}
-											</button>
+									))}
+								</div>
+							)}
+							{showGroups && selectedClassId && (
+								<div style={{ animation: "slide-down 0.2s ease" }}>
+									<GroupsSidebarPanel classId={selectedClassId} />
+								</div>
+							)}
+						</div>
+					)}
+					{/* Response content — flex-1 in ask/behavior; hidden in DI (DI panel owns all space) */}
+					<div className={`min-h-0 overflow-y-auto flex flex-col ${inputMode === "di" ? "hidden" : "flex-1"}`}>
+						{showOrbArea && (
+							<>
+								{/* Ask mode: loading + response appear immediately below input */}
+								{inputMode === "ask" && isLoading && (
+									<div className="flex items-center justify-center gap-2 py-4">
+										{[0, 1, 2].map((i) => (
+											<span
+												key={i}
+												className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
+												style={{ animationDelay: `${i * 150}ms` }}
+											/>
 										))}
+										<span className="text-xs text-indigo-400">Thinking...</span>
 									</div>
 								)}
-								{groups.length > 0 && (
-									<div className="flex flex-wrap gap-1.5">
-										<button
-											type="button"
-											onClick={() => setSelectedGroupId(null)}
-											className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedGroupId === null ? "bg-slate-500 text-white" : "bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-slate-300 border border-slate-700"}`}
-										>
-											All
-										</button>
-										{groups.map((g) => (
+								{inputMode === "ask" && scaffoldError && (
+									<div className="mx-6 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+										{scaffoldError}
+									</div>
+								)}
+								{inputMode === "ask" && scaffoldResponse && !isLoading && (
+									<div className="px-6 pb-4">
+										<div className="flex justify-end mb-2">
 											<button
-												key={g.id}
 												type="button"
-												onClick={() => setSelectedGroupId(g.id)}
-												className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedGroupId === g.id ? "bg-slate-500 text-white" : "bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-slate-300 border border-slate-700"}`}
+												onClick={() => {
+													setScaffoldResponse(null);
+													setScaffoldError(null);
+												}}
+												className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
 											>
-												{g.emoji} {g.name}
+												<XIcon className="h-3 w-3" />
+												Close
 											</button>
-										))}
-									</div>
-								)}
-							</div>
-
-							{/* Student grid — ClassDojo style, always visible below buttons */}
-							<div className="px-6 pb-6 w-full">
-								{studentsLoading ? (
-									<p className="text-xs text-slate-500 text-center">Loading students…</p>
-								) : students.length === 0 ? (
-									<p className="text-xs text-slate-500 text-center">No students on roster yet.</p>
-								) : (
-									<>
-										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2 text-center">
-											Tap a student
-										</p>
-										<div
-											className="grid gap-2"
-											style={{ gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))" }}
-										>
-											{(selectedGroupId
-												? students.filter((s) =>
-														groups
-															.find((g) => g.id === selectedGroupId)
-															?.memberRosterIds.includes(s.rosterId),
-													)
-												: students
-											).map((s) => {
-												const isActive = activeStudent?.rosterId === s.rosterId;
-												const color = avatarColor(s.rosterId);
-												return (
-													<button
-														key={s.rosterId}
-														type="button"
-														onClick={() => handleStudentTap(s)}
-														className={`flex flex-col items-center gap-1.5 rounded-2xl p-2 transition-all active:scale-95 ${
-															isActive
-																? "bg-indigo-500/25 ring-2 ring-indigo-400"
-																: "bg-slate-800/60 hover:bg-slate-700/60"
-														}`}
-													>
-														<div
-															className={`h-12 w-12 rounded-full ${color} flex items-center justify-center shadow-md`}
-														>
-															<span className="text-sm font-bold text-white leading-none">
-																{(s.firstName ? s.firstName[0] : s.firstInitial).toUpperCase()}
-																{s.lastInitial.toUpperCase()}
-															</span>
-														</div>
-														<span className="text-[11px] font-medium text-slate-300 leading-tight text-center w-full truncate">
-															{s.displayName}
-														</span>
-														<div className="flex items-center gap-1">
-															<span
-																className={`h-2 w-2 rounded-full shrink-0 ${stepDotColor(s.behaviorStep)}`}
-															/>
-															<span className="text-[10px] text-amber-400 font-bold tabular-nums">
-																{s.balance}
-															</span>
-														</div>
-													</button>
-												);
-											})}
 										</div>
-									</>
+										<RemediationFlow
+											response={scaffoldResponse}
+											onDeepen={handleDeepen}
+											onGradeChange={handleGradeChange}
+											sessionId={activeSessionId}
+											standardCode={pinnedStandards[0]}
+											transcript={transcript}
+											isRefetching={isLoading}
+										/>
+									</div>
 								)}
-							</div>
 
-							{/* Scaffold (Ask mode) */}
-							{scaffoldError && (
-								<div className="mx-6 mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-									{scaffoldError}
-								</div>
-							)}
-							{scaffoldResponse && !isLoading && (
-								<div className="px-6 pb-4">
-									<ScaffoldCard response={scaffoldResponse} onDeepen={handleDeepen} />
-								</div>
-							)}
+								{/* Lecture visualizer */}
+								{(visual || visualLoading) && (
+									<div className="px-6 pb-4">
+										<LectureVisualizer visual={visual} loading={visualLoading} />
+									</div>
+								)}
 
-							{/* Lecture visualizer */}
-							{(visual || visualLoading) && (
-								<div className="px-6 pb-4">
-									<LectureVisualizer visual={visual} loading={visualLoading} />
-								</div>
-							)}
+								{/* Ambient HUD */}
+								{isListening && (
+									<div className="px-6 pb-4">
+										<AmbientHud
+											transcript={transcript}
+											isListening={isListening}
+											sessionId={activeSessionId}
+										/>
+									</div>
+								)}
 
-							{/* Ambient HUD */}
-							{isListening && (
-								<div className="px-6 pb-4">
-									<AmbientHud
-										transcript={transcript}
-										isListening={isListening}
-										sessionId={activeSessionId}
-									/>
-								</div>
-							)}
-
-							{/* Behavior message log */}
-							{behaviorMsgs.length > 0 && (
-								<div className="px-6 pb-4 flex flex-col gap-2">
-									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-										Session Log
-									</p>
-									<div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
-										{behaviorMsgs.map((msg) => (
-											<div
-												key={msg.id}
-												className={`flex ${msg.role === "teacher" ? "justify-end" : "justify-start"}`}
-											>
-												{msg.role === "teacher" ? (
-													<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-indigo-600 px-3 py-2">
-														<p className="text-sm text-white leading-snug">{msg.text}</p>
-													</div>
-												) : (
-													<div className="max-w-[90%] flex flex-col gap-1.5">
-														<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2">
-															<div className="flex items-start justify-between gap-2">
-																<p className="text-sm text-slate-200 leading-snug flex-1">
-																	{msg.text}
-																</p>
-																<SpeakButton text={msg.text} />
+								{/* Behavior message log */}
+								{behaviorMsgs.length > 0 && (
+									<div className="px-6 pb-4 flex flex-col gap-2">
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+											Session Log
+										</p>
+										<div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
+											{behaviorMsgs.map((msg) => (
+												<div
+													key={msg.id}
+													className={`flex ${msg.role === "teacher" ? "justify-end" : "justify-start"}`}
+												>
+													{msg.role === "teacher" ? (
+														<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-indigo-600 px-3 py-2">
+															<p className="text-sm text-white leading-snug">{msg.text}</p>
+														</div>
+													) : (
+														<div className="max-w-[90%] flex flex-col gap-1.5">
+															<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2">
+																<div className="flex items-start justify-between gap-2">
+																	<p className="text-sm text-slate-200 leading-snug flex-1">
+																		{msg.text}
+																	</p>
+																	<SpeakButton text={msg.text} />
+																</div>
+																{msg.response?.ramBuck?.reason && (
+																	<p className="text-xs text-slate-400 mt-1 italic">
+																		{msg.response.ramBuck.reason}
+																	</p>
+																)}
 															</div>
-															{msg.response?.ramBuck?.reason && (
-																<p className="text-xs text-slate-400 mt-1 italic">
-																	{msg.response.ramBuck.reason}
-																</p>
+															{msg.response && <ActionBadge response={msg.response} />}
+															{msg.response?.incidentNote && (
+																<div className="rounded border-l-2 border-orange-500 bg-slate-800 px-2 py-1.5 flex items-start justify-between gap-2">
+																	<p className="text-xs text-orange-300 leading-snug flex-1">
+																		<span className="font-medium">Behavior note: </span>
+																		{msg.response.incidentNote}
+																	</p>
+																	<CopyButton text={msg.response.incidentNote} />
+																</div>
+															)}
+															{msg.response?.parentMessage && (
+																<div className="rounded border-l-2 border-amber-500 bg-slate-800 px-2 py-1.5 flex flex-col gap-1">
+																	<div className="flex items-center justify-between gap-2">
+																		<span className="text-xs font-medium text-amber-300">
+																			ClassDojo message
+																		</span>
+																		<div className="flex items-center gap-2">
+																			<CopyButton text={msg.response.parentMessage} />
+																			{msg.rosterId && selectedClassId && (
+																				<SmsSendButton
+																					classId={selectedClassId}
+																					rosterId={msg.rosterId}
+																					body={msg.response.parentMessage}
+																				/>
+																			)}
+																		</div>
+																	</div>
+																	<p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+																		{msg.response.parentMessage}
+																	</p>
+																</div>
+															)}
+															{msg.response?.toneAnalysis && (
+																<div className="rounded border-l-2 border-violet-500 bg-slate-800/80 px-2 py-1.5">
+																	<p className="text-[10px] font-semibold uppercase tracking-widest text-violet-400 mb-0.5">
+																		Situation
+																	</p>
+																	<p className="text-xs text-slate-300 leading-snug">
+																		{msg.response.toneAnalysis}
+																	</p>
+																</div>
+															)}
+															{msg.response?.nextSteps && msg.response.nextSteps.length > 0 && (
+																<div className="rounded border-l-2 border-emerald-500 bg-slate-800/80 px-2 py-1.5">
+																	<p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400 mb-1">
+																		Next steps
+																	</p>
+																	<ol className="flex flex-col gap-1">
+																		{msg.response.nextSteps.map((step, i) => (
+																			<li
+																				// biome-ignore lint/suspicious/noArrayIndexKey: ordered steps have no stable id
+																				key={i}
+																				className="flex items-start gap-1.5 text-xs text-slate-300 leading-snug"
+																			>
+																				<span className="shrink-0 font-bold text-emerald-500 tabular-nums">
+																					{i + 1}.
+																				</span>
+																				{step}
+																			</li>
+																		))}
+																	</ol>
+																</div>
 															)}
 														</div>
-														{msg.response && <ActionBadge response={msg.response} />}
-														{msg.response?.incidentNote && (
-															<div className="rounded border-l-2 border-orange-500 bg-slate-800 px-2 py-1.5 flex items-start justify-between gap-2">
-																<p className="text-xs text-orange-300 leading-snug flex-1">
-																	<span className="font-medium">Behavior note: </span>
-																	{msg.response.incidentNote}
-																</p>
-																<CopyButton text={msg.response.incidentNote} />
-															</div>
-														)}
-														{msg.response?.parentMessage && (
-															<div className="rounded border-l-2 border-amber-500 bg-slate-800 px-2 py-1.5 flex flex-col gap-1">
-																<div className="flex items-center justify-between gap-2">
-																	<span className="text-xs font-medium text-amber-300">
-																		ClassDojo message
-																	</span>
-																	<div className="flex items-center gap-2">
-																		<CopyButton text={msg.response.parentMessage} />
-																		{msg.rosterId && selectedClassId && (
-																			<SmsSendButton
-																				classId={selectedClassId}
-																				rosterId={msg.rosterId}
-																				body={msg.response.parentMessage}
-																			/>
-																		)}
-																	</div>
-																</div>
-																<p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
-																	{msg.response.parentMessage}
-																</p>
-															</div>
-														)}
-													</div>
-												)}
-											</div>
-										))}
-										{isLoading && (
-											<div className="flex justify-start">
-												<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2.5">
-													<div className="flex gap-1">
-														{[0, 1, 2].map((i) => (
-															<span
-																key={i}
-																className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
-																style={{ animationDelay: `${i * 150}ms` }}
-															/>
-														))}
+													)}
+												</div>
+											))}
+											{isLoading && (
+												<div className="flex justify-start">
+													<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2.5">
+														<div className="flex gap-1">
+															{[0, 1, 2].map((i) => (
+																<span
+																	key={i}
+																	className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
+																	style={{ animationDelay: `${i * 150}ms` }}
+																/>
+															))}
+														</div>
 													</div>
 												</div>
-											</div>
-										)}
-										<div ref={bottomRef} />
+											)}
+											<div ref={bottomRef} />
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												setBehaviorMsgs([]);
+												historyRef.current = [];
+											}}
+											className="self-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
+										>
+											Clear session log
+										</button>
 									</div>
-									<button
-										type="button"
-										onClick={() => {
-											setBehaviorMsgs([]);
-											historyRef.current = [];
-										}}
-										className="self-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
-									>
-										Clear session log
-									</button>
-								</div>
-							)}
-						</>
-					)}
+								)}
+							</>
+						)}
+					</div>
+
+					{/* Input row — pinned to bottom of center column */}
+					<div className="shrink-0 border-t border-slate-800 px-4 py-3 flex flex-col gap-2 group/inputrow relative">
+						{/* Standards picker — floats above input on hover, does NOT push input down */}
+						{inputMode === "ask" && (
+							<div className="absolute bottom-full left-0 right-0 px-4 pb-1 hidden group-hover/inputrow:block">
+								<StandardPicker
+									value={pinnedStandards}
+									onChange={setPinnedStandards}
+									defaultGrade={
+										selectedClass?.gradeLevel
+											? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
+											: undefined
+									}
+								/>
+							</div>
+						)}
+						{/* Done recording — prominent stop button while lecture capture is active */}
+						{isListening && (
+							<button
+								type="button"
+								onClick={stopListening}
+								className="w-full flex items-center justify-center gap-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-sm font-semibold py-2 hover:bg-red-500/25 transition-colors"
+							>
+								<span className="h-2 w-2 rounded-full bg-red-400 animate-pulse shrink-0" />
+								Done —{" "}
+								{lectureMinutes > 0 ? `${lectureMinutes}m captured` : "stop lecture recording"}
+							</button>
+						)}
+						<div className="flex gap-2 items-end">
+							<textarea
+								rows={2}
+								value={textInput}
+								onChange={(e) => setTextInput(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										if (inputMode === "di") {
+											diDispatchRef.current?.(textInput);
+											setTextInput("");
+										} else if (inputMode === "ask") {
+											sendAcademic(textInput);
+										} else {
+											sendBehavior(textInput);
+										}
+									}
+								}}
+								placeholder={
+									inputMode === "di"
+										? '"Put Marcus in Red" or "Give Blue 2 points"'
+										: inputMode === "ask"
+											? "What are your students struggling with?"
+											: '"Give Jordan 15 bucks for great focus"'
+								}
+								className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+								disabled={isLoading}
+							/>
+							<button
+								type="button"
+								onClick={toggleOrb}
+								disabled={isLoading}
+								title={isOrbRecording ? "Stop" : "Voice input"}
+								className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center border transition-all disabled:opacity-40 ${isOrbRecording ? "bg-blue-500 border-blue-400 text-white [animation:mic-center-pulse_1.4s_ease-in-out_infinite]" : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200"}`}
+							>
+								<MicIcon className="h-4 w-4" />
+							</button>
+							<button
+								type="button"
+								disabled={!textInput.trim() || isLoading}
+								onClick={() => {
+									if (inputMode === "di") {
+										diDispatchRef.current?.(textInput);
+										setTextInput("");
+									} else if (inputMode === "ask") {
+										sendAcademic(textInput);
+									} else {
+										sendBehavior(textInput);
+									}
+								}}
+								className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-500 transition-colors"
+							>
+								<SendIcon className="h-4 w-4" />
+							</button>
+						</div>
+					</div>
 				</div>
 
 				{/* ── RIGHT: Parent Comms ──────────────────────────────── */}
 				{selectedClassId && (
-					<div className="hidden xl:flex xl:flex-col border-l border-slate-800 overflow-hidden">
-						<ParentCommsPanel classId={selectedClassId} students={students} />
+					<div className="border-l border-slate-800 flex flex-col overflow-hidden min-h-0">
+						{rightOpen ? (
+							<ParentCommsPanel
+								classId={selectedClassId}
+								students={students}
+								externalPreselect={parentCommsPreselect}
+								onCollapse={() => setRightOpen(false)}
+							/>
+						) : (
+							<div className="flex items-center justify-center py-3">
+								<button
+									type="button"
+									onClick={() => setRightOpen(true)}
+									title="Expand Parent Comms"
+									className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
+								>
+									<ChevronLeftIcon className="h-3.5 w-3.5" />
+								</button>
+							</div>
+						)}
 					</div>
 				)}
 			</div>

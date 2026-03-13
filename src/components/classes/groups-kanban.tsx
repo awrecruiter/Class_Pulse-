@@ -13,8 +13,7 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
-import { PencilIcon } from "lucide-react";
+import { PencilIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -40,6 +39,7 @@ type StudentGroup = {
 type RosterEntry = {
 	id: string;
 	studentId: string;
+	firstName: string | null;
 	firstInitial: string;
 	lastInitial: string;
 	isActive: boolean;
@@ -73,50 +73,76 @@ const GROUP_BADGE_CLASSES: Record<string, string> = {
 	red: "bg-red-100 text-red-800",
 };
 
+// ─── Drag overlay pill (no dnd-kit hooks — pure display) ──────────────────────
+
+function CardPill({
+	badgeClass,
+	displayLabel,
+	className,
+}: {
+	badgeClass: string;
+	displayLabel: string;
+	className?: string;
+}) {
+	return (
+		<div
+			className={cn(
+				"inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+				badgeClass,
+				className,
+			)}
+		>
+			{displayLabel}
+		</div>
+	);
+}
+
 // ─── Draggable Student Card ────────────────────────────────────────────────────
 
 function DraggableCard({
 	member,
 	badgeClass,
-	isDragOverlay = false,
+	onRemove,
+	label,
 }: {
 	member: { rosterId: string; firstInitial: string; lastInitial: string };
 	badgeClass: string;
-	isDragOverlay?: boolean;
+	onRemove?: () => void;
+	label?: string;
 }) {
-	const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 		id: member.rosterId,
 		data: { rosterId: member.rosterId },
 	});
 
-	const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
-
-	if (isDragOverlay) {
-		return (
-			<div
-				className={cn(
-					"inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold shadow-lg cursor-grabbing",
-					badgeClass,
-				)}
-			>
-				{member.firstInitial}.{member.lastInitial}.
-			</div>
-		);
-	}
+	const displayLabel = label ?? `${member.firstInitial}.${member.lastInitial}.`;
 
 	return (
 		<div
 			ref={setNodeRef}
-			style={style}
 			{...attributes}
 			{...listeners}
 			className={cn(
-				"inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold cursor-grab select-none touch-none transition-opacity",
+				"inline-flex items-center gap-0.5 rounded-full pl-2.5 pr-1 py-1 text-xs font-semibold select-none touch-none transition-opacity group/card cursor-grab",
 				badgeClass,
 				isDragging && "opacity-30",
 			)}
 		>
-			{member.firstInitial}.{member.lastInitial}.
+			<span>{displayLabel}</span>
+			{onRemove && (
+				<button
+					type="button"
+					onPointerDown={(e) => e.stopPropagation()}
+					onClick={(e) => {
+						e.stopPropagation();
+						onRemove();
+					}}
+					className="ml-0.5 opacity-0 group-hover/card:opacity-70 hover:!opacity-100 transition-opacity rounded-full cursor-pointer"
+					title="Remove from group"
+				>
+					<XIcon className="h-3 w-3" />
+				</button>
+			)}
 		</div>
 	);
 }
@@ -128,11 +154,13 @@ function GroupColumn({
 	isOver,
 	activeRosterId,
 	onRename,
+	onRemoveMember,
 }: {
 	group: StudentGroup;
 	isOver: boolean;
 	activeRosterId: string | null;
 	onRename: (groupId: string, name: string, emoji: string) => Promise<void>;
+	onRemoveMember: (groupId: string, rosterId: string) => void;
 }) {
 	const isFull = group.members.length >= 6;
 	const { setNodeRef } = useDroppable({ id: group.id });
@@ -270,7 +298,12 @@ function GroupColumn({
 					</p>
 				) : (
 					group.members.map((member) => (
-						<DraggableCard key={member.rosterId} member={member} badgeClass={badgeClass} />
+						<DraggableCard
+							key={member.rosterId}
+							member={member}
+							badgeClass={badgeClass}
+							onRemove={() => onRemoveMember(group.id, member.rosterId)}
+						/>
 					))
 				)}
 				{/* Drop target hint when dragging over a full group */}
@@ -284,6 +317,10 @@ function GroupColumn({
 
 // ─── Unassigned Column ─────────────────────────────────────────────────────────
 
+function studentName(s: RosterEntry): string {
+	return s.firstName ?? `${s.firstInitial}.${s.lastInitial}.`;
+}
+
 function UnassignedColumn({ students }: { students: RosterEntry[] }) {
 	const { setNodeRef, isOver } = useDroppable({ id: "unassigned" });
 
@@ -292,7 +329,7 @@ function UnassignedColumn({ students }: { students: RosterEntry[] }) {
 			ref={setNodeRef}
 			className={cn(
 				"flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-3 min-h-[160px] transition-all",
-				isOver && "ring-2 ring-muted-foreground/30 ring-offset-1",
+				isOver && "ring-2 ring-primary/40 ring-offset-1",
 			)}
 		>
 			<div className="flex items-center gap-1.5">
@@ -309,6 +346,7 @@ function UnassignedColumn({ students }: { students: RosterEntry[] }) {
 						<DraggableCard
 							key={s.id}
 							member={{ rosterId: s.id, firstInitial: s.firstInitial, lastInitial: s.lastInitial }}
+							label={studentName(s)}
 							badgeClass="bg-muted text-muted-foreground"
 						/>
 					))
@@ -346,7 +384,12 @@ export function GroupsKanban({ classId, groups, allRoster, onGroupsChange, onRen
 			? (() => {
 					for (const g of localGroups) {
 						const m = g.members.find((m) => m.rosterId === activeRosterId);
-						if (m) return { member: m, groupColor: g.color };
+						if (m)
+							return {
+								member: m,
+								groupColor: g.color,
+								label: `${m.firstInitial}.${m.lastInitial}.`,
+							};
 					}
 					const unassignedStudent = unassigned.find((s) => s.id === activeRosterId);
 					if (unassignedStudent) {
@@ -357,6 +400,9 @@ export function GroupsKanban({ classId, groups, allRoster, onGroupsChange, onRen
 								lastInitial: unassignedStudent.lastInitial,
 							},
 							groupColor: "muted",
+							label:
+								unassignedStudent.firstName ??
+								`${unassignedStudent.firstInitial}.${unassignedStudent.lastInitial}.`,
 						};
 					}
 					return null;
@@ -381,8 +427,13 @@ export function GroupsKanban({ classId, groups, allRoster, onGroupsChange, onRen
 		const rosterId = String(active.id);
 		const targetGroupId = String(over.id);
 
-		// Can't drop onto unassigned column
-		if (targetGroupId === "unassigned") return;
+		// Dropping onto unassigned = remove from current group
+		if (targetGroupId === "unassigned") {
+			const currentGroup = localGroups.find((g) => g.members.some((m) => m.rosterId === rosterId));
+			if (!currentGroup) return; // already unassigned
+			await handleRemoveMember(currentGroup.id, rosterId);
+			return;
+		}
 
 		// Find current group
 		const currentGroup = localGroups.find((g) => g.members.some((m) => m.rosterId === rosterId));
@@ -463,6 +514,30 @@ export function GroupsKanban({ classId, groups, allRoster, onGroupsChange, onRen
 		}
 	}
 
+	async function handleRemoveMember(groupId: string, rosterId: string) {
+		const prev = localGroups;
+		const updated = localGroups.map((g) =>
+			g.id === groupId ? { ...g, members: g.members.filter((m) => m.rosterId !== rosterId) } : g,
+		);
+		setLocalGroups(updated);
+		onGroupsChange(updated);
+		try {
+			const res = await fetch(`/api/classes/${classId}/groups/${groupId}`, {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterId }),
+			});
+			if (!res.ok) {
+				const json = await res.json();
+				throw new Error(json.error ?? "Failed to remove student");
+			}
+		} catch (err) {
+			setLocalGroups(prev);
+			onGroupsChange(prev);
+			toast.error(err instanceof Error ? err.message : "Failed to remove student");
+		}
+	}
+
 	async function handleRename(groupId: string, name: string, emoji: string) {
 		await onRenameGroup(groupId, name, emoji);
 		setLocalGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, name, emoji } : g)));
@@ -494,6 +569,7 @@ export function GroupsKanban({ classId, groups, allRoster, onGroupsChange, onRen
 							isOver={overId === group.id}
 							activeRosterId={activeRosterId}
 							onRename={handleRename}
+							onRemoveMember={handleRemoveMember}
 						/>
 					</div>
 				))}
@@ -506,12 +582,12 @@ export function GroupsKanban({ classId, groups, allRoster, onGroupsChange, onRen
 			{/* Floating drag overlay */}
 			<DragOverlay dropAnimation={null}>
 				{activeCard ? (
-					<DraggableCard
-						member={activeCard.member}
+					<CardPill
 						badgeClass={
 							GROUP_BADGE_CLASSES[activeCard.groupColor] ?? "bg-muted text-muted-foreground"
 						}
-						isDragOverlay
+						displayLabel={activeCard.label}
+						className="shadow-lg cursor-grabbing"
 					/>
 				) : null}
 			</DragOverlay>

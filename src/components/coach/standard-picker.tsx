@@ -221,9 +221,18 @@ export function StandardPicker({ value, onChange, defaultGrade }: StandardPicker
 							{filtered.length} standard{filtered.length !== 1 ? "s" : ""}
 							{(gradeFilter !== null || strandFilter !== null) && " shown"}
 						</span>
-						{value.length > 0 && (
-							<span className="font-medium text-primary">{value.length} selected</span>
-						)}
+						<div className="flex items-center gap-2">
+							{value.length > 0 && (
+								<span className="font-medium text-primary">{value.length} selected</span>
+							)}
+							<button
+								type="button"
+								onClick={() => setOpen(false)}
+								className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+							>
+								Done
+							</button>
+						</div>
 					</div>
 				</div>
 			)}

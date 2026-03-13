@@ -37,5 +37,6 @@ export const joinRateLimiter = createRateLimiter(20, 60_000); // 20 req/min (stu
 export const smsRateLimiter = createRateLimiter(10, 60_000); // 10 req/min (AWS SNS SMS sends)
 export const ambientScanLimiter = createRateLimiter(20, 60_000); // 20 req/min (noise heartbeat)
 export const correctionRateLimiter = createRateLimiter(5, 60_000); // 5 req/min (student I'm Lost)
-export const animateLimiter = createRateLimiter(3, 60_000); // 3 req/min (Manim render — expensive)
+export const animateLimiter = createRateLimiter(12, 60_000); // 12 req/min (Manim render)
 export const diRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (DI session CRUD)
+export const ttsRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (edge-tts synthesis)

@@ -210,14 +210,19 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 						const isSelected = selectedRosterId === account.rosterId;
 						return (
 							<div key={account.id}>
-								<button
-									type="button"
+								{/* biome-ignore lint/a11y/useSemanticElements: contains nested <button>, cannot use <button> here */}
+								<div
+									role="button"
+									tabIndex={0}
 									className={cn(
 										"flex w-full items-center justify-between px-3 py-2.5 text-left cursor-pointer hover:bg-muted/30 transition-colors",
 										i !== accounts.length - 1 ? "border-b border-border" : "",
 										isSelected ? "bg-muted/40" : "",
 									)}
 									onClick={() => setSelectedRosterId(isSelected ? null : account.rosterId)}
+									onKeyDown={(e) =>
+										e.key === "Enter" && setSelectedRosterId(isSelected ? null : account.rosterId)
+									}
 								>
 									<div className="flex items-center gap-3">
 										<span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
@@ -245,7 +250,7 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 											<RotateCcwIcon className="h-3.5 w-3.5" />
 										</button>
 									</div>
-								</button>
+								</div>
 
 								{/* Inline award/deduct form */}
 								{isSelected && (

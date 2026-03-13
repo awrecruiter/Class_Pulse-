@@ -80,17 +80,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		.where(and(eq(classes.id, classId), eq(classes.teacherId, data.user.id)));
 	if (!cls) return NextResponse.json({ error: "Class not found" }, { status: 404 });
 
-	// Enforce one active session per class
-	const [existingActive] = await db
-		.select()
-		.from(diSessions)
-		.where(and(eq(diSessions.classId, classId), eq(diSessions.status, "active")));
-	if (existingActive)
-		return NextResponse.json(
-			{ error: "A DI session is already active for this class" },
-			{ status: 409 },
-		);
-
 	const body = await request.json();
 	const parsed = CreateSessionSchema.safeParse(body);
 	if (!parsed.success)

@@ -1,10 +1,16 @@
 "use client";
 
-import { AlertCircleIcon, PlusIcon } from "lucide-react";
+import { AlertCircleIcon, MicIcon, PlusIcon, ShieldCheckIcon, ShieldOffIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+	clearVoiceProfile,
+	enrollVoiceProfile,
+	getVoiceProfile,
+	type VoiceProfile,
+} from "@/lib/voice-profile";
 
 type Settings = {
 	masteryThreshold: number;
@@ -35,6 +41,14 @@ export default function SettingsPage() {
 	const [loadError, setLoadError] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+
+	// Voice lock
+	const [voiceProfile, setVoiceProfile] = useState<VoiceProfile | null>(null);
+	const [enrolling, setEnrolling] = useState(false);
+	const [enrollCountdown, setEnrollCountdown] = useState(0);
+	useEffect(() => {
+		setVoiceProfile(getVoiceProfile());
+	}, []);
 
 	// Fee schedule state
 	const [feeSchedule, setFeeSchedule] = useState<FeeEntry[]>([]);
@@ -96,6 +110,29 @@ export default function SettingsPage() {
 		fetchFeeSchedule();
 		fetchPrivilegeItems();
 	}, [fetchSettings, fetchFeeSchedule, fetchPrivilegeItems]);
+
+	async function handleEnrollVoice() {
+		setEnrolling(true);
+		setEnrollCountdown(5);
+		try {
+			const profile = await enrollVoiceProfile((secondsLeft) => setEnrollCountdown(secondsLeft));
+			setVoiceProfile(profile);
+			toast.success(
+				`Voice lock enrolled — detected at ${profile.meanPitch} Hz ±${profile.toleranceHz} Hz`,
+			);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Enrollment failed");
+		} finally {
+			setEnrolling(false);
+			setEnrollCountdown(0);
+		}
+	}
+
+	function handleClearVoice() {
+		clearVoiceProfile();
+		setVoiceProfile(null);
+		toast.success("Voice lock cleared — all voices can trigger commands");
+	}
 
 	async function handleSave(e: React.FormEvent) {
 		e.preventDefault();
@@ -371,7 +408,7 @@ export default function SettingsPage() {
 											className={`rounded-lg border px-2 py-2 text-xs font-medium capitalize transition-colors ${
 												settings.storeResetSchedule === schedule
 													? "border-primary bg-indigo-500/20 text-indigo-400"
-													: "border-slate-800 bg-slate-950 text-slate-400 hover:bg-slate-800/50"
+													: "border-slate-800 bg-[#0d1525] text-slate-400 hover:bg-slate-800/50"
 											}`}
 										>
 											{schedule}
@@ -451,6 +488,74 @@ export default function SettingsPage() {
 					</div>
 				</section>
 
+				{/* ── Voice Lock ──────────────────────────────────── */}
+				<section className="flex flex-col gap-4">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Voice Lock
+					</h2>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">
+						<div className="flex items-start gap-3">
+							{voiceProfile ? (
+								<ShieldCheckIcon className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+							) : (
+								<ShieldOffIcon className="h-5 w-5 text-slate-500 shrink-0 mt-0.5" />
+							)}
+							<div className="flex-1 min-w-0">
+								<p className="text-sm font-medium text-slate-200">
+									{voiceProfile ? "Voice lock active" : "Voice lock not enrolled"}
+								</p>
+								{voiceProfile ? (
+									<p className="text-xs text-slate-400 mt-0.5">
+										Your voice profile:{" "}
+										<span className="text-emerald-400 font-mono">
+											{voiceProfile.meanPitch} Hz ±{voiceProfile.toleranceHz} Hz
+										</span>
+										{" · "}only your voice will trigger commands
+									</p>
+								) : (
+									<p className="text-xs text-slate-400 mt-0.5">
+										Without enrollment, any voice near the microphone can trigger commands. Enroll
+										to restrict to your voice only.
+									</p>
+								)}
+							</div>
+						</div>
+
+						<div className="flex gap-2">
+							<button
+								type="button"
+								onClick={handleEnrollVoice}
+								disabled={enrolling}
+								className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-white transition-colors"
+							>
+								<MicIcon className={`h-3.5 w-3.5 ${enrolling ? "animate-pulse" : ""}`} />
+								{enrolling
+									? `Recording… ${enrollCountdown}s`
+									: voiceProfile
+										? "Re-enroll"
+										: "Enroll My Voice"}
+							</button>
+							{voiceProfile && (
+								<button
+									type="button"
+									onClick={handleClearVoice}
+									className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 hover:text-red-400 hover:border-red-400/40 transition-colors"
+								>
+									Clear Profile
+								</button>
+							)}
+						</div>
+
+						{enrolling && (
+							<div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-3 py-2 text-xs text-indigo-300">
+								<strong>Speak now</strong> — say a few sentences in your normal classroom voice.
+								Recording for {enrollCountdown} more second{enrollCountdown !== 1 ? "s" : ""}…
+							</div>
+						)}
+					</div>
+				</section>
+
 				<Button type="submit" disabled={saving} className="w-full">
 					{saving ? "Saving..." : "Save Settings"}
 				</Button>
@@ -483,7 +588,7 @@ export default function SettingsPage() {
 									type="text"
 									value={entry.label}
 									onChange={(e) => updateFeeEntry(entry.step, "label", e.target.value)}
-									className="flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+									className="flex-1 rounded border border-slate-800 bg-[#0d1525] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 								/>
 								<div className="flex items-center gap-1 shrink-0">
 									<span className="text-xs text-slate-400">-</span>
@@ -495,7 +600,7 @@ export default function SettingsPage() {
 										onChange={(e) =>
 											updateFeeEntry(entry.step, "deductionAmount", Number(e.target.value))
 										}
-										className="w-16 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+										className="w-16 rounded border border-slate-800 bg-[#0d1525] px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 									/>
 									<span className="text-xs text-slate-400">RAM</span>
 								</div>
@@ -572,7 +677,7 @@ export default function SettingsPage() {
 											value={item.name}
 											onChange={(e) => updateLocalItem(item.id, "name", e.target.value)}
 											onBlur={() => handleUpdateItem(item)}
-											className="flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+											className="flex-1 rounded border border-slate-800 bg-[#0d1525] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 										/>
 
 										{/* Cost */}
@@ -584,7 +689,7 @@ export default function SettingsPage() {
 												value={item.cost}
 												onChange={(e) => updateLocalItem(item.id, "cost", Number(e.target.value))}
 												onBlur={() => handleUpdateItem(item)}
-												className="w-16 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+												className="w-16 rounded border border-slate-800 bg-[#0d1525] px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 											/>
 											<span className="text-xs text-slate-400">RAM</span>
 										</div>
@@ -605,7 +710,7 @@ export default function SettingsPage() {
 													)
 												}
 												onBlur={() => handleUpdateItem(item)}
-												className="w-14 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+												className="w-14 rounded border border-slate-800 bg-[#0d1525] px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 											/>
 											<span className="text-xs text-slate-400">min</span>
 										</div>

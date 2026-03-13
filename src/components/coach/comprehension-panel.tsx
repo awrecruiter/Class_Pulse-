@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,7 @@ type PulseData = { gotIt: number; almost: number; lost: number; total: number };
 interface Props {
 	classId: string;
 	activeSessionId?: string;
+	onConfusionEvent?: (timestamp: number) => void;
 }
 
 // ─── Score helpers ──────────────────────────────────────────────────────────────
@@ -146,6 +148,12 @@ export function ComprehensionPanel({ classId, activeSessionId }: Props) {
 	const [cfuDays, setCfuDays] = useState<CfuDay[]>([]);
 	const [cfuIdx, setCfuIdx] = useState(0);
 	const [loading, setLoading] = useState(false);
+	const [confusionTotal, setConfusionTotal] = useState(0);
+	const [confusionStudents, setConfusionStudents] = useState(0);
+	const prevLostRef = useRef<number>(0);
+	const prevConfusionRef = useRef<number>(0);
+	const prevGotItRef = useRef<number>(0);
+	const prevAlmostRef = useRef<number>(0);
 
 	// Fetch live mastery for active session
 	const fetchMastery = useCallback(async () => {
@@ -166,6 +174,33 @@ export function ComprehensionPanel({ classId, activeSessionId }: Props) {
 			if (res.ok) {
 				const data = await res.json();
 				if (data && "gotIt" in data) {
+					const newGotIt: number = data.gotIt ?? 0;
+					const newAlmost: number = data.almost ?? 0;
+					const newLost: number = data.lost ?? 0;
+					if (newGotIt > prevGotItRef.current) {
+						const delta = newGotIt - prevGotItRef.current;
+						toast(`✅ ${delta} student${delta > 1 ? "s" : ""} got it`, {
+							duration: 4000,
+							style: { background: "#052e16", border: "1px solid #16a34a", color: "#86efac" },
+						});
+					}
+					if (newAlmost > prevAlmostRef.current) {
+						const delta = newAlmost - prevAlmostRef.current;
+						toast(`🤔 ${delta} student${delta > 1 ? "s" : ""} almost there`, {
+							duration: 4000,
+							style: { background: "#1c1917", border: "1px solid #d97706", color: "#fcd34d" },
+						});
+					}
+					if (newLost > prevLostRef.current) {
+						const delta = newLost - prevLostRef.current;
+						toast(`🙋 ${delta} student${delta > 1 ? "s" : ""} need${delta === 1 ? "s" : ""} help`, {
+							duration: 6000,
+							style: { background: "#1e1b4b", border: "1px solid #6d28d9", color: "#c4b5fd" },
+						});
+					}
+					prevGotItRef.current = newGotIt;
+					prevAlmostRef.current = newAlmost;
+					prevLostRef.current = newLost;
 					setPulse({
 						gotIt: data.gotIt,
 						almost: data.almost,
@@ -173,6 +208,29 @@ export function ComprehensionPanel({ classId, activeSessionId }: Props) {
 						total: data.total ?? data.gotIt + data.almost + data.lost,
 					});
 				}
+			}
+		} catch {
+			/* noop */
+		}
+	}, [activeSessionId]);
+
+	// Fetch confusion marks for active session
+	const fetchConfusion = useCallback(async () => {
+		if (!activeSessionId) return;
+		try {
+			const res = await fetch(`/api/sessions/${activeSessionId}/confusion-mark`);
+			if (res.ok) {
+				const data = await res.json();
+				setConfusionTotal(data.totalMarks ?? 0);
+				setConfusionStudents(data.uniqueStudents ?? 0);
+				if ((data.totalMarks ?? 0) > prevConfusionRef.current) {
+					const delta = data.totalMarks - prevConfusionRef.current;
+					toast(`📌 ${delta} confusion mark${delta > 1 ? "s" : ""} added`, {
+						duration: 4000,
+						style: { background: "#1c1107", border: "1px solid #d97706", color: "#fcd34d" },
+					});
+				}
+				prevConfusionRef.current = data.totalMarks ?? 0;
 			}
 		} catch {
 			/* noop */
@@ -215,12 +273,14 @@ export function ComprehensionPanel({ classId, activeSessionId }: Props) {
 		if (!activeSessionId) return;
 		fetchMastery();
 		fetchPulse();
+		fetchConfusion();
 		const id = setInterval(() => {
 			fetchMastery();
 			fetchPulse();
+			fetchConfusion();
 		}, 30_000);
 		return () => clearInterval(id);
-	}, [activeSessionId, fetchMastery, fetchPulse]);
+	}, [activeSessionId, fetchMastery, fetchPulse, fetchConfusion]);
 
 	useEffect(() => {
 		fetchCfu();
@@ -295,6 +355,24 @@ export function ComprehensionPanel({ classId, activeSessionId }: Props) {
 									<p className="text-xs text-slate-500">No check questions yet</p>
 								)}
 							</div>
+
+							{/* Confusion marks */}
+							{confusionTotal > 0 && (
+								<div className="rounded-xl bg-amber-500/8 border border-amber-500/25 p-3 flex items-center gap-3">
+									<span className="text-xl">📌</span>
+									<div>
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/70">
+											Confusion Marks
+										</p>
+										<p className="text-sm font-bold text-amber-300 leading-tight">
+											{confusionTotal} tap{confusionTotal !== 1 ? "s" : ""}
+											<span className="text-amber-500/60 font-normal text-xs ml-1">
+												from {confusionStudents} student{confusionStudents !== 1 ? "s" : ""}
+											</span>
+										</p>
+									</div>
+								</div>
+							)}
 						</>
 					)}
 				</div>

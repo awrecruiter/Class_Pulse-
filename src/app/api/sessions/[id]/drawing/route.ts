@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { analyzeStudentDrawing } from "@/lib/ai/drawing-analysis";
+import { analyzeStudentDrawing, type DrawingAnalysisResult } from "@/lib/ai/drawing-analysis";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import { classSessions, drawingAnalyses } from "@/lib/db/schema";
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 	const { imageBase64, standardCode } = result.data;
 
-	let analysis: { analysisType: string; analysisText: string; studentFeedback: string };
+	let analysis: DrawingAnalysisResult;
 	try {
 		analysis = await analyzeStudentDrawing(imageBase64, standardCode);
 	} catch (err) {
@@ -66,5 +66,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	return NextResponse.json({
 		analysisType: analysis.analysisType,
 		studentFeedback: analysis.studentFeedback,
+		auditoryScript: analysis.auditoryScript,
+		visualCorrection: analysis.visualCorrection,
 	});
 }

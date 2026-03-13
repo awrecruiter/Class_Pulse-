@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type CoachRequest, getScaffold } from "@/lib/ai/coach";
+import { auth } from "@/lib/auth/server";
 import { coachRateLimiter } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -9,11 +10,10 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 	}
 
-	// Auth temporarily disabled for local dev
-	// const { data } = await auth.getSession();
-	// if (!data?.user) {
-	// 	return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-	// }
+	const { data } = await auth.getSession();
+	if (!data?.user) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
 
 	let body: unknown;
 	try {
@@ -22,10 +22,8 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
 	}
 
-	const { lessonTranscript, studentQuery, pinnedStandards, priorAttempts } = body as Record<
-		string,
-		unknown
-	>;
+	const { lessonTranscript, studentQuery, pinnedStandards, priorAttempts, scaffoldGrade } =
+		body as Record<string, unknown>;
 
 	if (typeof studentQuery !== "string" || studentQuery.trim().length === 0) {
 		return NextResponse.json({ error: "studentQuery is required" }, { status: 400 });
@@ -54,10 +52,18 @@ export async function POST(request: NextRequest) {
 			priorAttempts: Array.isArray(priorAttempts)
 				? (priorAttempts as CoachRequest["priorAttempts"])
 				: undefined,
+			scaffoldGrade:
+				typeof scaffoldGrade === "number" &&
+				Number.isInteger(scaffoldGrade) &&
+				scaffoldGrade >= 0 &&
+				scaffoldGrade <= 5
+					? scaffoldGrade
+					: undefined,
 		});
 		return NextResponse.json(response);
 	} catch (err) {
-		console.error("[coach] AI error:", err);
-		return NextResponse.json({ error: "AI service error. Please try again." }, { status: 500 });
+		const msg = err instanceof Error ? err.message : "AI service error";
+		console.error("[coach] AI error:", msg);
+		return NextResponse.json({ error: msg }, { status: 500 });
 	}
 }

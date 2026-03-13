@@ -22,7 +22,7 @@ const DEFAULT_GROUPS = [
 ];
 
 const actionSchema = z.object({
-	action: z.literal("auto-assign"),
+	action: z.enum(["auto-assign", "create-groups"]),
 });
 
 async function verifyTeacherOwnsClass(classId: string, teacherId: string) {
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
-	// Auto-assign: create the 4 groups if they don't exist, then distribute roster
+	// Create or fetch the 4 default groups
 	const existingGroups = await db
 		.select()
 		.from(studentGroups)
@@ -105,6 +105,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 			.values(DEFAULT_GROUPS.map((g) => ({ ...g, classId })))
 			.returning();
 		groups = inserted.sort((a, b) => a.sortOrder - b.sortOrder);
+	}
+
+	// create-groups: just return the empty groups, no student assignment
+	if (result.data.action === "create-groups") {
+		const groupsWithMembers = groups.map((g) => ({ ...g, members: [] }));
+		return NextResponse.json({ groups: groupsWithMembers });
 	}
 
 	// Get all active roster entries with performance scores

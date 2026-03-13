@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
 
 const MAX_WORDS = 2500;
 
@@ -20,12 +21,24 @@ export type UseLectureTranscriptReturn = {
 	isSupported: boolean;
 };
 
-export function useLectureTranscript(): UseLectureTranscriptReturn {
+interface UseLectureTranscriptOptions {
+	onFinalResult?: (text: string) => void;
+}
+
+export function useLectureTranscript(
+	options?: UseLectureTranscriptOptions,
+): UseLectureTranscriptReturn {
+	const onFinalResultRef = useRef(options?.onFinalResult);
+	useEffect(() => {
+		onFinalResultRef.current = options?.onFinalResult;
+	});
+
 	const [transcript, setTranscript] = useState("");
-	const [isListening, setIsListening] = useState(false);
+	const [wantsListening, setWantsListening] = useState(false);
 	const [isSupported, setIsSupported] = useState(false);
-	const recognitionRef = useRef<SpeechRecognition | null>(null);
 	const accumulatedRef = useRef<string>("");
+	// Track interim text separately so we don't corrupt the accumulated buffer
+	const interimRef = useRef<string>("");
 
 	useEffect(() => {
 		const supported =
@@ -34,90 +47,61 @@ export function useLectureTranscript(): UseLectureTranscriptReturn {
 		setIsSupported(supported);
 	}, []);
 
-	const startListening = useCallback(() => {
-		if (typeof window === "undefined") return;
-
-		const SpeechRecognitionAPI =
-			(window as typeof window & { webkitSpeechRecognition?: typeof SpeechRecognition })
-				.webkitSpeechRecognition ?? window.SpeechRecognition;
-
-		if (!SpeechRecognitionAPI) return;
-
-		const recognition = new SpeechRecognitionAPI();
-		recognition.continuous = true;
-		recognition.interimResults = true;
-		recognition.lang = "en-US";
-
-		recognition.onresult = (event: SpeechRecognitionEvent) => {
-			let interimText = "";
-			let finalText = "";
-
-			for (let i = event.resultIndex; i < event.results.length; i++) {
-				const result = event.results[i];
-				if (result.isFinal) {
-					finalText += `${result[0].transcript} `;
-				} else {
-					interimText += result[0].transcript;
-				}
-			}
-
-			if (finalText) {
+	const config: MicConfig = {
+		continuous: true,
+		interimResults: true,
+		onResult: (text, isFinal) => {
+			if (isFinal) {
+				const finalText = `${text} `;
 				accumulatedRef.current = trimToWordLimit(accumulatedRef.current + finalText, MAX_WORDS);
+				interimRef.current = "";
+				onFinalResultRef.current?.(text.trim());
+				setTranscript(trimToWordLimit(accumulatedRef.current, MAX_WORDS));
+			} else {
+				interimRef.current = text;
+				const display = trimToWordLimit(
+					`${accumulatedRef.current}[${interimRef.current}]`,
+					MAX_WORDS,
+				);
+				setTranscript(display);
 			}
+		},
+		onNaturalEnd: () => {
+			// Manager handles auto-restart — nothing to do here
+		},
+	};
 
-			const display = trimToWordLimit(
-				accumulatedRef.current + (interimText ? `[${interimText}]` : ""),
-				MAX_WORDS,
-			);
-			setTranscript(display);
-		};
+	const { isActive, start, stop } = useMicSlot("lecture", config);
 
-		recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-			if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-				setIsListening(false);
-			}
-		};
+	// isListening = we want it AND we actually have the mic
+	const isListening = wantsListening && isActive;
 
-		recognition.onend = () => {
-			// Auto-restart if we're still in listening mode (browser stops after silence)
-			if (recognitionRef.current === recognition) {
-				try {
-					recognition.start();
-				} catch {
-					setIsListening(false);
-				}
-			}
-		};
-
-		recognitionRef.current = recognition;
-		recognition.start();
-		setIsListening(true);
-	}, []);
+	const startListening = useCallback(() => {
+		setWantsListening(true);
+		start();
+	}, [start]);
 
 	const stopListening = useCallback(() => {
-		if (recognitionRef.current) {
-			recognitionRef.current.onend = null;
-			recognitionRef.current.stop();
-			recognitionRef.current = null;
-		}
-		setIsListening(false);
-	}, []);
+		setWantsListening(false);
+		stop();
+	}, [stop]);
 
 	const clearTranscript = useCallback(() => {
 		accumulatedRef.current = "";
+		interimRef.current = "";
 		setTranscript("");
 	}, []);
 
-	// Clean up on unmount
+	// If we wanted listening but lost the mic (e.g. another consumer took over),
+	// reacquire when it becomes available again — manager handles this via applyState.
+	// We just need to make sure wantsActive stays true.
+
+	// Cleanup
 	useEffect(() => {
 		return () => {
-			if (recognitionRef.current) {
-				recognitionRef.current.onend = null;
-				recognitionRef.current.stop();
-				recognitionRef.current = null;
-			}
+			stop();
 		};
-	}, []);
+	}, [stop]);
 
 	const wordCount = transcript
 		? transcript

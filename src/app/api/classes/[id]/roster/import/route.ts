@@ -44,25 +44,72 @@ function isFullName(s: string): boolean {
 	return cleaned.length > 1;
 }
 
+// Normalize header names to canonical keys
+function normalizeHeader(h: string): string {
+	return h.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Detect column indices from header row; returns null if no header found
+function detectColumns(firstRow: string[]): {
+	studentIdIdx: number;
+	firstNameIdx: number;
+	lastNameIdx: number;
+	scoreIdx: number;
+} | null {
+	const normalized = firstRow.map(normalizeHeader);
+	const idIdx = normalized.findIndex((h) =>
+		["studentid", "studentnumber", "id", "stuid", "stunum", "idnumber"].includes(h),
+	);
+	const fnIdx = normalized.findIndex((h) =>
+		["firstname", "fname", "first", "given", "givenname"].includes(h),
+	);
+	const lnIdx = normalized.findIndex((h) =>
+		["lastname", "lname", "last", "surname", "family", "familyname"].includes(h),
+	);
+	const scoreIdx = normalized.findIndex((h) =>
+		["score", "performance", "performancescore", "level", "lexile"].includes(h),
+	);
+	// Only treat as header if at least one recognizable column found
+	if (idIdx === -1 && fnIdx === -1 && lnIdx === -1) return null;
+	return {
+		studentIdIdx: idIdx,
+		firstNameIdx: fnIdx,
+		lastNameIdx: lnIdx,
+		scoreIdx,
+	};
+}
+
 function parseRows(rawRows: string[][]): {
 	rows: ParsedRow[];
 	errors: string[];
 } {
 	const rows: ParsedRow[] = [];
 	const errors: string[] = [];
+	if (rawRows.length === 0) return { rows, errors };
 
-	for (const cols of rawRows) {
-		const studentId = cols[0]?.trim() ?? "";
+	// Try to detect column mapping from first row
+	let dataRows = rawRows;
+	let idIdx = 0;
+	let fnIdx = 1;
+	let lnIdx = -1;
+	let scoreIdx = -1;
+
+	const colMap = detectColumns(rawRows[0] ?? []);
+	if (colMap !== null) {
+		// First row is a header
+		dataRows = rawRows.slice(1);
+		idIdx = colMap.studentIdIdx >= 0 ? colMap.studentIdIdx : 0;
+		fnIdx = colMap.firstNameIdx >= 0 ? colMap.firstNameIdx : idIdx === 0 ? 1 : 0;
+		lnIdx = colMap.lastNameIdx;
+		scoreIdx = colMap.scoreIdx;
+	}
+
+	for (const cols of dataRows) {
+		const studentId = cols[idIdx]?.trim().replace(/\.+$/, "") ?? "";
 		if (!studentId) continue;
 
-		// Skip header rows
-		if (
-			studentId.toLowerCase() === "student_id" ||
-			studentId.toLowerCase() === "studentid" ||
-			studentId.toLowerCase() === "student id"
-		) {
-			continue;
-		}
+		// Skip any stray header-looking rows
+		if (["student_id", "studentid", "student id", "id"].includes(studentId.toLowerCase())) continue;
 
 		let firstName: string | null = null;
 		let lastName: string | null = null;
@@ -70,52 +117,57 @@ function parseRows(rawRows: string[][]): {
 		let lastInitial = "";
 		let performanceScore: number | null = null;
 
-		if (cols.length === 2) {
-			// "student_id,Jordan Mitchell" or "student_id,J.M."
-			const col1 = cols[1]?.trim() ?? "";
-			if (col1.includes(" ")) {
-				// Full name with space: "Jordan Mitchell"
-				const parts = col1.split(/\s+/);
-				firstName = parts[0] ?? null;
-				lastName = parts.slice(1).join(" ") || null;
-				firstInitial = firstName?.[0]?.toUpperCase() ?? "";
-				lastInitial = lastName?.[0]?.toUpperCase() ?? "";
-			} else {
-				const parsed = parseInitials(col1);
-				if (!parsed) {
-					errors.push(`Cannot parse name from "${col1}" in row: "${cols.join(",")}"`);
-					continue;
-				}
+		// First name column
+		const rawFirst = fnIdx >= 0 ? (cols[fnIdx]?.trim().replace(/\.+$/, "") ?? "") : "";
+
+		if (lnIdx >= 0) {
+			// Separate first + last columns
+			firstName = rawFirst || null;
+			lastName = cols[lnIdx]?.trim().replace(/\.+$/, "") || null;
+			firstInitial = firstName?.[0]?.toUpperCase() ?? "";
+			lastInitial = lastName?.[0]?.toUpperCase() ?? "";
+		} else if (rawFirst.includes(" ")) {
+			// "Jordan Mitchell" in a single column
+			const parts = rawFirst.split(/\s+/);
+			firstName = parts[0] ?? null;
+			lastName = parts.slice(1).join(" ") || null;
+			firstInitial = firstName?.[0]?.toUpperCase() ?? "";
+			lastInitial = lastName?.[0]?.toUpperCase() ?? "";
+		} else if (rawFirst) {
+			// Single token — could be initials "J.M." or just first name "Jordan"
+			const parsed = parseInitials(rawFirst);
+			if (parsed) {
 				firstInitial = parsed.firstInitial;
 				lastInitial = parsed.lastInitial;
+			} else {
+				// Treat as first name only
+				firstName = rawFirst;
+				firstInitial = rawFirst[0]?.toUpperCase() ?? "";
 			}
-		} else if (cols.length >= 3) {
+		} else if (colMap === null && cols.length >= 3) {
+			// No header detected, fallback: col1=first, col2=last
 			const col1 = cols[1]?.trim() ?? "";
 			const col2 = cols[2]?.trim() ?? "";
-
 			if (isFullName(col1)) {
-				// cols[1] = first_name, cols[2] = last_name, cols[3] = optional score
 				firstName = col1 || null;
 				lastName = col2 || null;
 				firstInitial = firstName?.[0]?.toUpperCase() ?? "";
 				lastInitial = lastName?.[0]?.toUpperCase() ?? "";
 			} else {
-				// cols[1] = first_initial, cols[2] = last_initial, cols[3] = optional score
 				firstInitial = col1.replace(/\./g, "").toUpperCase();
 				lastInitial = col2.replace(/\./g, "").toUpperCase();
-			}
-
-			// Check for performance score in col 3 or 4
-			const scoreCol = cols[3] !== undefined ? cols[3] : undefined;
-			if (scoreCol !== undefined && scoreCol !== "") {
-				const parsed = parseInt(String(scoreCol).trim(), 10);
-				if (!Number.isNaN(parsed)) performanceScore = parsed;
 			}
 		}
 
 		if (!firstInitial) {
-			errors.push(`Missing first name/initial in row: "${cols.join(",")}"`);
+			errors.push(`Missing name in row: "${cols.join(",")}"`);
 			continue;
+		}
+
+		// Performance score
+		if (scoreIdx >= 0 && cols[scoreIdx] !== undefined && cols[scoreIdx] !== "") {
+			const parsed = parseInt(String(cols[scoreIdx]).trim(), 10);
+			if (!Number.isNaN(parsed)) performanceScore = parsed;
 		}
 
 		rows.push({ studentId, firstName, lastName, firstInitial, lastInitial, performanceScore });

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TtsButton } from "@/components/coach/tts-button";
+import type { VisualCorrection } from "@/lib/ai/drawing-analysis";
+import { StudentAreaModel } from "./area-model";
+import { StudentFractionBar } from "./fraction-bar";
+import { StudentNumberLine } from "./number-line";
 
 const COLORS = ["#1d4ed8", "#dc2626", "#16a34a", "#d97706", "#000000"];
 
@@ -22,6 +27,8 @@ export function StudentDrawingPrompt({ sessionId, standardCode, standardHint, on
 	const [feedback, setFeedback] = useState<{
 		analysisType: string;
 		studentFeedback: string;
+		auditoryScript: string;
+		visualCorrection: VisualCorrection | null;
 	} | null>(null);
 	const [hasDrawn, setHasDrawn] = useState(false);
 	const [error, setError] = useState("");
@@ -113,7 +120,12 @@ export function StudentDrawingPrompt({ sessionId, standardCode, standardHint, on
 				const json = await res.json();
 				throw new Error((json as { error?: string }).error ?? "Failed");
 			}
-			const data = (await res.json()) as { analysisType: string; studentFeedback: string };
+			const data = (await res.json()) as {
+				analysisType: string;
+				studentFeedback: string;
+				auditoryScript: string;
+				visualCorrection: VisualCorrection | null;
+			};
 			setFeedback(data);
 			setPhase("feedback");
 		} catch {
@@ -127,30 +139,89 @@ export function StudentDrawingPrompt({ sessionId, standardCode, standardHint, on
 		const isCorrect = feedback.analysisType === "correct";
 		const isPartial = feedback.analysisType === "partial";
 		const emoji = isCorrect ? "🌟" : isPartial ? "🤏" : "🔍";
-		const bgClass = isCorrect
-			? "bg-green-50 border-green-200"
-			: isPartial
-				? "bg-yellow-50 border-yellow-200"
-				: "bg-orange-50 border-orange-200";
-		const textClass = isCorrect
-			? "text-green-700"
-			: isPartial
-				? "text-yellow-700"
-				: "text-orange-700";
+		const vc = feedback.visualCorrection;
+
+		// Render the correct visual if provided
+		let correctionVisual: React.ReactNode = null;
+		if (vc) {
+			if (vc.type === "fraction-bar" && vc.bars) {
+				correctionVisual = <StudentFractionBar bars={vc.bars} />;
+			} else if (vc.type === "area-model" && vc.rows !== undefined && vc.cols !== undefined) {
+				correctionVisual = (
+					<StudentAreaModel
+						rows={vc.rows}
+						cols={vc.cols}
+						shadedRows={vc.shadedRows ?? 0}
+						shadedCols={vc.shadedCols ?? 0}
+					/>
+				);
+			} else if (
+				vc.type === "number-line" &&
+				vc.min !== undefined &&
+				vc.max !== undefined &&
+				vc.markers
+			) {
+				correctionVisual = (
+					<StudentNumberLine
+						min={vc.min}
+						max={vc.max}
+						markers={vc.markers}
+						highlightIndex={vc.highlightIndex}
+					/>
+				);
+			}
+		}
 
 		return (
 			<div className="flex flex-col gap-4 py-2">
+				{/* Emoji + heading */}
 				<div className="text-center">
 					<div className="text-5xl mb-2 animate-bounce">{emoji}</div>
 					<p className="text-base font-bold text-gray-800">
 						{isCorrect ? "Great drawing!" : isPartial ? "Nice try!" : "Interesting!"}
 					</p>
 				</div>
-				<div className={`rounded-xl border px-4 py-3 ${bgClass}`}>
-					<p className={`text-sm font-medium leading-relaxed ${textClass}`}>
+
+				{/* TTS — auto-plays the auditory script */}
+				<TtsButton
+					text={feedback.auditoryScript}
+					label={isCorrect ? "Tap to hear your feedback" : "Tap to hear the explanation"}
+					autoPlay={!isCorrect}
+					size="lg"
+				/>
+
+				{/* Written feedback */}
+				<div
+					className={`rounded-xl border px-4 py-3 ${
+						isCorrect
+							? "bg-green-50 border-green-200"
+							: isPartial
+								? "bg-yellow-50 border-yellow-200"
+								: "bg-orange-50 border-orange-200"
+					}`}
+				>
+					<p
+						className={`text-sm font-medium leading-relaxed ${
+							isCorrect ? "text-green-700" : isPartial ? "text-yellow-700" : "text-orange-700"
+						}`}
+					>
 						{feedback.studentFeedback}
 					</p>
 				</div>
+
+				{/* Visual correction manipulative */}
+				{correctionVisual && (
+					<div className="flex flex-col gap-1.5">
+						<p className="text-xs font-semibold text-center text-indigo-600 uppercase tracking-wide">
+							Here's what it looks like ✨
+						</p>
+						{correctionVisual}
+						{vc?.caption && (
+							<p className="text-xs text-center text-gray-500 leading-relaxed">{vc.caption}</p>
+						)}
+					</div>
+				)}
+
 				<button
 					type="button"
 					onClick={onDone}

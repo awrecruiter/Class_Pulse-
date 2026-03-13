@@ -2,12 +2,186 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { StudentManipulative } from "@/components/coach/manipulatives/student";
 import { CorrectionRequest } from "@/components/coach/manipulatives/student/correction-request";
 import type { CoachResponse } from "@/lib/ai/coach";
 
 gsap.registerPlugin(useGSAP);
+
+// ─── SoundCloud-style scrolling waveform ─────────────────────────────────────
+
+function buildWaveData(n: number): number[] {
+	return Array.from({ length: n }, (_, i) => {
+		const v = Math.abs(
+			0.4 * Math.sin(i * 0.053) +
+				0.35 * Math.sin(i * 0.119 + 1.3) +
+				0.16 * Math.sin(i * 0.29 + 0.7) +
+				0.09 * Math.sin(i * 0.61 + 2.1),
+		);
+		return Math.min(1, Math.max(0.05, v / 0.9));
+	});
+}
+
+const WAVE_DATA = buildWaveData(900);
+const BAR_W = 2;
+const BAR_PITCH = 3; // bar + gap
+const SCROLL_SPEED = 0.7; // px per frame
+
+type WaveMarker = { frame: number; signal: Signal };
+
+function SoundcloudWave({
+	active,
+	markTrigger,
+	latestSignal,
+}: {
+	active: boolean;
+	markTrigger: number;
+	latestSignal: Signal | null;
+}) {
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const frameRef = useRef(0);
+	const markersRef = useRef<WaveMarker[]>([]);
+	const prevTriggerRef = useRef(0);
+	const rafRef = useRef<number>(0);
+	const activeRef = useRef(active);
+
+	useEffect(() => {
+		activeRef.current = active;
+	}, [active]);
+
+	// Stamp marker at current playhead frame
+	useEffect(() => {
+		if (markTrigger > prevTriggerRef.current && latestSignal) {
+			markersRef.current = [
+				...markersRef.current,
+				{ frame: frameRef.current, signal: latestSignal },
+			].slice(-30);
+			prevTriggerRef.current = markTrigger;
+		}
+	}, [markTrigger, latestSignal]);
+
+	useEffect(() => {
+		const canvas = canvasRef.current;
+		if (!canvas) return;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) return;
+
+		function resize() {
+			if (!canvas || !ctx) return;
+			const dpr = window.devicePixelRatio || 1;
+			const r = canvas.getBoundingClientRect();
+			canvas.width = r.width * dpr;
+			canvas.height = r.height * dpr;
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		}
+		resize();
+		const ro = new ResizeObserver(resize);
+		ro.observe(canvas);
+
+		function draw() {
+			if (!canvas || !ctx) return;
+			const cssW = canvas.getBoundingClientRect().width;
+			const cssH = canvas.getBoundingClientRect().height;
+			if (cssW === 0) {
+				rafRef.current = requestAnimationFrame(draw);
+				return;
+			}
+
+			ctx.clearRect(0, 0, cssW, cssH);
+			const cy = cssH / 2;
+			const maxH = cssH - 6;
+			const playheadX = cssW * 0.4;
+			const totalScroll = frameRef.current * SCROLL_SPEED;
+			const scrollOffset = totalScroll % BAR_PITCH;
+			const numBars = Math.ceil(cssW / BAR_PITCH) + 2;
+
+			// Bars
+			for (let i = 0; i < numBars; i++) {
+				const x = i * BAR_PITCH - scrollOffset;
+				const globalIdx = Math.floor(totalScroll / BAR_PITCH) + i;
+				const dataIdx = ((globalIdx % WAVE_DATA.length) + WAVE_DATA.length) % WAVE_DATA.length;
+				const amp = WAVE_DATA[dataIdx] ?? 0.3;
+				const h = Math.max(2, amp * maxH);
+				const played = x <= playheadX;
+				if (activeRef.current) {
+					ctx.fillStyle = played ? "rgba(129,140,248,0.88)" : "rgba(99,102,241,0.22)";
+				} else {
+					ctx.fillStyle = "rgba(71,85,105,0.38)";
+				}
+				ctx.beginPath();
+				ctx.roundRect(x, cy - h / 2, BAR_W, h, 1);
+				ctx.fill();
+			}
+
+			// Signal markers (fingerprints)
+			for (const { frame, signal } of markersRef.current) {
+				const mx = playheadX - (frameRef.current - frame) * SCROLL_SPEED;
+				if (mx < -20 || mx > cssW + 20) continue;
+				const color = signal === "got-it" ? "#34d399" : signal === "almost" ? "#fbbf24" : "#a78bfa";
+				// Vertical line
+				ctx.fillStyle = `${color}99`;
+				ctx.fillRect(mx - 0.5, 3, 1.5, cssH - 6);
+				// Ripple (fades over ~90 frames)
+				const age = frameRef.current - frame;
+				const fade = Math.max(0, 1 - age / 90);
+				if (fade > 0) {
+					ctx.beginPath();
+					ctx.arc(mx, cy, 8 + (1 - fade) * 8, 0, Math.PI * 2);
+					ctx.strokeStyle =
+						color +
+						Math.round(fade * 100)
+							.toString(16)
+							.padStart(2, "0");
+					ctx.lineWidth = 1;
+					ctx.stroke();
+				}
+				// Core dot
+				ctx.beginPath();
+				ctx.arc(mx, cy, 3.5, 0, Math.PI * 2);
+				ctx.fillStyle = color;
+				ctx.fill();
+			}
+
+			// Playhead
+			if (activeRef.current) {
+				const g = ctx.createLinearGradient(playheadX - 10, 0, playheadX + 10, 0);
+				g.addColorStop(0, "rgba(255,255,255,0)");
+				g.addColorStop(0.5, "rgba(255,255,255,0.18)");
+				g.addColorStop(1, "rgba(255,255,255,0)");
+				ctx.fillStyle = g;
+				ctx.fillRect(playheadX - 10, 0, 20, cssH);
+				ctx.fillStyle = "rgba(255,255,255,0.6)";
+				ctx.fillRect(playheadX, 0, 1, cssH);
+			}
+
+			if (activeRef.current) frameRef.current++;
+			rafRef.current = requestAnimationFrame(draw);
+		}
+
+		rafRef.current = requestAnimationFrame(draw);
+		return () => {
+			cancelAnimationFrame(rafRef.current);
+			ro.disconnect();
+		};
+	}, []);
+
+	return (
+		<div className="relative w-full overflow-hidden rounded-lg" style={{ height: 52 }}>
+			<canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+			{/* Edge fade */}
+			<div
+				className="absolute inset-y-0 left-0 w-8 pointer-events-none"
+				style={{ background: "linear-gradient(to right, #0f1117, transparent)" }}
+			/>
+			<div
+				className="absolute inset-y-0 right-0 w-8 pointer-events-none"
+				style={{ background: "linear-gradient(to left, #0f1117, transparent)" }}
+			/>
+		</div>
+	);
+}
 
 type Signal = "got-it" | "almost" | "lost";
 type ManipSpec = CoachResponse["manipulative"];
@@ -44,11 +218,11 @@ const SIGNALS: {
 	},
 	{
 		id: "lost",
-		label: "I'm lost",
-		icon: "?",
-		accent: "bg-red-500",
-		ring: "ring-red-500/60",
-		glow: "shadow-red-500/20",
+		label: "Need help",
+		icon: "🙋",
+		accent: "bg-violet-500",
+		ring: "ring-violet-500/60",
+		glow: "shadow-violet-500/20",
 	},
 ];
 
@@ -113,9 +287,27 @@ export function StudentSession({
 	groupBalance,
 	groupName,
 }: Props) {
+	const router = useRouter();
 	const [currentSignal, setCurrentSignal] = useState<Signal | null>(initialSignal);
+	const [markTrigger, setMarkTrigger] = useState(0);
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState("");
+
+	// Poll for session going live when student joins early
+	useEffect(() => {
+		if (isActive) return;
+		const interval = setInterval(async () => {
+			try {
+				const res = await fetch(`/api/sessions/${sessionId}/status`);
+				if (!res.ok) return;
+				const { active } = await res.json();
+				if (active) router.refresh();
+			} catch {
+				/* noop */
+			}
+		}, 4000);
+		return () => clearInterval(interval);
+	}, [isActive, sessionId, router]);
 
 	const [pushedSpec, setPushedSpec] = useState<ManipSpec>(null);
 	const [pushedStandardCode, setPushedStandardCode] = useState<string | undefined>(undefined);
@@ -188,6 +380,7 @@ export function StudentSession({
 				});
 				if (!res.ok) throw new Error("Failed");
 				setCurrentSignal(signal);
+				setMarkTrigger((t) => t + 1);
 			} catch {
 				setError("Couldn't save — try again");
 			}
@@ -244,12 +437,19 @@ export function StudentSession({
 			>
 				{isActive ? (
 					<div className="flex flex-col gap-4 p-5">
-						{/* Live indicator */}
-						<div className="flex items-center justify-center gap-2">
-							<span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-							<p className="text-xs font-semibold text-emerald-500 tracking-wide uppercase">
-								Class is live
-							</p>
+						{/* Teacher voice waveform */}
+						<div className="flex flex-col items-center gap-2">
+							<SoundcloudWave
+								active={isActive}
+								markTrigger={markTrigger}
+								latestSignal={currentSignal}
+							/>
+							<div className="flex items-center gap-1.5">
+								<span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+								<p className="text-[11px] font-semibold text-emerald-500 tracking-wide uppercase">
+									Teacher is live
+								</p>
+							</div>
 						</div>
 
 						{/* Signal label */}
@@ -297,18 +497,16 @@ export function StudentSession({
 						</div>
 
 						{error && (
-							<p className="text-center text-xs text-red-400 bg-red-500/10 rounded-lg py-2">
+							<p className="text-center text-xs text-rose-300 bg-rose-500/10 rounded-lg py-2">
 								{error}
 							</p>
 						)}
 
 						{/* Help / lost context */}
 						{currentSignal === "lost" && !showManip && (
-							<div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-center">
-								<p className="text-sm font-semibold text-red-300">
-									Your teacher sees you need help
-								</p>
-								<p className="text-xs text-red-400/70 mt-0.5">They'll send something over soon.</p>
+							<div className="rounded-xl bg-violet-500/10 border border-violet-500/20 px-4 py-3 text-center">
+								<p className="text-sm font-semibold text-violet-300">Your teacher is on the way!</p>
+								<p className="text-xs text-violet-400/70 mt-0.5">Hang tight, help is coming.</p>
 							</div>
 						)}
 

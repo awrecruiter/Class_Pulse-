@@ -14,7 +14,37 @@ export type CoachRequest = {
 		triedApproach: string;
 		deeperContext?: string;
 	}>;
+	scaffoldGrade?: number; // 0-5; undefined = auto
 };
+
+export type ScaffoldVisual =
+	| {
+			type: "sort";
+			items: Array<{ emoji: string; label: string; count: number; scale?: number }>;
+			bins: Array<{ label: string }>;
+	  }
+	| {
+			type: "table";
+			headers: string[];
+			rows: Array<{ label: string; emoji: string; count: number; scale?: number }>;
+	  }
+	| {
+			type: "compare";
+			groups: Array<{ label: string; emoji: string; count: number; scale?: number }>;
+	  }
+	| {
+			type: "count";
+			groups: Array<{ label: string; emoji: string; count: number; scale?: number }>;
+	  }
+	| {
+			type: "select";
+			options: Array<{
+				label: string;
+				headers?: string[];
+				rows: Array<{ label: string; emoji: string; count: number }>;
+			}>;
+	  }
+	| null;
 
 export type CoachResponse = {
 	studentInterpretation: string;
@@ -28,6 +58,14 @@ export type CoachResponse = {
 	visual: string;
 	microIntervention: string;
 	guidingQuestions: string[];
+	scaffoldQuestions: Array<{
+		question: string;
+		choices: [string, string, string, string];
+		correct: number; // 0-3
+		hint: string;
+		explanation: string;
+		visual: ScaffoldVisual;
+	}>;
 	manipulative: {
 		type: "area-model" | "fraction-bar" | "number-line";
 		rows?: number;
@@ -52,6 +90,19 @@ export type CoachResponse = {
 		visual: string;
 		microIntervention: string;
 		guidingQuestions: string[];
+		manipulative: {
+			type: "area-model" | "fraction-bar" | "number-line";
+			rows?: number;
+			cols?: number;
+			shadedRows?: number;
+			shadedCols?: number;
+			bars?: Array<{ parts: number; filled: number; label: string }>;
+			min?: number;
+			max?: number;
+			markers?: Array<{ value: number; label: string }>;
+			highlightIndex?: number;
+			caption: string;
+		} | null;
 	};
 };
 
@@ -77,7 +128,43 @@ Rules:
 3. script: ≤30 words. Exactly what the teacher says out loud right now. Must reference something from today's lesson. No jargon.
 4. visual: A quick sketch the teacher draws in under 10 seconds. 1–3 sentences.
 5. microIntervention: A 30-second hands-on activity using only what's on the student's desk. 2–4 sentences.
-6. guidingQuestions: 3 questions the teacher asks — in order — to lead the student to discover the answer themselves. Each question should build on the last. No yes/no questions.
+6. guidingQuestions: 3 open-ended questions the teacher asks to lead discovery. Each builds on the last. No yes/no questions.
+11. scaffoldQuestions: 3 progressive multiple-choice questions that scaffold the student from the prerequisite concept to mastery of the current concept. Structure:
+    - Q1: tests the grade-below prerequisite concept directly (should be accessible to the struggling student)
+    - Q2: bridges — connects the prerequisite to the current concept (moderate difficulty)
+    - Q3: tests the target misconception directly at grade level (should now be reachable)
+    Each question must have EXACTLY 4 choices (index 0–3). The correct answer should not always be index 0.
+    - hint: 1 sentence shown after a wrong answer — nudge without giving it away
+    - explanation: 1–2 sentences shown after a correct answer — why it's right + connects to the next step
+    Use simple, grade-appropriate language (10-year-old level).
+12. visual (inside EACH scaffold question): REQUIRED for any question involving objects, quantities, tables, charts, diagrams, comparisons, or sorting. Set null ONLY for questions about pure abstract vocabulary with zero visual component.
+
+    DECISION TREE — pick the type that matches the question:
+    • Words like "sort", "group", "organize", "put into", "drag" → "sort"
+    • Words like "table", "chart", "label", "row", "column", "tally" → "table"
+    • Words like "more", "fewer", "less than", "compare", "which has more" → "compare"
+    • Words like "how many", "count the", "total in the group" → "count"
+    • Words like "which shows", "which table is correct", "which diagram" → "select"
+
+    COPY THESE EXACT STRUCTURES (replace content, never change keys):
+
+    sort — student drags items into bins:
+    {"type":"sort","items":[{"emoji":"🔴","label":"Red crayons","count":5,"scale":1},{"emoji":"🔵","label":"Blue crayons","count":3,"scale":1}],"bins":[{"label":"Red"},{"label":"Blue"}]}
+
+    table — question mentions or asks about a table/tally chart:
+    {"type":"table","headers":["Animal","Tally"],"rows":[{"label":"Dog","emoji":"🐕","count":3,"scale":1},{"label":"Cat","emoji":"🐈","count":5,"scale":1},{"label":"Bird","emoji":"🐦","count":2,"scale":1}]}
+
+    compare — which group has more or fewer:
+    {"type":"compare","groups":[{"label":"Dogs","emoji":"🐕","count":6,"scale":1},{"label":"Cats","emoji":"🐈","count":4,"scale":1}]}
+
+    count — how many objects are in a group:
+    {"type":"count","groups":[{"label":"Pencils","emoji":"✏️","count":8,"scale":1}]}
+
+    select — student picks the correct table/diagram from options:
+    {"type":"select","options":[{"label":"Option A","headers":["Fruit","Count"],"rows":[{"label":"Apple","emoji":"🍎","count":3},{"label":"Orange","emoji":"🍊","count":5}]},{"label":"Option B","headers":["Fruit","Count"],"rows":[{"label":"Apple","emoji":"🍎","count":5},{"label":"Orange","emoji":"🍊","count":3}]}]}
+
+    Use real emoji matching the subject (crayons→🖍️, apples→🍎, dogs→🐕, books→📚, buttons→🔘, etc.).
+    NEVER return null when the question mentions a table, chart, group, count, or concrete objects.
 7. Never use the student's name. Use "they" or "the student".
 8. manipulative: Choose ONE visual aid if the concept is spatial/fractional; otherwise set to null.
    - "area-model": fraction multiplication → rows=denominator1, cols=denominator2, shadedRows=numerator1, shadedCols=numerator2
@@ -96,6 +183,9 @@ Rules:
     - below.visual: A sketch the teacher draws using only grade-below vocabulary and representations.
     - below.microIntervention: A 30-second activity that builds the prerequisite skill from scratch.
     - below.guidingQuestions: 3 questions starting from the grade-below concept, bridging toward the current lesson.
+    - below.manipulative: Same rules as the top-level manipulative (#8 above), but chosen for the grade-below prerequisite concept. Set to null if the below concept is not spatial/fractional.
+
+CRITICAL: You MUST ALWAYS respond with valid JSON — no exceptions. Even if the student input is a single word, a fragment, or completely vague, make a reasonable educational interpretation and produce the full JSON. Never ask for clarification. Never output prose. If the input is ambiguous, interpret it as the most common 5th-grade math misconception that fits any context clues available.
 
 Respond ONLY with valid JSON matching this exact schema — no markdown, no explanation:
 {
@@ -110,6 +200,11 @@ Respond ONLY with valid JSON matching this exact schema — no markdown, no expl
   "visual": "string (quick sketch description, 1–3 sentences)",
   "microIntervention": "string (30-second hands-on activity, 2–4 sentences)",
   "guidingQuestions": ["question 1", "question 2", "question 3"],
+  "scaffoldQuestions": [
+    { "question": "...", "choices": ["...","...","...","..."], "correct": number, "hint": "...", "explanation": "...", "visual": null | { "type": "sort"|"table"|"compare"|"count"|"select", ...exact structure from rule 12 examples... } },
+    { "question": "...", "choices": ["...","...","...","..."], "correct": number, "hint": "...", "explanation": "...", "visual": null | { ... } },
+    { "question": "...", "choices": ["...","...","...","..."], "correct": number, "hint": "...", "explanation": "...", "visual": null | { ... } }
+  ],
   "manipulative": null | {
     "type": "area-model" | "fraction-bar" | "number-line",
     "rows": number (area-model only, denominator 2–6),
@@ -133,7 +228,16 @@ Respond ONLY with valid JSON matching this exact schema — no markdown, no expl
     "script": "string (≤30 words, grade-below version of Say It)",
     "visual": "string (1–3 sentences, grade-below version of Draw It)",
     "microIntervention": "string (2–4 sentences, grade-below version of Do It)",
-    "guidingQuestions": ["question 1", "question 2", "question 3"]
+    "guidingQuestions": ["question 1", "question 2", "question 3"],
+    "manipulative": null | {
+      "type": "area-model" | "fraction-bar" | "number-line",
+      "rows": number, "cols": number, "shadedRows": number, "shadedCols": number,
+      "bars": [{"parts": number, "filled": number, "label": "string"}],
+      "min": number, "max": number,
+      "markers": [{"value": number, "label": "string"}],
+      "highlightIndex": number,
+      "caption": "one sentence describing what the below visual shows"
+    }
   }
 }`;
 
@@ -161,7 +265,14 @@ The teacher confirmed these are the standards being taught right now. Ground you
 					)}\nGo DEEPER: trace the prerequisite chain one more level back. Do NOT repeat any approach already listed.\n`
 			: "";
 
-	const userMessage = `${pinnedStandardBlock}Today's lesson transcript (last 15 min):
+	const gradeModifier =
+		req.scaffoldGrade !== undefined
+			? req.scaffoldGrade <= 2
+				? `SCAFFOLD GRADE OVERRIDE: The student operates at a Kindergarten–Grade ${req.scaffoldGrade === 0 ? "K" : req.scaffoldGrade} level. ALL content must be pitched for this grade. Use concrete counting, physical objects, and simple language. FL BEST codes may be informal. The 'below' section should go one level lower still.\n\n`
+				: `SCAFFOLD GRADE OVERRIDE: Pitch ALL content at Grade ${req.scaffoldGrade} level. Adjust the script, visual, micro-intervention, guiding questions, and scaffold questions to be appropriate for a Grade ${req.scaffoldGrade} student. The 'below' section should target Grade ${req.scaffoldGrade - 1}.\n\n`
+			: "";
+
+	const userMessage = `${gradeModifier}${pinnedStandardBlock}Today's lesson transcript (last 15 min):
 """
 ${req.lessonTranscript.trim() || "(No lesson transcript captured yet — respond based on the student query alone.)"}
 """
@@ -175,26 +286,34 @@ Interpret the student's actual misconception, identify the FL BEST prerequisite 
 
 	const message = await client.messages.create({
 		model: "claude-haiku-4-5-20251001",
-		max_tokens: 2000,
+		max_tokens: 6000,
 		system: SYSTEM_PROMPT,
 		messages: [{ role: "user", content: userMessage }],
 	});
+
+	if (message.stop_reason === "max_tokens") {
+		throw new Error("AI response was too long — token limit hit. Try a shorter transcript.");
+	}
 
 	const textBlock = message.content.find((b) => b.type === "text");
 	if (!textBlock || textBlock.type !== "text") {
 		throw new Error("No text response from AI");
 	}
 
-	const raw = textBlock.text
-		.replace(/^```(?:json)?\n?/, "")
-		.replace(/\n?```$/, "")
-		.trim();
+	// Extract JSON robustly — find the outermost { ... } block
+	const text = textBlock.text;
+	const start = text.indexOf("{");
+	const end = text.lastIndexOf("}");
+	if (start === -1 || end === -1 || end <= start) {
+		throw new Error(`AI response contained no JSON object: ${text.slice(0, 200)}`);
+	}
+	const raw = text.slice(start, end + 1);
 
 	let parsed: CoachResponse;
 	try {
 		parsed = JSON.parse(raw);
 	} catch {
-		throw new Error(`AI returned invalid JSON: ${raw.slice(0, 200)}`);
+		throw new Error(`AI returned invalid JSON (last 200): ...${raw.slice(-200)}`);
 	}
 
 	if (
@@ -213,6 +332,12 @@ Interpret the student's actual misconception, identify the FL BEST prerequisite 
 
 	// Default gradePrereq to null if AI omits it
 	parsed.gradePrereq = parsed.gradePrereq ?? null;
+
+	parsed.below.manipulative = parsed.below?.manipulative ?? null;
+	parsed.scaffoldQuestions = Array.isArray(parsed.scaffoldQuestions)
+		? // biome-ignore lint/suspicious/noExplicitAny: runtime JSON normalization
+			parsed.scaffoldQuestions.map((q: any) => ({ ...q, visual: q.visual ?? null }))
+		: [];
 
 	if (!parsed.below || typeof parsed.below.script !== "string") {
 		throw new Error("AI response missing 'below' elaboration");

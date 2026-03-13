@@ -11,6 +11,7 @@ export type BehaviorAction =
 	| "incident"
 	| "parent-msg"
 	| "iready"
+	| "class-analysis"
 	| "general";
 
 export type BehaviorResponse = {
@@ -19,6 +20,8 @@ export type BehaviorResponse = {
 	ramBuck?: { amount: number; reason: string };
 	parentMessage?: string;
 	incidentNote?: string;
+	toneAnalysis?: string;
+	nextSteps?: string[];
 };
 
 const HistoryItemSchema = z.object({
@@ -29,9 +32,10 @@ const HistoryItemSchema = z.object({
 const RequestSchema = z.object({
 	message: z.string().min(1).max(500),
 	history: z.array(HistoryItemSchema).max(20).default([]),
+	lessonTranscript: z.string().max(20000).optional(),
 });
 
-const SYSTEM_PROMPT = `You are a classroom behavior coach for a 5th-grade Florida math teacher. You assist throughout the school day via natural narration — the teacher speaks to you while moving around the room.
+const BASE_SYSTEM_PROMPT = `You are a classroom behavior coach for a 5th-grade Florida math teacher. You assist throughout the school day via natural narration — the teacher speaks to you while moving around the room.
 
 ROLE:
 - Help manage classroom behavior with evidence-based, child-psychology-informed strategies
@@ -39,6 +43,7 @@ ROLE:
 - Log behavior incidents and escalate the behavior ladder
 - Generate parent communication (ClassDojo-formatted) at step 5+
 - Provide real-time behavioral advice that is immediately actionable
+- Analyze class-wide behavioral dynamics from lesson audio when asked
 
 RAM BUCK ECONOMY:
 Academic awards (auto): Correct CFU = 5 bucks | Mastery standard = 25 bucks | iReady goal = 20 bucks | Full day no incidents = 10 bucks
@@ -72,21 +77,45 @@ PARSE TEACHER NARRATION:
 - "Call home for [name]" or "write up for [name]" → parent-msg
 - "[name] hit their iReady goal" → iready + ram-buck-award (20 bucks)
 - "What do I do with [name]" or behavioral advice request → advice
+- "How's the class doing?" / "analyze the class" / "class behavior" / "what did you notice?" → class-analysis (use lesson transcript if present)
 - General classroom situation → advice
 
+CLASS ANALYSIS (when actionType = "class-analysis"):
+If a lesson transcript is provided, analyze the audio evidence for behavioral dynamics:
+- Frequency and pattern of redirections in the transcript
+- Student engagement signals (questions, responses, side conversations captured)
+- Pacing issues that correlate with off-task behavior
+- Transition moments where behavior typically breaks down
+- Positive behavior patterns worth reinforcing
+Keep the message to 3-4 concise sentences. Lead with the most actionable insight.
+
+TONE ANALYSIS (toneAnalysis field):
+Include whenever actionType is "advice", "incident", "general", or "class-analysis". One sharp sentence reading the behavioral temperature of the situation — is it escalating, defiant, attention-seeking, anxiety-driven, group contagion, etc. Be specific to the context provided. Examples:
+- "Defiant escalation — student is testing limits publicly after a prior correction went unaddressed."
+- "Low-level group contagion — transition energy hasn't settled and three or four students are feeding off each other."
+- "Anxiety-driven avoidance — student appears to be shutting down rather than acting out."
+
+NEXT STEPS (nextSteps field):
+Include 2–3 immediately actionable steps whenever toneAnalysis is present. Ordered by priority. Each step should be a single sentence, specific and doable right now — not general advice. Examples:
+- "Lower your voice one level and pause instruction for 3 seconds — silence resets the room faster than redirection."
+- "Walk toward Jordan slowly without breaking instruction eye contact — proximity alone usually works before step 2."
+- "If the behavior continues in 90 seconds, give a quiet private choice: 'You can refocus here or finish the work at the back table.'"
+
 RESPONSE RULES:
-- Keep "message" SHORT — teacher is on the move. 1-2 sentences max.
+- Keep "message" SHORT — teacher is on the move. 1-2 sentences max (3-4 for class-analysis).
 - Be warm but direct. No filler words.
 - If RAM bucks are involved, always include the ramBuck field.
 - incidentNote should be a brief objective 3rd-person sentence for the student's behavior profile.
 
 You MUST respond with valid JSON matching this exact shape:
 {
-  "message": "string (required, ≤2 sentences)",
-  "actionType": "advice" | "ram-buck-award" | "ram-buck-deduction" | "incident" | "parent-msg" | "iready" | "general",
+  "message": "string (required)",
+  "actionType": "advice" | "ram-buck-award" | "ram-buck-deduction" | "incident" | "parent-msg" | "iready" | "class-analysis" | "general",
   "ramBuck": { "amount": 10, "reason": "helping clean up" },
   "parentMessage": "Hello parent...",
-  "incidentNote": "Student disrupted class during lesson by..."
+  "incidentNote": "Student disrupted class during lesson by...",
+  "toneAnalysis": "Defiant escalation — student is testing limits after prior correction.",
+  "nextSteps": ["Lower your voice and pause for 3 seconds.", "Use proximity — walk toward the student.", "Offer a private choice if it continues."]
 }
 Only include optional fields when relevant. Never include null values — omit the field entirely.`;
 
@@ -110,7 +139,12 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
 	}
 
-	const { message, history } = parsed.data;
+	const { message, history, lessonTranscript } = parsed.data;
+
+	// Append transcript context to the system prompt when available
+	const systemPrompt = lessonTranscript?.trim()
+		? `${BASE_SYSTEM_PROMPT}\n\n---\nLESSON AUDIO TRANSCRIPT (last ~2500 words captured from the teacher's mic during instruction):\n${lessonTranscript.trim()}\n---\nUse this transcript as behavioral evidence when performing class-analysis or when it provides relevant context for advice.`
+		: BASE_SYSTEM_PROMPT;
 
 	const messages: Anthropic.MessageParam[] = [
 		...history.map((h) => ({ role: h.role, content: h.content })),
@@ -119,14 +153,13 @@ export async function POST(request: NextRequest) {
 
 	const completion = await client.messages.create({
 		model: "claude-haiku-4-5-20251001",
-		max_tokens: 600,
-		system: SYSTEM_PROMPT,
+		max_tokens: 800,
+		system: systemPrompt,
 		messages,
 	});
 
 	const raw = completion.content[0]?.type === "text" ? completion.content[0].text : "";
 
-	// Parse JSON response from the model
 	let parsed2: BehaviorResponse;
 	try {
 		const jsonMatch = raw.match(/\{[\s\S]*\}/);

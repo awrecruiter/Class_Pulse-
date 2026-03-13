@@ -43,24 +43,31 @@ You will receive:
 
 Return ONLY valid JSON (no markdown, no explanation) matching exactly one of these shapes:
 
-Scoring command (teacher adds or removes points from a group):
+Scoring command:
 {"action":"score","groupId":"<uuid>","delta":<number>}
-delta is positive for adding points, negative for removing. Extract number from phrases like "gets 2 points", "give Blue 3", "minus 1 for Red".
+delta is positive for adding, negative for removing. Default delta=1 if no number given.
 
-Add student to group:
-{"action":"add-to-group","groupId":"<uuid>","rosterIds":["<uuid>",...]}
-Match student names fuzzy/phonetically — handle culturally diverse names (Aaliyah, Jahmir, Deja, Tremaine, Xiomara, Marcus, De'Andre, etc.). Match partial names and initials.
+Add one OR MANY students to a group:
+{"action":"add-to-group","groupId":"<uuid>","rosterIds":["<uuid>","<uuid>",...]}
+rosterIds is an array — always include ALL matched students in a single response.
 
-Unknown/unparseable command:
+Examples of list commands (all become one add-to-group with multiple rosterIds):
+- "Red group: Marcus, Aaliyah, Jordan" → all three rosterIds in rosterIds array
+- "Put Marcus Aaliyah and Jordan in Red"
+- "Marcus Aaliyah Jordan — Red"
+- "Blue team gets Deja, Tremaine, Xiomara"
+- Just a list of names followed by a color: "Jahmir De'Andre Keisha green"
+
+Unknown/unparseable:
 {"action":"unknown"}
 
 Rules:
-- Match group names case-insensitively: "red", "Red", "RED" all match the Red group
-- For scoring, default delta=1 if no number mentioned
-- For student names, do fuzzy phonetic matching — "Marcus" matches "Marcus J.", "Deja" matches "Deja W."
-- Only use groupIds from the groups list you receive
-- Only use rosterIds from the roster list you receive
-- If command is ambiguous or unclear, return {"action":"unknown"}`;
+- Match group names case-insensitively
+- Fuzzy/phonetic name matching — "Marcus" matches "Marcus J.", speech errors OK
+- Handle culturally diverse names: Aaliyah, Jahmir, Deja, Tremaine, Xiomara, De'Andre, Keisha, etc.
+- Only use groupIds and rosterIds from the data you receive
+- Match as many names as you can from the command — partial matches are fine
+- If a name is ambiguous match the closest one; only return unknown if you cannot identify a group at all`;
 
 const client = new Anthropic();
 
@@ -90,7 +97,7 @@ ${roster.map((s) => `- ${s.displayName} [rosterId: ${s.rosterId}]`).join("\n")}`
 	try {
 		const response = await client.messages.create({
 			model: "claude-haiku-4-5-20251001",
-			max_tokens: 400,
+			max_tokens: 800,
 			system: SYSTEM_PROMPT,
 			messages: [{ role: "user", content: userMsg }],
 		});

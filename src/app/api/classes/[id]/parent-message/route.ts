@@ -95,5 +95,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		smsSid: smsResult.sid ?? null,
 	});
 
-	return NextResponse.json({ ok: smsResult.ok, error: smsResult.error });
+	return NextResponse.json({ ok: true, smsSent: smsResult.ok, smsNote: smsResult.error ?? null });
 }

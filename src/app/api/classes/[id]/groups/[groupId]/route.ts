@@ -88,6 +88,40 @@ export async function PUT(
 	return NextResponse.json({ ok: true });
 }
 
+// DELETE /api/classes/[id]/groups/[groupId] — remove student from group
+export async function DELETE(
+	request: NextRequest,
+	{ params }: { params: Promise<{ id: string; groupId: string }> },
+) {
+	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
+	const { success } = sessionRateLimiter.check(ip);
+	if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+
+	const { data } = await auth.getSession();
+	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+	const { id: classId, groupId } = await params;
+	const owns = await verifyTeacherOwnsClass(classId, data.user.id);
+	if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+	const body = await request.json();
+	const result = moveStudentSchema.safeParse(body);
+	if (!result.success)
+		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
+
+	await db
+		.delete(groupMemberships)
+		.where(
+			and(
+				eq(groupMemberships.classId, classId),
+				eq(groupMemberships.groupId, groupId),
+				eq(groupMemberships.rosterId, result.data.rosterId),
+			),
+		);
+
+	return NextResponse.json({ ok: true });
+}
+
 // PATCH /api/classes/[id]/groups/[groupId] — rename group
 export async function PATCH(
 	request: NextRequest,

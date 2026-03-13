@@ -1,6 +1,6 @@
 "use client";
 
-import { gsap } from "gsap";
+import gsap from "gsap";
 import {
 	CheckIcon,
 	ClipboardIcon,
@@ -14,105 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
 import { RamBuckBurst } from "@/components/coach/ram-buck-burst";
-
-// ─── Avatar helpers ───────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-	"bg-red-400",
-	"bg-orange-400",
-	"bg-amber-400",
-	"bg-lime-500",
-	"bg-emerald-400",
-	"bg-teal-400",
-	"bg-cyan-500",
-	"bg-blue-400",
-	"bg-indigo-400",
-	"bg-violet-400",
-	"bg-purple-400",
-	"bg-pink-400",
-	"bg-rose-400",
-	"bg-sky-400",
-	"bg-green-500",
-	"bg-fuchsia-400",
-];
-
-const AVATAR_ANIMALS = [
-	"🐶",
-	"🐱",
-	"🐰",
-	"🦊",
-	"🐻",
-	"🐼",
-	"🐯",
-	"🦁",
-	"🐸",
-	"🐧",
-	"🦋",
-	"🐮",
-	"🐷",
-	"🦄",
-	"🐨",
-	"🐵",
-];
-
-function hashId(id: string): number {
-	let h = 0;
-	for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-	return h;
-}
-function avatarColor(rosterId: string) {
-	return AVATAR_COLORS[hashId(rosterId) % AVATAR_COLORS.length];
-}
-function avatarAnimal(rosterId: string) {
-	return AVATAR_ANIMALS[(hashId(rosterId) >> 4) % AVATAR_ANIMALS.length];
-}
-
-// ─── Student strip chip ────────────────────────────────────────────────────────
-
-function StudentChip({
-	student,
-	active,
-	onTap,
-}: {
-	student: StudentOverview;
-	active: boolean;
-	onTap: (s: StudentOverview) => void;
-}) {
-	const step = student.behaviorStep;
-	const stepColor = step >= 5 ? "bg-red-500" : step >= 3 ? "bg-orange-500" : "bg-yellow-400";
-	return (
-		<button
-			type="button"
-			onClick={() => onTap(student)}
-			className={`relative flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 transition-all shrink-0 active:scale-95 ${
-				active ? "bg-amber-200 ring-2 ring-amber-500" : "bg-amber-50 hover:bg-amber-100"
-			}`}
-		>
-			<div
-				className={`relative h-10 w-10 rounded-full ${avatarColor(student.rosterId)} flex items-center justify-center shadow`}
-			>
-				<span className="text-xl leading-none select-none" aria-hidden>
-					{avatarAnimal(student.rosterId)}
-				</span>
-				{step > 0 && (
-					<span
-						className={`absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full ${stepColor} flex items-center justify-center text-[9px] font-bold text-white shadow`}
-					>
-						{step}
-					</span>
-				)}
-			</div>
-			<span className="text-[10px] font-semibold text-foreground leading-none">
-				{student.firstInitial}.{student.lastInitial}.
-			</span>
-			<span
-				className={`text-[9px] tabular-nums leading-none ${student.balance > 0 ? "text-green-600 font-bold" : "text-muted-foreground"}`}
-			>
-				🐏{student.balance}
-			</span>
-		</button>
-	);
-}
+import { useMicSlot } from "@/hooks/use-mic-manager";
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
 
@@ -329,7 +231,7 @@ export function BehaviorPanel() {
 	const [classes, setClasses] = useState<ClassRow[]>([]);
 	const [selectedClassId, setSelectedClassId] = useState("");
 	const [students, setStudents] = useState<StudentOverview[]>([]);
-	const [studentsLoading, setStudentsLoading] = useState(false);
+	const [_studentsLoading, setStudentsLoading] = useState(false);
 
 	const [activeStudent, setActiveStudent] = useState<StudentOverview | null>(null);
 	const [guidanceLoading, setGuidanceLoading] = useState(false);
@@ -343,7 +245,6 @@ export function BehaviorPanel() {
 
 	const [burst, setBurst] = useState<{ amount: number; type: "award" | "deduction" } | null>(null);
 
-	const recognitionRef = useRef<SpeechRecognition | null>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const historyRef = useRef<HistoryEntry[]>([]);
 	const pendingStudentRef = useRef<StudentOverview | null>(null);
@@ -396,7 +297,7 @@ export function BehaviorPanel() {
 		return null;
 	}
 
-	function handleStudentTap(student: StudentOverview) {
+	function _handleStudentTap(student: StudentOverview) {
 		pendingStudentRef.current = student;
 		setActiveStudent(student);
 		setGuidance(null);
@@ -531,29 +432,29 @@ export function BehaviorPanel() {
 		}
 	}
 
+	// Dictation via mic manager — priority 3 (below lecture, above orb/globalVoice)
+	const handleSendRef = useRef(handleSend);
+	handleSendRef.current = handleSend;
+
+	const dictConfig = {
+		continuous: false as const,
+		interimResults: false as const,
+		onResult: (t: string, isFinal: boolean) => {
+			if (isFinal && t.trim()) handleSendRef.current(t.trim());
+		},
+		onNaturalEnd: () => setIsRecording(false),
+		onError: () => setIsRecording(false),
+	};
+
+	const { start: dictStart, stop: dictStop } = useMicSlot("dictation", dictConfig);
+
 	function startRecording() {
-		const SR =
-			typeof window !== "undefined"
-				? (window.SpeechRecognition ?? window.webkitSpeechRecognition)
-				: null;
-		if (!SR) return;
-		const recognition = new SR();
-		recognition.continuous = false;
-		recognition.interimResults = false;
-		recognition.lang = "en-US";
-		recognition.onresult = (e: SpeechRecognitionEvent) => {
-			const transcript = e.results[0]?.[0]?.transcript ?? "";
-			if (transcript) handleSend(transcript);
-		};
-		recognition.onend = () => setIsRecording(false);
-		recognition.onerror = () => setIsRecording(false);
-		recognitionRef.current = recognition;
-		recognition.start();
+		dictStart();
 		setIsRecording(true);
 	}
 
 	function stopRecording() {
-		recognitionRef.current?.stop();
+		dictStop();
 		setIsRecording(false);
 	}
 
@@ -715,43 +616,6 @@ export function BehaviorPanel() {
 			)}
 
 			{/* ── Student strip ──────────────────────────────────── */}
-			{selectedClassId && (
-				<div>
-					{studentsLoading ? (
-						<div className="flex gap-1 justify-center py-2">
-							{[0, 1, 2].map((i) => (
-								<span
-									key={i}
-									className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-bounce"
-									style={{ animationDelay: `${i * 150}ms` }}
-								/>
-							))}
-						</div>
-					) : students.length > 0 ? (
-						<div>
-							<p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 px-0.5">
-								{activeStudent
-									? `Selected: ${activeStudent.firstInitial}.${activeStudent.lastInitial}.`
-									: "Tap a student to focus"}
-							</p>
-							<div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-								{students.map((s) => (
-									<StudentChip
-										key={s.rosterId}
-										student={s}
-										active={activeStudent?.rosterId === s.rosterId}
-										onTap={handleStudentTap}
-									/>
-								))}
-							</div>
-						</div>
-					) : (
-						<p className="text-center text-xs text-muted-foreground py-2">
-							No students on roster yet.
-						</p>
-					)}
-				</div>
-			)}
 
 			{/* ── Active student dismiss + guidance ─────────────── */}
 			{activeStudent && (
@@ -873,6 +737,37 @@ export function BehaviorPanel() {
 											<p className="text-xs text-amber-900 leading-relaxed whitespace-pre-wrap">
 												{msg.response.parentMessage}
 											</p>
+										</div>
+									)}
+									{msg.response?.toneAnalysis && (
+										<div className="rounded border-l-2 border-violet-300 bg-violet-50 px-2 py-1.5">
+											<p className="text-[10px] font-semibold uppercase tracking-widest text-violet-600 mb-0.5">
+												Situation
+											</p>
+											<p className="text-xs text-violet-900 leading-snug">
+												{msg.response.toneAnalysis}
+											</p>
+										</div>
+									)}
+									{msg.response?.nextSteps && msg.response.nextSteps.length > 0 && (
+										<div className="rounded border-l-2 border-emerald-300 bg-emerald-50 px-2 py-1.5">
+											<p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-700 mb-1">
+												Next steps
+											</p>
+											<ol className="flex flex-col gap-1">
+												{msg.response.nextSteps.map((step, i) => (
+													<li
+														// biome-ignore lint/suspicious/noArrayIndexKey: ordered steps have no stable id
+														key={i}
+														className="flex items-start gap-1.5 text-xs text-emerald-900 leading-snug"
+													>
+														<span className="shrink-0 font-bold text-emerald-600 tabular-nums">
+															{i + 1}.
+														</span>
+														{step}
+													</li>
+												))}
+											</ol>
 										</div>
 									)}
 								</div>

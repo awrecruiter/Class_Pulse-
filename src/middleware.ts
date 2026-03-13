@@ -22,5 +22,6 @@ export const config = {
 		"/api/privilege-items/:path*",
 		"/settings",
 		"/api/coach/:path*",
+		"/board",
 	],
 };
