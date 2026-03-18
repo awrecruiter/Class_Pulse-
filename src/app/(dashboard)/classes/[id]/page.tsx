@@ -293,6 +293,44 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 		}
 	}, [id, diSessionsLoaded]);
 
+	async function speakTodayReminders() {
+		try {
+			const today = new Date();
+			const date = today.toISOString().slice(0, 10);
+			const res = await fetch(`/api/schedule?day=${today.getDay()}&date=${date}`);
+			if (!res.ok) return;
+			const { blocks } = (await res.json()) as {
+				blocks: Array<{ blockType?: string; title: string }>;
+			};
+			const reminders = blocks.filter((b) => b.blockType === "reminder");
+			if (reminders.length === 0) return;
+
+			const count = reminders.length;
+			const titles = reminders.map((r) => r.title).join(". ");
+			const text =
+				count === 1
+					? `You have 1 reminder today: ${titles}.`
+					: `You have ${count} reminders today: ${titles}.`;
+
+			const ttsRes = await fetch("/api/tts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ text }),
+			});
+			if (!ttsRes.ok) return;
+
+			const audioBuffer = await ttsRes.arrayBuffer();
+			const audioCtx = new AudioContext();
+			const decoded = await audioCtx.decodeAudioData(audioBuffer);
+			const source = audioCtx.createBufferSource();
+			source.buffer = decoded;
+			source.connect(audioCtx.destination);
+			source.start(0);
+		} catch {
+			// TTS is non-critical — never throw
+		}
+	}
+
 	async function startSession() {
 		setSessionLoading(true);
 		try {
@@ -303,6 +341,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 			});
 			if (!res.ok) throw new Error("Failed to start session");
 			toast.success("Session started");
+			void speakTodayReminders();
 			fetchData();
 		} catch {
 			toast.error("Failed to start session");

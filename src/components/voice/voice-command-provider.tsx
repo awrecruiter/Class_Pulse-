@@ -297,6 +297,62 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			return;
 		}
 
+		// create_reminder: post to API immediately
+		if (data.type === "create_reminder") {
+			void (async () => {
+				try {
+					const res = await fetch("/api/schedule/reminders", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ text: data.text, date: data.date }),
+					});
+					if (!res.ok) {
+						toast.error("Failed to save reminder");
+						return;
+					}
+					const dateLabel = new Date(data.date + "T12:00:00").toLocaleDateString("en-US", {
+						weekday: "long",
+						month: "short",
+						day: "numeric",
+					});
+					toast.success(`Reminder set for ${dateLabel}`, {
+						description: data.text,
+						duration: 4000,
+					});
+					window.dispatchEvent(new CustomEvent("reminder-created"));
+				} catch {
+					toast.error("Reminder failed — check connection");
+				}
+			})();
+			return;
+		}
+
+		// dismiss_reminder: find matching reminder and delete it
+		if (data.type === "dismiss_reminder") {
+			void (async () => {
+				try {
+					const today = new Date().toISOString().slice(0, 10);
+					const res = await fetch(`/api/schedule?date=${today}`);
+					const { blocks } = (await res.json()) as {
+						blocks: Array<{ id: string; blockType?: string; title: string }>;
+					};
+					const match = blocks
+						.filter((b) => b.blockType === "reminder")
+						.find((r) => r.title.toLowerCase().includes(data.keyword.toLowerCase()));
+					if (!match) {
+						toast.error(`No reminder found matching "${data.keyword}"`);
+						return;
+					}
+					await fetch(`/api/schedule/${match.id}`, { method: "DELETE" });
+					window.dispatchEvent(new CustomEvent("reminder-created"));
+					toast.success("Reminder dismissed");
+				} catch {
+					toast.error("Dismiss failed");
+				}
+			})();
+			return;
+		}
+
 		// All other commands: execute immediately via ref — no queue, no confirmation
 		const item: QueueItem = {
 			id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -458,6 +514,22 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				}
 			}
 
+			// Fast-path: reminder — regex captures intent before calling AI
+			const reminderMatch = transcript
+				.trim()
+				.match(/remind(?:er)?\s+(?:me\s+)?(?:on\s+)?(.+?)\s+(?:to|about|that)\s+(.+)/i);
+			if (reminderMatch) {
+				const rawDatePhrase = reminderMatch[1].trim();
+				const reminderText = reminderMatch[2].trim();
+				const { resolveReminderDate } = await import("@/lib/date-resolver");
+				const date = resolveReminderDate(rawDatePhrase, new Date());
+				if (date) {
+					handleCommand({ type: "create_reminder", text: reminderText, date }, transcript);
+					return;
+				}
+				// date unresolvable locally → fall through to agent
+			}
+
 			setAgentThinking(true);
 			try {
 				// Refresh context cache (no-op if still fresh — prevents rate limit hammering)
@@ -480,6 +552,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 							storeIsOpen: ctx.storeIsOpen,
 							isLectureActive: false,
 							scheduleBlocks: ctx.scheduleBlocks,
+							today: new Date().toISOString().slice(0, 10),
 						},
 					}),
 				});

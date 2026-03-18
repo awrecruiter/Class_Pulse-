@@ -13,6 +13,7 @@ export type ScheduleBlock = {
 	id: string;
 	title: string;
 	color: string;
+	blockType: string; // "block" | "reminder"
 	startTime: string;
 	endTime: string;
 	dayOfWeek: number | null;
@@ -35,11 +36,21 @@ export function useScheduleToday() {
 	const date = today.toISOString().slice(0, 10);
 
 	useEffect(() => {
+		function refetch() {
+			fetch(`/api/schedule?day=${day}&date=${date}`)
+				.then((r) => (r.ok ? r.json() : { blocks: [] }))
+				.then((j: { blocks: ScheduleBlock[] }) => setBlocks(j.blocks ?? []))
+				.catch(() => {});
+		}
+
 		fetch(`/api/schedule?day=${day}&date=${date}`)
 			.then((r) => (r.ok ? r.json() : { blocks: [] }))
 			.then((j) => setBlocks(j.blocks ?? []))
 			.catch(() => {})
 			.finally(() => setLoading(false));
+
+		window.addEventListener("reminder-created", refetch);
+		return () => window.removeEventListener("reminder-created", refetch);
 	}, [day, date]);
 
 	const [now, setNow] = useState(() => getCurrentHHMM());

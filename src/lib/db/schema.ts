@@ -739,6 +739,7 @@ export const scheduleBlocks = pgTable(
 		teacherId: text("teacher_id").notNull(),
 		title: text("title").notNull(),
 		color: text("color").notNull().default("blue"),
+		blockType: text("block_type").notNull().default("block"),
 		// HH:MM 24-hour format, e.g. "08:00"
 		startTime: text("start_time").notNull(),
 		endTime: text("end_time").notNull(),

@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
 		id: b.id,
 		title: b.title,
 		color: b.color,
+		blockType: b.blockType,
 		startTime: b.startTime,
 		endTime: b.endTime,
 		dayOfWeek: b.dayOfWeek,

@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon } from "lucide-react";
+import { BellIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -136,57 +136,90 @@ export function ScheduleOverlay() {
 							No blocks scheduled for today.
 						</p>
 					) : (
-						blocks.map((block) => {
-							const isActive = block.id === activeBlockId;
-							const accentColor = resolveColor(block.color);
-							return (
-								<div
-									key={block.id}
-									className={`relative rounded-lg border bg-slate-800/60 overflow-hidden ${
-										isActive
-											? "border-indigo-400/60 ring-1 ring-indigo-400/40"
-											: "border-slate-700/50"
-									}`}
-								>
-									{/* Left color accent */}
-									<div
-										className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-										style={{ backgroundColor: accentColor }}
-									/>
-
-									<div className="pl-3 pr-3 py-2.5">
-										<div className="flex items-center gap-2 mb-1">
-											<span className="text-xs text-slate-400 tabular-nums">
-												{formatTime(block.startTime)} – {formatTime(block.endTime)}
-											</span>
-											{isActive && (
-												<span className="flex items-center gap-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300 animate-pulse">
-													NOW
-												</span>
-											)}
-										</div>
-										<p className="text-sm font-semibold text-slate-100 leading-tight">
-											{block.title}
-										</p>
-
-										{block.docs.length > 0 && (
-											<div className="flex flex-wrap gap-1.5 mt-2">
-												{block.docs.map((doc) => (
-													<button
-														key={doc.id}
-														type="button"
-														onClick={() => handleDocTap(doc)}
-														className="rounded-full bg-slate-700/60 border border-slate-600/50 hover:bg-slate-600/60 hover:border-slate-500 px-2.5 py-0.5 text-[11px] text-slate-300 hover:text-white transition-colors"
-													>
-														{doc.label}
-													</button>
-												))}
+						<>
+							{blocks.filter((b) => b.blockType === "reminder").length > 0 && (
+								<div className="flex flex-col gap-1.5 mb-3">
+									<p className="text-[10px] font-semibold uppercase tracking-wider text-yellow-500/70 px-1">
+										Reminders
+									</p>
+									{blocks
+										.filter((b) => b.blockType === "reminder")
+										.map((rb) => (
+											<div
+												key={rb.id}
+												className="flex items-start gap-2.5 rounded-lg border border-yellow-500/25 bg-yellow-500/10 px-3 py-2"
+											>
+												<BellIcon className="h-3.5 w-3.5 text-yellow-400 mt-0.5 shrink-0" />
+												<p className="text-xs text-slate-200 leading-snug flex-1">{rb.title}</p>
+												<button
+													type="button"
+													aria-label="Dismiss reminder"
+													onClick={async () => {
+														await fetch(`/api/schedule/${rb.id}`, { method: "DELETE" });
+														window.dispatchEvent(new CustomEvent("reminder-created"));
+													}}
+													className="text-slate-600 hover:text-red-400 transition-colors shrink-0"
+												>
+													<XIcon className="h-3 w-3" />
+												</button>
 											</div>
-										)}
-									</div>
+										))}
 								</div>
-							);
-						})
+							)}
+							{blocks
+								.filter((b) => b.blockType !== "reminder")
+								.map((block) => {
+									const isActive = block.id === activeBlockId;
+									const accentColor = resolveColor(block.color);
+									return (
+										<div
+											key={block.id}
+											className={`relative rounded-lg border bg-slate-800/60 overflow-hidden ${
+												isActive
+													? "border-indigo-400/60 ring-1 ring-indigo-400/40"
+													: "border-slate-700/50"
+											}`}
+										>
+											{/* Left color accent */}
+											<div
+												className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+												style={{ backgroundColor: accentColor }}
+											/>
+
+											<div className="pl-3 pr-3 py-2.5">
+												<div className="flex items-center gap-2 mb-1">
+													<span className="text-xs text-slate-400 tabular-nums">
+														{formatTime(block.startTime)} – {formatTime(block.endTime)}
+													</span>
+													{isActive && (
+														<span className="flex items-center gap-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300 animate-pulse">
+															NOW
+														</span>
+													)}
+												</div>
+												<p className="text-sm font-semibold text-slate-100 leading-tight">
+													{block.title}
+												</p>
+
+												{block.docs.length > 0 && (
+													<div className="flex flex-wrap gap-1.5 mt-2">
+														{block.docs.map((doc) => (
+															<button
+																key={doc.id}
+																type="button"
+																onClick={() => handleDocTap(doc)}
+																className="rounded-full bg-slate-700/60 border border-slate-600/50 hover:bg-slate-600/60 hover:border-slate-500 px-2.5 py-0.5 text-[11px] text-slate-300 hover:text-white transition-colors"
+															>
+																{doc.label}
+															</button>
+														))}
+													</div>
+												)}
+											</div>
+										</div>
+									);
+								})}
+						</>
 					)}
 				</div>
 

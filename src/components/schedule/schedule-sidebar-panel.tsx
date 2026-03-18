@@ -1,5 +1,6 @@
 "use client";
 
+import { BellIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ScheduleDocLink } from "@/hooks/use-schedule-today";
@@ -165,7 +166,7 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 		if (dayIsOver) {
 			scrollRef.current.scrollTop = 0;
 		} else {
-			const blockStarts = showingBlocks.map((b) => timeToMinutes(b.startTime));
+			const blockStarts = timedBlocks.map((b) => timeToMinutes(b.startTime));
 			const vs = Math.max(GRID_START, Math.min(...blockStarts) - 30);
 			const viewport = VIEWPORT_HOURS * HOUR_HEIGHT;
 			const nowY = ((nowMinutes - vs) / 60) * HOUR_HEIGHT;
@@ -218,12 +219,15 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 		);
 	}
 
+	const reminderBlocks = showingBlocks.filter((b) => b.blockType === "reminder");
+	const timedBlocks = showingBlocks.filter((b) => b.blockType !== "reminder");
+
 	// Trim grid to actual block range ± 30 min padding
-	const blockStartMins = showingBlocks.map((b) => timeToMinutes(b.startTime));
-	const blockEndMins = showingBlocks.map((b) => timeToMinutes(b.endTime));
-	const viewStart = showingBlocks.length > 0 ? Math.min(...blockStartMins) : GRID_START;
+	const blockStartMins = timedBlocks.map((b) => timeToMinutes(b.startTime));
+	const blockEndMins = timedBlocks.map((b) => timeToMinutes(b.endTime));
+	const viewStart = timedBlocks.length > 0 ? Math.min(...blockStartMins) : GRID_START;
 	const viewEnd =
-		showingBlocks.length > 0 ? Math.min(GRID_END, Math.max(...blockEndMins) + 30) : GRID_END;
+		timedBlocks.length > 0 ? Math.min(GRID_END, Math.max(...blockEndMins) + 30) : GRID_END;
 	const viewHours = (viewEnd - viewStart) / 60;
 	const toY = (mins: number) => ((mins - viewStart) / 60) * HOUR_HEIGHT;
 
@@ -242,6 +246,20 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 			<div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
 				{label}
 			</div>
+			{/* Reminder chips */}
+			{reminderBlocks.length > 0 && (
+				<div className="flex flex-col gap-1 px-3 pb-2">
+					{reminderBlocks.map((block) => (
+						<div
+							key={block.id}
+							className="flex items-center gap-1.5 rounded-md bg-yellow-500/10 border border-yellow-500/25 px-2 py-1"
+						>
+							<BellIcon className="h-3 w-3 text-yellow-400 shrink-0" />
+							<p className="text-[10px] text-yellow-200 truncate flex-1">{block.title}</p>
+						</div>
+					))}
+				</div>
+			)}
 			{/* Fixed-height scroll window — hides scrollbar track */}
 			<div
 				ref={scrollRef}
@@ -297,7 +315,7 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 					{/* Day column */}
 					<div className="flex-1 relative border-l border-slate-700/50 min-w-0">
 						{/* Blocks */}
-						{showingBlocks.map((block) => {
+						{timedBlocks.map((block) => {
 							const startMins = timeToMinutes(block.startTime);
 							const endMins = timeToMinutes(block.endTime);
 							const top = toY(Math.max(startMins, viewStart));
@@ -387,7 +405,7 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 						)}
 
 						{/* Empty state */}
-						{showingBlocks.length === 0 && !showingLoading && (
+						{timedBlocks.length === 0 && !showingLoading && (
 							<p className="absolute inset-0 flex items-center justify-center text-xs text-slate-600">
 								No schedule for {label.toLowerCase()}
 							</p>

@@ -30,6 +30,10 @@ const schema = z.object({
 				}),
 			)
 			.optional(),
+		today: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.optional(),
 	}),
 });
 
@@ -61,6 +65,8 @@ Action schemas (pick exactly one):
 {"type":"ask_coach","question":"<question>"}
 {"type":"show_schedule"}
 {"type":"open_doc","label":"<display name of the doc>","url":"<full URL>"}
+{"type":"create_reminder","text":"<reminder text>","date":"YYYY-MM-DD"}
+{"type":"dismiss_reminder","keyword":"<key phrase from reminder text>"}
 
 Rules:
 - Behavior OBSERVATION about a student (not explicit punishment) → behavior_log
@@ -80,7 +86,9 @@ Rules:
 - "move/put/place/add/assign [student] to/into/in the [group]" or "[student] goes/join [group]" → move_to_group
 - "show my schedule" / "what's next" / "open schedule" / "show schedule" → show_schedule
 - "open [doc name]" when the name matches a schedule doc → open_doc with label and URL from context
-- "close schedule" → treat as ignore (handled client-side by overlay dismiss)`;
+- "close schedule" → treat as ignore (handled client-side by overlay dismiss)
+- "remind me [date phrase] to/about [text]" → create_reminder. Resolve date phrase relative to today (provided in context). Rules: "today" → today's date; "tomorrow" → tomorrow; bare day name → nearest FUTURE occurrence (same-day → next week); "next [day]" → occurrence AFTER the nearest one; "[Month] [Day]" → that date, if passed use next year. Date field MUST be YYYY-MM-DD.
+- "dismiss/clear/delete reminder about [topic]" → dismiss_reminder with keyword from topic`;
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -106,6 +114,8 @@ export async function POST(request: NextRequest) {
 	const groupList =
 		context.groups.length > 0 ? context.groups.map((g) => g.name).join(", ") : "none";
 
+	const todayDate = context.today ?? new Date().toISOString().slice(0, 10);
+
 	const userContent = `Teacher said: "${transcript}"
 
 Class context:
@@ -114,7 +124,8 @@ Class context:
 - Active session: ${context.hasActiveSession ? "yes" : "no"}
 - Store: ${context.storeIsOpen ? "open" : "closed"}
 - Lecture recording: ${context.isLectureActive ? "on" : "off"}
-- Schedule docs available: ${context.scheduleBlocks && context.scheduleBlocks.length > 0 ? context.scheduleBlocks.flatMap((b) => b.docs.map((d) => d.label)).join(", ") : "none"}`;
+- Schedule docs available: ${context.scheduleBlocks && context.scheduleBlocks.length > 0 ? context.scheduleBlocks.flatMap((b) => b.docs.map((d) => d.label)).join(", ") : "none"}
+- Today's date: ${todayDate}`;
 
 	try {
 		const client = new Anthropic();

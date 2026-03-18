@@ -29,7 +29,9 @@ export type QueueItemData =
 	  }
 	| { type: "ask_coach"; question: string }
 	| { type: "show_schedule" }
-	| { type: "open_doc"; label: string; url: string };
+	| { type: "open_doc"; label: string; url: string }
+	| { type: "create_reminder"; text: string; date: string }
+	| { type: "dismiss_reminder"; keyword: string };
 
 export interface QueueItem {
 	id: string;

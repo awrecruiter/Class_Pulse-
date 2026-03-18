@@ -53,6 +53,9 @@ function itemIcon(item: QueueItem) {
 		case "show_schedule":
 		case "open_doc":
 			return <ArrowRightIcon className="h-4 w-4 text-slate-400" />;
+		case "create_reminder":
+		case "dismiss_reminder":
+			return <ArrowRightIcon className="h-4 w-4 text-yellow-400" />;
 	}
 }
 
@@ -95,6 +98,10 @@ function itemLabel(item: QueueItem): string {
 			return "Show today's schedule";
 		case "open_doc":
 			return `Open doc: ${d.label}`;
+		case "create_reminder":
+			return `Reminder: ${d.text}`;
+		case "dismiss_reminder":
+			return `Dismiss reminder: ${d.keyword}`;
 	}
 }
 
