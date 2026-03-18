@@ -7,7 +7,16 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["**", "!node_modules", "!.next", "!dist", "!build", "!drizzle"]
+		"includes": [
+			"**",
+			"!node_modules",
+			"!.next",
+			"!dist",
+			"!build",
+			"!drizzle",
+			"!.claude/worktrees",
+			"!.codex"
+		]
 	},
 	"formatter": {
 		"enabled": true,
