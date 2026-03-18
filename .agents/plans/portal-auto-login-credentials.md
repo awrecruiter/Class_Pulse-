@@ -10,6 +10,11 @@ When the teacher says "open iReady" (or any portal app), the system should autom
 
 Credentials (username + AES-256-GCM encrypted password) are stored per portal per teacher in the DB. A new Settings section lets the teacher manage credentials. No credentials are ever sent to the browser unencrypted except via the secure `GET /api/portal-credentials?portalKey=` endpoint (authenticated, teacher-only).
 
+Security baseline for v1:
+- Use a dedicated encryption secret (`PORTAL_CREDENTIALS_ENCRYPTION_SECRET`) and only fallback to `NEON_AUTH_COOKIE_SECRET` if explicitly required.
+- Return `Cache-Control: no-store` for all credential API responses.
+- Never return decrypted passwords from list endpoints.
+
 ## User Story
 
 As a 5th-grade math teacher
@@ -214,12 +219,14 @@ New "Portal Credentials" section in settings page — per-portal username/passwo
 - **IMPLEMENT GET**:
   - No `portalKey` param → return `[{ portalKey, username }]` for all teacher's stored portals (no passwords)
   - `?portalKey=iready` → return `{ portalKey, username, password: decrypt(encryptedPassword, secret) }` for that specific portal
-  - Env: `process.env.NEON_AUTH_COOKIE_SECRET` as the encryption secret
+  - Set `Cache-Control: no-store`
+  - Env: prefer `process.env.PORTAL_CREDENTIALS_ENCRYPTION_SECRET`, fallback to `process.env.NEON_AUTH_COOKIE_SECRET`
 - **IMPLEMENT POST**: Body `{ portalKey: string, username: string, password: string }` → encrypt password → upsert (insert or update on conflict `teacherId + portalKey`)
+  - If updating username with blank password, preserve existing encrypted password (do not overwrite with empty)
 - **IMPLEMENT DELETE**: `?portalKey=iready` → delete row for `teacherId + portalKey`
 - **PATTERN**: API route pattern (rate limit → auth → Zod → DB → response) — mirror `src/app/api/teacher-settings/route.ts`
 - **IMPORTS**: `encrypt`, `decrypt` from `@/lib/encryption`; `credentialsRateLimiter` from `@/lib/rate-limit`; `portalCredentials` from schema
-- **GOTCHA**: `NEON_AUTH_COOKIE_SECRET` is already used for student cookie signing — safe to reuse as encryption key source. If undefined at runtime, throw with clear message.
+- **GOTCHA**: Do not depend solely on `NEON_AUTH_COOKIE_SECRET` for encryption durability; prefer a dedicated credentials secret and fail loudly if no secret exists.
 - **GOTCHA**: Drizzle upsert uses `.insert().values(...).onConflictDoUpdate({ target: [col], set: { ... } })` — check existing schema usage for the exact pattern.
 - **VALIDATE**: `npx tsc --noEmit`
 
@@ -421,7 +428,7 @@ No new unit tests required — encryption utilities are pure functions but the e
 ### Edge Cases
 
 - `NEON_AUTH_COOKIE_SECRET` undefined → API should return 500 with clear error
-- Password field left blank when updating username only → should update only username (or require re-entering password)
+- Password field left blank when updating username only → update username only; preserve existing encrypted password
 - Popup blocked for portal open + credentials → clipboard write still happens, toast stays open
 - Credential fetch fails (network) → fall through to normal open behavior (never block the teacher)
 
@@ -436,7 +443,7 @@ npx tsc --noEmit
 
 ### Level 2: Lint
 ```bash
-npm run lint:fix
+npm run lint
 ```
 
 ### Level 3: Unit Tests
@@ -469,14 +476,14 @@ npm run test:run
 - [ ] Without credentials, existing voice behavior is unchanged
 - [ ] Settings page credential section works: save, update, remove
 - [ ] `npx tsc --noEmit` passes with zero errors
-- [ ] `npm run lint:fix` passes with zero errors
+- [ ] `npm run lint` passes with zero errors
 
 ---
 
 ## NOTES
 
 - **Clipboard API requires user gesture**: `navigator.clipboard.writeText()` must be called inside the toast action `onClick` — this is the user gesture. Do not call it in the async voice handler itself.
-- **Encryption key**: `NEON_AUTH_COOKIE_SECRET` is derived through `scryptSync` with a fixed salt, so the actual DB key is distinct from the raw cookie secret.
-- **No master password**: If the teacher changes their `NEON_AUTH_COOKIE_SECRET` env var, stored credentials will fail to decrypt. Consider logging a clear error message in that case.
+- **Encryption key**: Prefer `PORTAL_CREDENTIALS_ENCRYPTION_SECRET`. Using auth cookie secret as fallback increases coupling and rotation risk.
+- **Secret rotation**: If the encryption secret changes, stored credentials will fail to decrypt; log this clearly and provide a re-save path in UI.
 - **Future improvement**: A server-side login relay (auto-POST to portal login endpoint) could fully automate login for traditional form-based portals. Deferred — clipboard approach is universal and reliable.
 - **Confidence Score**: 8/10 — patterns are well-established in the codebase. Main risk is the async `handleBoardCommand` callback (currently synchronous) — verify TypeScript is happy with the async inner function inside `useCallback`.

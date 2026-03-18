@@ -309,9 +309,37 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 
 	// ── Board commands — execute immediately, no queue ───────────────────────────
 	const handleBoardCommand = useCallback(
-		(cmd: BoardCommand, transcript: string) => {
+		async (cmd: BoardCommand, transcript: string) => {
 			if (cmd.type === "open_app") {
-				if (voiceAppOpenModeRef.current === "confirm") {
+				// Try to fetch stored credentials — silent fallback on any failure
+				let creds: { username: string; password: string } | null = null;
+				try {
+					const res = await fetch(
+						`/api/portal-credentials?portalKey=${encodeURIComponent(cmd.portalKey)}`,
+					);
+					if (res.ok) {
+						const json = await res.json();
+						if (json.credential?.password) creds = json.credential;
+					}
+				} catch {
+					// Never block the teacher — silent failure
+				}
+
+				if (creds) {
+					// Credentials found: always show toast (tap = user gesture required for clipboard)
+					const { username, password } = creds;
+					toast.success(`Open ${cmd.label}?`, {
+						description: `Username: ${username} · Password will be copied`,
+						duration: 10000,
+						action: {
+							label: "Open",
+							onClick: () => {
+								navigator.clipboard.writeText(password).catch(() => {});
+								window.open(cmd.href, "_blank");
+							},
+						},
+					});
+				} else if (voiceAppOpenModeRef.current === "confirm") {
 					// Confirm mode: always show toast so user taps → new tab (guaranteed user gesture)
 					toast.success(`Open ${cmd.label}?`, {
 						description: `Heard: "${transcript}"`,

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
 
 export type BoardCommand =
-	| { type: "open_app"; label: string; href: string }
+	| { type: "open_app"; label: string; href: string; portalKey: string }
 	| { type: "switch_panel"; panel: "portal" | "resources" | "pulse" }
 	| { type: "open_last_resource" };
 
@@ -17,6 +17,7 @@ interface AppEntry {
 	label: string;
 	aliases: string[];
 	href: string;
+	portalKey: string;
 }
 
 const APPS: AppEntry[] = [
@@ -24,51 +25,61 @@ const APPS: AppEntry[] = [
 		label: "Portal",
 		aliases: ["portal", "district portal", "dadeschools"],
 		href: "https://www3.dadeschools.net",
+		portalKey: "portal",
 	},
 	{
 		label: "Outlook",
 		aliases: ["outlook", "email", "mail", "my email"],
 		href: "https://outlook.office365.com",
+		portalKey: "outlook",
 	},
 	{
 		label: "OneDrive",
 		aliases: ["onedrive", "one drive", "my files", "my documents"],
 		href: "https://portal.office.com/onedrive",
+		portalKey: "onedrive",
 	},
 	{
 		label: "Pinnacle",
 		aliases: ["pinnacle", "gradebook", "grades", "grade book"],
 		href: "https://gradebook.dadeschools.net/Pinnacle/Gradebook/",
+		portalKey: "pinnacle",
 	},
 	{
 		label: "Schoology",
 		aliases: ["schoology", "lms", "assignments"],
 		href: "https://dadeschools.schoology.com",
+		portalKey: "schoology",
 	},
 	{
 		label: "Clever",
 		aliases: ["clever", "clever portal"],
 		href: "https://clever.com/in/miami/teacher/resourceHub",
+		portalKey: "clever",
 	},
 	{
 		label: "iReady",
 		aliases: ["iready", "i ready", "i-ready"],
 		href: "https://login.i-ready.com/educator/dashboard/math",
+		portalKey: "iready",
 	},
 	{
 		label: "IXL",
 		aliases: ["ixl", "i x l"],
 		href: "https://clever.com/oauth/authorize?channel=clever-portal&client_id=3513be842ce24d16f779&confirmed=true&district_id=5106cec3a14b17af0f000054&redirect_uri=https%3A%2F%2Fwww.ixl.com%2Fclever%2Fsignin&response_type=code",
+		portalKey: "ixl",
 	},
 	{
 		label: "Big Ideas Math",
 		aliases: ["big ideas", "big ideas math"],
 		href: "https://www.bigideasmath.com/MRL/public/app/#/teacher/dashboard",
+		portalKey: "bigideas",
 	},
 	{
 		label: "McGraw Hill",
 		aliases: ["mcgraw", "mcgraw hill", "mcgraw-hill"],
 		href: "https://my.mheducation.com/secure/teacher/urn:com.mheducation.openlearning:enterprise.identity.organization:prod.global:organization:8269ebcf-760e-4414-8c3e-60768e306ff4/home",
+		portalKey: "mcgrawhill",
 	},
 ];
 
@@ -117,7 +128,7 @@ export function matchBoardCommand(text: string): BoardCommand | null {
 		for (const app of APPS) {
 			for (const alias of app.aliases) {
 				if (afterTrigger.startsWith(alias) || afterTrigger.includes(alias)) {
-					return { type: "open_app", label: app.label, href: app.href };
+					return { type: "open_app", label: app.label, href: app.href, portalKey: app.portalKey };
 				}
 			}
 		}
@@ -127,7 +138,7 @@ export function matchBoardCommand(text: string): BoardCommand | null {
 	for (const app of APPS) {
 		for (const alias of app.aliases) {
 			if (lower === alias || lower.startsWith(`${alias} `) || lower.endsWith(` ${alias}`)) {
-				return { type: "open_app", label: app.label, href: app.href };
+				return { type: "open_app", label: app.label, href: app.href, portalKey: app.portalKey };
 			}
 		}
 	}

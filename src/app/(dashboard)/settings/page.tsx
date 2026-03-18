@@ -50,6 +50,21 @@ type PrivilegeItem = {
 
 type ClassRow = { id: string; label: string };
 
+type PortalCredential = { portalKey: string; username: string };
+
+const PORTAL_CREDENTIAL_APPS = [
+	{ label: "iReady", portalKey: "iready" },
+	{ label: "Schoology", portalKey: "schoology" },
+	{ label: "Pinnacle", portalKey: "pinnacle" },
+	{ label: "IXL", portalKey: "ixl" },
+	{ label: "Big Ideas Math", portalKey: "bigideas" },
+	{ label: "McGraw Hill", portalKey: "mcgrawhill" },
+	{ label: "Clever", portalKey: "clever" },
+	{ label: "Portal", portalKey: "portal" },
+	{ label: "Outlook", portalKey: "outlook" },
+	{ label: "OneDrive", portalKey: "onedrive" },
+] as const;
+
 // ─── Schedule Manager ─────────────────────────────────────────────────────────
 
 type ScheduleDocLinkRow = {
@@ -357,6 +372,14 @@ export default function SettingsPage() {
 	const [classes, setClasses] = useState<ClassRow[]>([]);
 	const [clearingClass, setClearingClass] = useState<string | null>(null);
 
+	// Portal credentials
+	const [portalCreds, setPortalCreds] = useState<PortalCredential[]>([]);
+	const [credEdits, setCredEdits] = useState<
+		Record<string, { username: string; password: string }>
+	>({});
+	const [credSaving, setCredSaving] = useState<Record<string, boolean>>({});
+	const [credShowPwd, setCredShowPwd] = useState<Record<string, boolean>>({});
+
 	const fetchSettings = useCallback(async () => {
 		try {
 			const res = await fetch("/api/teacher-settings");
@@ -415,6 +438,10 @@ export default function SettingsPage() {
 						.map((c: ClassRow) => ({ id: c.id, label: c.label })),
 				),
 			)
+			.catch(() => {});
+		fetch("/api/portal-credentials")
+			.then((r) => (r.ok ? r.json() : { credentials: [] }))
+			.then((j) => setPortalCreds(j.credentials ?? []))
 			.catch(() => {});
 	}, [fetchSettings, fetchFeeSchedule, fetchPrivilegeItems]);
 
@@ -605,6 +632,7 @@ export default function SettingsPage() {
 						["groups", "Groups"],
 						["fees", "Fees"],
 						["schedule", "Schedule"],
+						["credentials", "Credentials"],
 					] as [string, string][]
 				).map(([id, label]) => (
 					<a
@@ -1207,6 +1235,142 @@ export default function SettingsPage() {
 						</select>
 					</div>
 				</div>
+
+				{/* ── Portal Credentials ──────────────────────────── */}
+				<section id="credentials" className="flex flex-col gap-4">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Portal Credentials
+					</h2>
+					<p className="text-xs text-slate-500 -mt-2">
+						Store your login info so voice commands like "open iReady" copy your password
+						automatically.
+					</p>
+					<div className="flex flex-col gap-3">
+						{PORTAL_CREDENTIAL_APPS.map((app) => {
+							const saved = portalCreds.find((c) => c.portalKey === app.portalKey);
+							const edit = credEdits[app.portalKey] ?? {
+								username: saved?.username ?? "",
+								password: "",
+							};
+							const showPwd = credShowPwd[app.portalKey] ?? false;
+							const saving = credSaving[app.portalKey] ?? false;
+							return (
+								<div
+									key={app.portalKey}
+									className="rounded-lg border border-slate-800 bg-slate-900 p-4"
+								>
+									<div className="flex items-center gap-3 mb-3">
+										<p className="text-sm font-medium text-slate-200">{app.label}</p>
+										{saved && <span className="text-xs text-emerald-400 ml-auto">Saved</span>}
+									</div>
+									<div className="flex flex-col gap-2">
+										<input
+											type="text"
+											placeholder="Username or email"
+											value={edit.username}
+											onChange={(e) =>
+												setCredEdits((prev) => ({
+													...prev,
+													[app.portalKey]: { ...edit, username: e.target.value },
+												}))
+											}
+											className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5 w-full"
+										/>
+										<div className="flex gap-2">
+											<input
+												type={showPwd ? "text" : "password"}
+												placeholder={saved ? "••••••• (leave blank to keep)" : "Password"}
+												value={edit.password}
+												onChange={(e) =>
+													setCredEdits((prev) => ({
+														...prev,
+														[app.portalKey]: { ...edit, password: e.target.value },
+													}))
+												}
+												className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5 flex-1"
+											/>
+											<button
+												type="button"
+												onClick={() =>
+													setCredShowPwd((p) => ({
+														...p,
+														[app.portalKey]: !showPwd,
+													}))
+												}
+												className="text-slate-500 hover:text-slate-300 text-xs px-2"
+											>
+												{showPwd ? "Hide" : "Show"}
+											</button>
+										</div>
+										<div className="flex gap-2 justify-end">
+											{saved && (
+												<button
+													type="button"
+													onClick={async () => {
+														await fetch(`/api/portal-credentials?portalKey=${app.portalKey}`, {
+															method: "DELETE",
+														});
+														setPortalCreds((p) => p.filter((c) => c.portalKey !== app.portalKey));
+														setCredEdits((p) => ({
+															...p,
+															[app.portalKey]: { username: "", password: "" },
+														}));
+														toast.success(`${app.label} credentials removed`);
+													}}
+													className="text-xs text-red-400 hover:text-red-300"
+												>
+													Remove
+												</button>
+											)}
+											<Button
+												size="sm"
+												disabled={saving || !edit.username || (!edit.password && !saved)}
+												onClick={async () => {
+													if (!edit.password && saved) return;
+													setCredSaving((p) => ({ ...p, [app.portalKey]: true }));
+													const res = await fetch("/api/portal-credentials", {
+														method: "POST",
+														headers: { "Content-Type": "application/json" },
+														body: JSON.stringify({
+															portalKey: app.portalKey,
+															username: edit.username,
+															password: edit.password || undefined,
+														}),
+													});
+													setCredSaving((p) => ({ ...p, [app.portalKey]: false }));
+													if (res.ok) {
+														setPortalCreds((p) => {
+															const next = p.filter((c) => c.portalKey !== app.portalKey);
+															return [
+																...next,
+																{
+																	portalKey: app.portalKey,
+																	username: edit.username,
+																},
+															];
+														});
+														setCredEdits((p) => ({
+															...p,
+															[app.portalKey]: {
+																username: edit.username,
+																password: "",
+															},
+														}));
+														toast.success(`${app.label} credentials saved`);
+													} else {
+														toast.error("Failed to save credentials");
+													}
+												}}
+											>
+												{saving ? "Saving…" : "Save"}
+											</Button>
+										</div>
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				</section>
 
 				<ScheduleManager />
 			</div>

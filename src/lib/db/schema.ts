@@ -775,6 +775,25 @@ export const scheduleDocLinks = pgTable(
 	(table) => [index("idx_schedule_doc_links_block_id").on(table.blockId)],
 );
 
+// ─── Portal Credentials ───────────────────────────────────────────────────────
+
+export const portalCredentials = pgTable(
+	"portal_credentials",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		portalKey: text("portal_key").notNull(), // "iready", "schoology", "pinnacle", etc.
+		username: text("username").notNull(),
+		encryptedPassword: text("encrypted_password").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_portal_credentials_teacher_key").on(table.teacherId, table.portalKey),
+		index("idx_portal_credentials_teacher_id").on(table.teacherId),
+	],
+);
+
 // ─── Relations ───────────────────────────────────────────────────────────────
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
