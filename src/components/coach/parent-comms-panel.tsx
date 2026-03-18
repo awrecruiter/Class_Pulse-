@@ -15,6 +15,7 @@ import {
 	XCircleIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
 import { playQueueChime } from "@/lib/chime";
@@ -396,6 +397,7 @@ export function ParentCommsPanel({
 				body: JSON.stringify({ rosterId: item.rosterId, body: item.body, triggeredBy: "manual" }),
 			});
 			if (res.ok) {
+				const json = await res.json();
 				// Stop continuous dictation now that the message is sent
 				if (dictationRef.current) {
 					dictationRef.current.onend = null;
@@ -406,11 +408,16 @@ export function ParentCommsPanel({
 				}
 				setQueue((prev) => prev.filter((q) => q.id !== item.id));
 				if (item.rosterId === selectedRosterId) fetchSent(item.rosterId);
+				if (!json.smsSent) {
+					toast.warning(`Message logged but SMS not delivered: ${json.smsNote ?? "unknown error"}`);
+				}
 			} else {
 				setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: true } : q)));
+				toast.error("SMS failed to send — check parent number or connection");
 			}
 		} catch {
 			setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: true } : q)));
+			toast.error("Network error — message not sent");
 		} finally {
 			setSendingId(null);
 		}

@@ -84,6 +84,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 	const smsResult = await sendSms(contact.phone, messageBody);
 
+	if (!smsResult.ok) {
+		console.error("[parent-message] SMS send failed:", smsResult.error, "for classId:", classId);
+	}
+
 	await db.insert(parentMessages).values({
 		classId,
 		rosterId,
