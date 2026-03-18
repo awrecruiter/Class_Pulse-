@@ -29,6 +29,7 @@ function VoiceControls() {
 		micActive,
 		lectureMicActive,
 		agentThinking,
+		wakeActive,
 	} = useVoiceQueue();
 	const pendingCount = queue.length;
 
@@ -60,6 +61,11 @@ function VoiceControls() {
 					<>
 						<span className="h-2 w-2 rounded-full bg-slate-500 shrink-0" />
 						Command
+					</>
+				) : commandsEnabled && wakeActive ? (
+					<>
+						<span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping shrink-0" />
+						Ready
 					</>
 				) : commandsEnabled ? (
 					<>

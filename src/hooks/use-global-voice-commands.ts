@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useRef } from "react";
 import { type BoardCommand, matchBoardCommand } from "@/hooks/use-board-voice";
 import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
+import { playActivationChime } from "@/lib/chime";
 import { detectPitch, getVoiceProfile, pitchMatchesProfile } from "@/lib/voice-profile";
+
+const WAKE_PHRASES = ["listen up", "hey coach", "ok listen up"] as const;
+const WAKE_TIMEOUT_MS = 6000;
+
+function phraseBoundaryMatch(utterance: string, phrase: string): boolean {
+	return new RegExp(`(^|\\s)${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`).test(
+		utterance,
+	);
+}
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -13,6 +23,7 @@ interface UseGlobalVoiceOptions {
 	onBoardCommand?: (cmd: BoardCommand, transcript: string) => void;
 	onVoiceTranscript?: (transcript: string) => void;
 	enabled: boolean;
+	requireWakePhrase?: boolean;
 }
 
 export function useGlobalVoiceCommands({
@@ -21,6 +32,7 @@ export function useGlobalVoiceCommands({
 	onBoardCommand,
 	onVoiceTranscript,
 	enabled,
+	requireWakePhrase,
 }: UseGlobalVoiceOptions) {
 	const onHeardRef = useRef(onHeard);
 	const onBoardCommandRef = useRef(onBoardCommand);
@@ -28,6 +40,41 @@ export function useGlobalVoiceCommands({
 	onHeardRef.current = onHeard;
 	onBoardCommandRef.current = onBoardCommand;
 	onVoiceTranscriptRef.current = onVoiceTranscript;
+
+	// ── Wake phrase gate ────────────────────────────────────────────────────────
+	const requireWakePhraseRef = useRef(requireWakePhrase ?? false);
+	useEffect(() => {
+		requireWakePhraseRef.current = requireWakePhrase ?? false;
+	}, [requireWakePhrase]);
+
+	const wakeActiveRef = useRef(false);
+	const wakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const activateWake = useCallback(() => {
+		wakeActiveRef.current = true;
+		playActivationChime();
+		window.dispatchEvent(new CustomEvent("voice:wake-activated"));
+		if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current);
+		wakeTimerRef.current = setTimeout(() => {
+			wakeActiveRef.current = false;
+			window.dispatchEvent(new CustomEvent("voice:wake-expired"));
+		}, WAKE_TIMEOUT_MS);
+	}, []);
+
+	const extendWake = useCallback(() => {
+		if (!wakeActiveRef.current) return;
+		if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current);
+		wakeTimerRef.current = setTimeout(() => {
+			wakeActiveRef.current = false;
+			window.dispatchEvent(new CustomEvent("voice:wake-expired"));
+		}, WAKE_TIMEOUT_MS);
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current);
+		};
+	}, []);
 
 	// ── Parallel Web Audio analyser for voice-profile pitch verification ────────
 	// This uses Web Audio API (getUserMedia) independently — does NOT conflict with
@@ -113,8 +160,7 @@ export function useGlobalVoiceCommands({
 			console.log("[voice] heard:", JSON.stringify(rawTranscript));
 			onHeardRef.current?.(rawTranscript);
 
-			// Navigate commands: handled right here before ANY other processing.
-			// No AI, no refs, no closures, no rate limits — just regex → location.
+			// Navigate commands: ALWAYS ungated — teacher must be able to escape.
 			const navMatch = rawTranscript
 				.toLowerCase()
 				.trim()
@@ -123,11 +169,22 @@ export function useGlobalVoiceCommands({
 				);
 			console.log("[voice] navMatch:", navMatch ? navMatch[1] : "none");
 			if (navMatch) {
-				// Normalize "class" → "classes"
 				const dest = navMatch[1].toLowerCase().replace(/^class$/, "classes");
 				console.log("[voice] NAVIGATING to:", dest);
 				window.location.href = `/${dest}`;
 				return;
+			}
+
+			// Wake phrase gate — applies to board commands and agent calls only
+			if (requireWakePhraseRef.current) {
+				const lower = rawTranscript.toLowerCase().trim();
+				const isWakePhrase = WAKE_PHRASES.some((p) => phraseBoundaryMatch(lower, p));
+				if (isWakePhrase) {
+					activateWake();
+					return; // consume wake phrase — don't process as a command
+				}
+				if (!wakeActiveRef.current) return; // not awake — drop silently
+				extendWake(); // extend the 6s window on each command heard
 			}
 
 			if (!speakerVerified()) return;

@@ -94,6 +94,9 @@ interface VoiceQueueCtx {
 	// Voice agent thinking indicator
 	agentThinking: boolean;
 	setAgentThinking: (v: boolean) => void;
+	// Wake phrase active window indicator
+	wakeActive: boolean;
+	setWakeActive: (v: boolean) => void;
 }
 
 const VoiceQueueContext = createContext<VoiceQueueCtx | null>(null);
@@ -123,6 +126,7 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 	const [boardPanel, setBoardPanel] = useState<BoardPanel | null>(null);
 	const [boardOpenLast, setBoardOpenLast] = useState(0);
 	const [agentThinking, setAgentThinking] = useState(false);
+	const [wakeActive, setWakeActive] = useState(false);
 	const [scheduleOverlayOpen, setScheduleOverlayOpen] = useState(false);
 
 	const enqueue = useCallback((data: QueueItemData, transcript: string) => {
@@ -180,6 +184,8 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 				triggerBoardOpenLast,
 				agentThinking,
 				setAgentThinking,
+				wakeActive,
+				setWakeActive,
 				scheduleOverlayOpen,
 				setScheduleOverlayOpen,
 			}}

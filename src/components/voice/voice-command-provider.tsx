@@ -27,6 +27,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		agentThinking,
 		setAgentThinking,
 		setScheduleOverlayOpen,
+		setWakeActive,
 	} = useVoiceQueue();
 
 	// Keep a stable ref to activeClassId so async callbacks always see the latest
@@ -55,6 +56,11 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			? localStorage.getItem("voiceSettings.voiceAppOpenMode")
 			: null) as "immediate" | "confirm") ?? "immediate",
 	);
+	const requireWakePhraseRef = useRef<boolean>(
+		typeof window !== "undefined"
+			? localStorage.getItem("voiceSettings.requireWakePhrase") === "true"
+			: false,
+	);
 	const [scheduleDocOpenMode, setScheduleDocOpenMode] = useState<"toast" | "new-tab">(
 		scheduleDocOpenModeRef.current,
 	);
@@ -82,6 +88,11 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					voiceAppOpenModeRef.current = v;
 					localStorage.setItem("voiceSettings.voiceAppOpenMode", v);
 				}
+				if (j.settings?.requireWakePhrase !== undefined) {
+					const v = Boolean(j.settings.requireWakePhrase);
+					requireWakePhraseRef.current = v;
+					localStorage.setItem("voiceSettings.requireWakePhrase", String(v));
+				}
 			})
 			.catch(() => {});
 	}, []);
@@ -105,13 +116,19 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				.voiceAppOpenMode;
 			voiceAppOpenModeRef.current = v;
 		}
+		function handleWakePhraseModeChange(e: Event) {
+			const v = (e as CustomEvent<{ requireWakePhrase: boolean }>).detail.requireWakePhrase;
+			requireWakePhraseRef.current = v;
+		}
 		window.addEventListener("voice-nav-mode-changed", handleNavModeChange);
 		window.addEventListener("schedule-doc-open-mode-changed", handleDocOpenModeChange);
 		window.addEventListener("voice-app-open-mode-changed", handleAppOpenModeChange);
+		window.addEventListener("require-wake-phrase-changed", handleWakePhraseModeChange);
 		return () => {
 			window.removeEventListener("voice-nav-mode-changed", handleNavModeChange);
 			window.removeEventListener("schedule-doc-open-mode-changed", handleDocOpenModeChange);
 			window.removeEventListener("voice-app-open-mode-changed", handleAppOpenModeChange);
+			window.removeEventListener("require-wake-phrase-changed", handleWakePhraseModeChange);
 		};
 	}, []);
 
@@ -721,11 +738,28 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		onBoardCommand: handleBoardCommand,
 		onVoiceTranscript: callVoiceAgent,
 		enabled: commandsEnabled && !lectureMicActive && !commsDictating,
+		requireWakePhrase: requireWakePhraseRef.current,
 	});
 	// Register imperative stop so coach page can kill mic before startListening()
 	useEffect(() => {
 		registerCommandStopper(stopGlobalNow);
 	}, [registerCommandStopper, stopGlobalNow]);
+
+	// Sync wake window events to context so nav bar can show the pulsing indicator
+	useEffect(() => {
+		function onWakeActivated() {
+			setWakeActive(true);
+		}
+		function onWakeExpired() {
+			setWakeActive(false);
+		}
+		window.addEventListener("voice:wake-activated", onWakeActivated);
+		window.addEventListener("voice:wake-expired", onWakeExpired);
+		return () => {
+			window.removeEventListener("voice:wake-activated", onWakeActivated);
+			window.removeEventListener("voice:wake-expired", onWakeExpired);
+		};
+	}, [setWakeActive]);
 
 	useEffect(() => {
 		setMicActive(isListening);

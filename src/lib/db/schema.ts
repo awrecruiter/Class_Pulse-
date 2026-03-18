@@ -87,6 +87,8 @@ export const teacherSettings = pgTable("teacher_settings", {
 	voiceNavMode: text("voice_nav_mode").notNull().default("toast"),
 	// "immediate" = open external app immediately (same tab) | "confirm" = show tappable toast first
 	voiceAppOpenMode: text("voice_app_open_mode").notNull().default("immediate"),
+	// When true, teacher must say "listen up" before commands are processed
+	requireWakePhrase: boolean("require_wake_phrase").notNull().default(false),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -31,6 +31,7 @@ type Settings = {
 	scheduleDocOpenMode: "toast" | "new-tab";
 	voiceNavMode: "immediate" | "toast";
 	voiceAppOpenMode: "immediate" | "confirm";
+	requireWakePhrase: boolean;
 };
 
 type FeeEntry = {
@@ -1205,6 +1206,42 @@ export default function SettingsPage() {
 							<option value="immediate">Open immediately (same tab)</option>
 							<option value="confirm">Tap to open (new tab)</option>
 						</select>
+					</div>
+				</div>
+
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<p className="text-sm font-medium text-slate-200">Wake phrase required</p>
+							<p className="text-xs text-slate-500 mt-0.5">
+								Say “listen up” before commands to prevent noise from triggering them
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={async () => {
+								const next = !settings.requireWakePhrase;
+								setSettings((s) => (s ? { ...s, requireWakePhrase: next } : s));
+								localStorage.setItem("voiceSettings.requireWakePhrase", String(next));
+								window.dispatchEvent(
+									new CustomEvent("require-wake-phrase-changed", {
+										detail: { requireWakePhrase: next },
+									}),
+								);
+								await fetch("/api/teacher-settings", {
+									method: "PUT",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ requireWakePhrase: next }),
+								});
+							}}
+							className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+								settings.requireWakePhrase
+									? "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30"
+									: "bg-slate-800 text-slate-400 hover:text-slate-200"
+							}`}
+						>
+							{settings.requireWakePhrase ? "On" : "Off"}
+						</button>
 					</div>
 				</div>
 

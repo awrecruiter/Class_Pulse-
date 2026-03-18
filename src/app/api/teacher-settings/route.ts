@@ -16,6 +16,7 @@ const updateSettingsSchema = z.object({
 	scheduleDocOpenMode: z.enum(["toast", "new-tab"]).optional(),
 	voiceNavMode: z.enum(["immediate", "toast"]).optional(),
 	voiceAppOpenMode: z.enum(["immediate", "confirm"]).optional(),
+	requireWakePhrase: z.boolean().optional(),
 });
 
 export async function GET(request: NextRequest) {
