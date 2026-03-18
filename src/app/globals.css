@@ -124,6 +124,18 @@
 	}
 }
 
+/* ── Student view accessibility overrides ──────────────────────────────────── */
+
+[data-student-font="sm"] .student-content {
+	font-size: 0.875rem;
+}
+[data-student-font="lg"] .student-content {
+	font-size: 1.125rem;
+}
+[data-student-hc="true"] .student-content {
+	filter: contrast(1.5);
+}
+
 /* ── Siri-style voice orb ─────────────────────────────────────────────────── */
 
 @property --orb-angle {

@@ -1,5 +1,6 @@
 "use client";
 
+import gsap from "gsap";
 import { useEffect, useState } from "react";
 import type { CheckQuestion } from "@/lib/ai/questions";
 
@@ -8,13 +9,14 @@ type Props = {
 	manipType: "fraction-bar" | "area-model" | "number-line";
 	standardCode?: string;
 	onClose: () => void;
+	onRamEarned?: (amount: number, newBalance: number) => void;
 };
 
 type QuizState = "loading" | "question" | "feedback" | "summary" | "mastered" | "error";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
-export function StudentQuiz({ sessionId, manipType, standardCode, onClose }: Props) {
+export function StudentQuiz({ sessionId, manipType, standardCode, onClose, onRamEarned }: Props) {
 	const [state, setState] = useState<QuizState>("loading");
 	const [questions, setQuestions] = useState<CheckQuestion[]>([]);
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -68,14 +70,21 @@ export function StudentQuiz({ sessionId, manipType, standardCode, onClose }: Pro
 					consecutiveCorrect: number;
 					threshold: number;
 					achieved: boolean;
+					ramBuckEarned?: number;
+					newBalance?: number;
 				};
 				setStreak(data.consecutiveCorrect);
 				setThreshold(data.threshold);
+				if (data.ramBuckEarned && data.ramBuckEarned > 0 && data.newBalance !== undefined) {
+					onRamEarned?.(data.ramBuckEarned, data.newBalance);
+				}
 				if (data.achieved) {
 					setState("feedback");
-					// Show feedback briefly, then mastered
-					setTimeout(() => setState("mastered"), 1500);
-					return;
+					// Show feedback briefly, then mastered — use GSAP delayedCall to prevent leak
+					const ctx = gsap.context(() => {
+						gsap.delayedCall(1.5, () => setState("mastered"));
+					});
+					return () => ctx.revert();
 				}
 			}
 		} catch {

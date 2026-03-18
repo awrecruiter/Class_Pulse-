@@ -153,11 +153,13 @@ export default function StudentJoinPage() {
 		<div className="flex min-h-screen flex-col items-center justify-center px-4 py-10 gap-8">
 			{/* Logo */}
 			<div ref={logoRef} className="flex flex-col items-center gap-3">
-				<div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-[#1e2230] shadow-lg ring-1 ring-white/10">
+				<div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-slate-100 dark:bg-[#1e2230] shadow-lg ring-1 ring-black/10 dark:ring-white/10">
 					<RamLogo size={52} />
 				</div>
 				<div className="text-center">
-					<p className="text-2xl font-black tracking-tight text-white">RAM Class</p>
+					<p className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+						RAM Class
+					</p>
 					<p className="text-xs text-slate-500 mt-0.5 font-medium tracking-widest uppercase">
 						Student Portal
 					</p>
@@ -167,12 +169,14 @@ export default function StudentJoinPage() {
 			{/* Main card */}
 			<div
 				ref={cardRef}
-				className="w-full max-w-sm rounded-2xl bg-[#1a1d27] border border-white/8 shadow-2xl overflow-hidden"
+				className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#1a1d27] border border-slate-200 dark:border-white/8 shadow-2xl overflow-hidden"
 			>
 				{phase === "enter-code" && (
 					<form onSubmit={handleCodeSubmit} className="flex flex-col gap-5 p-7">
 						<div className="text-center">
-							<p className="text-lg font-bold text-white">Enter your class code</p>
+							<p className="text-lg font-bold text-slate-900 dark:text-white">
+								Enter your class code
+							</p>
 							<p className="text-sm text-slate-400 mt-1">Your teacher has the 6-digit code</p>
 						</div>
 
@@ -188,11 +192,11 @@ export default function StudentJoinPage() {
 								setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
 								setError("");
 							}}
-							className="text-center font-mono text-3xl font-black tracking-[0.35em] rounded-xl border border-white/10 bg-[#0f1117] px-4 py-4 text-amber-400 placeholder:text-slate-700 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 uppercase transition-colors"
+							className="text-center font-mono text-3xl font-black tracking-[0.35em] rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0f1117] px-4 py-4 text-amber-500 dark:text-amber-400 placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 uppercase transition-colors"
 						/>
 
 						{error && (
-							<p className="text-center text-sm text-red-400 font-medium bg-red-500/10 rounded-lg py-2">
+							<p className="text-center text-sm text-red-500 dark:text-red-400 font-medium bg-red-50 dark:bg-red-500/10 rounded-lg py-2">
 								{error}
 							</p>
 						)}
@@ -210,7 +214,7 @@ export default function StudentJoinPage() {
 				{phase === "enter-id" && (
 					<form onSubmit={handleIdSubmit} className="flex flex-col gap-5 p-7">
 						<div className="text-center">
-							<p className="text-lg font-bold text-white">{sessionLabel}</p>
+							<p className="text-lg font-bold text-slate-900 dark:text-white">{sessionLabel}</p>
 							<p className="text-sm text-slate-400 mt-1">Enter your student ID number</p>
 						</div>
 
@@ -225,11 +229,11 @@ export default function StudentJoinPage() {
 								setStudentId(e.target.value.replace(/\D/g, ""));
 								setError("");
 							}}
-							className="text-center font-mono text-2xl font-black tracking-widest rounded-xl border border-white/10 bg-[#0f1117] px-4 py-4 text-amber-400 placeholder:text-slate-700 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition-colors"
+							className="text-center font-mono text-2xl font-black tracking-widest rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0f1117] px-4 py-4 text-amber-500 dark:text-amber-400 placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition-colors"
 						/>
 
 						{error && (
-							<p className="text-center text-sm text-red-400 font-medium bg-red-500/10 rounded-lg py-2">
+							<p className="text-center text-sm text-red-500 dark:text-red-400 font-medium bg-red-50 dark:bg-red-500/10 rounded-lg py-2">
 								{error}
 							</p>
 						)}
@@ -245,7 +249,7 @@ export default function StudentJoinPage() {
 						<button
 							type="button"
 							onClick={() => animateCardFlip(() => setPhase("enter-code"))}
-							className="text-sm text-slate-500 hover:text-slate-300 transition-colors text-center"
+							className="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors text-center"
 						>
 							← Different code
 						</button>
@@ -258,14 +262,14 @@ export default function StudentJoinPage() {
 							<RamLogo size={44} />
 						</div>
 						<div className="text-center">
-							<p className="text-base font-bold text-white">Joining class...</p>
+							<p className="text-base font-bold text-slate-900 dark:text-white">Joining class...</p>
 							<p className="text-sm text-slate-500 mt-1">Hold tight</p>
 						</div>
 					</div>
 				)}
 			</div>
 
-			<p className="text-xs text-slate-700">RAM Class Student Portal</p>
+			<p className="text-xs text-slate-400 dark:text-slate-700">RAM Class Student Portal</p>
 		</div>
 	);
 }

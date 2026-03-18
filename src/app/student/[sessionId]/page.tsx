@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { AccessibilityToolbar } from "@/components/student/accessibility-toolbar";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import {
@@ -92,16 +93,19 @@ export default async function StudentSessionPage({
 	const isActive = session.status === "active";
 
 	return (
-		<StudentSession
-			sessionId={sessionId}
-			displayName={displayName}
-			classLabel={classLabel}
-			isActive={isActive}
-			studentId={entry?.studentId ?? ""}
-			initialSignal={(signalRow?.signal as "got-it" | "almost" | "lost" | null) ?? null}
-			ramBalance={ramAccount?.balance ?? 0}
-			groupBalance={groupBalance}
-			groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
-		/>
+		<>
+			<StudentSession
+				sessionId={sessionId}
+				displayName={displayName}
+				classLabel={classLabel}
+				isActive={isActive}
+				studentId={entry?.studentId ?? ""}
+				initialSignal={(signalRow?.signal as "got-it" | "almost" | "lost" | null) ?? null}
+				ramBalance={ramAccount?.balance ?? 0}
+				groupBalance={groupBalance}
+				groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
+			/>
+			<AccessibilityToolbar />
+		</>
 	);
 }

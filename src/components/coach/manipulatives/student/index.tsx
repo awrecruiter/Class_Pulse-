@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import type React from "react";
+import { memo, useState } from "react";
 import type { CoachResponse } from "@/lib/ai/coach";
 import { StudentAreaModel } from "./area-model";
 import { StudentDrawingPrompt } from "./drawing-prompt";
@@ -15,11 +16,18 @@ type Props = {
 	sessionId: string;
 	standardCode?: string;
 	onDismiss?: () => void;
+	onRamEarned?: (amount: number, newBalance: number) => void;
 };
 
 type Phase = "manipulative" | "quiz" | "drawing";
 
-export function StudentManipulative({ spec, sessionId, standardCode, onDismiss }: Props) {
+export const StudentManipulative = memo(function StudentManipulative({
+	spec,
+	sessionId,
+	standardCode,
+	onDismiss,
+	onRamEarned,
+}: Props) {
 	const [phase, setPhase] = useState<Phase>("manipulative");
 
 	if (!spec) return null;
@@ -89,6 +97,7 @@ export function StudentManipulative({ spec, sessionId, standardCode, onDismiss }
 						sessionId={sessionId}
 						manipType={spec.type}
 						standardCode={standardCode}
+						onRamEarned={onRamEarned}
 						onClose={() => {
 							// After quiz: offer drawing if we have a standard code
 							if (standardCode) {
@@ -125,4 +134,4 @@ export function StudentManipulative({ spec, sessionId, standardCode, onDismiss }
 			</div>
 		</div>
 	);
-}
+});

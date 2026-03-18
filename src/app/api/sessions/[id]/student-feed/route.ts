@@ -1,8 +1,13 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
-import { classSessions, manipulativePushes } from "@/lib/db/schema";
+import {
+	classSessions,
+	manipulativePushes,
+	ramBuckAccounts,
+	ramBuckTransactions,
+} from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +40,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 	const encoder = new TextEncoder();
 	let lastPushId: string | null = null;
+	let lastRamTxId: string | null = null;
+	const { rosterId } = payload;
 
 	const stream = new ReadableStream({
 		async start(controller) {
@@ -51,12 +58,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					});
 				} catch {
 					clearInterval(interval);
+					clearInterval(ramIntervalId);
 					controller.close();
 				}
 			}, 5000);
 
+			// Poll every 3 seconds for RAM awards
+			const ramIntervalId = setInterval(async () => {
+				try {
+					await sendLatestRamAward(controller, encoder, rosterId, sessionId, lastRamTxId, (id) => {
+						lastRamTxId = id;
+					});
+				} catch {
+					// Non-critical — ignore
+				}
+			}, 3000);
+
 			request.signal.addEventListener("abort", () => {
 				clearInterval(interval);
+				clearInterval(ramIntervalId);
 				controller.close();
 			});
 		},
@@ -99,6 +119,49 @@ async function sendLatestPush(
 			pushedAt: latest.pushedAt,
 			standardCode: latest.standardCode ?? null,
 		};
-		controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+		controller.enqueue(encoder.encode(`event: push\ndata: ${JSON.stringify(payload)}\n\n`));
+	}
+}
+
+async function sendLatestRamAward(
+	controller: ReadableStreamDefaultController,
+	encoder: TextEncoder,
+	rosterId: string,
+	sessionId: string,
+	lastRamTxId: string | null,
+	setLastRamTxId: (id: string) => void,
+) {
+	const [latest] = await db
+		.select({
+			id: ramBuckTransactions.id,
+			amount: ramBuckTransactions.amount,
+			reason: ramBuckTransactions.reason,
+		})
+		.from(ramBuckTransactions)
+		.where(
+			and(
+				eq(ramBuckTransactions.rosterId, rosterId),
+				eq(ramBuckTransactions.sessionId, sessionId),
+				gt(ramBuckTransactions.amount, 0),
+			),
+		)
+		.orderBy(desc(ramBuckTransactions.createdAt))
+		.limit(1);
+
+	if (latest && latest.id !== lastRamTxId) {
+		setLastRamTxId(latest.id);
+
+		// Look up current balance
+		const [account] = await db
+			.select({ balance: ramBuckAccounts.balance })
+			.from(ramBuckAccounts)
+			.where(eq(ramBuckAccounts.rosterId, rosterId));
+
+		const newBalance = account?.balance ?? 0;
+		controller.enqueue(
+			encoder.encode(
+				`event: ram_award\ndata: ${JSON.stringify({ amount: latest.amount, newBalance, reason: latest.reason })}\n\n`,
+			),
+		);
 	}
 }

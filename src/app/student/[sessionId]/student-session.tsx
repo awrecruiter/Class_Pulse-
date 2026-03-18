@@ -3,9 +3,11 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { StudentManipulative } from "@/components/coach/manipulatives/student";
 import { CorrectionRequest } from "@/components/coach/manipulatives/student/correction-request";
+import { RamBuckBurst } from "@/components/coach/ram-buck-burst";
+import { useStudentFeed } from "@/hooks/use-student-feed";
 import type { CoachResponse } from "@/lib/ai/coach";
 
 gsap.registerPlugin(useGSAP);
@@ -185,12 +187,6 @@ function SoundcloudWave({
 
 type Signal = "got-it" | "almost" | "lost";
 type ManipSpec = CoachResponse["manipulative"];
-type PushPayload = {
-	pushId: string;
-	spec: ManipSpec;
-	standardCode: string | null;
-	pushedAt: string;
-};
 
 const SIGNALS: {
 	id: Signal;
@@ -283,7 +279,7 @@ export function StudentSession({
 	isActive,
 	studentId,
 	initialSignal,
-	ramBalance,
+	ramBalance: initialRamBalanceProp,
 	groupBalance,
 	groupName,
 }: Props) {
@@ -292,6 +288,27 @@ export function StudentSession({
 	const [markTrigger, setMarkTrigger] = useState(0);
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState("");
+
+	// RAM balance + burst
+	const [ramBalance, setRamBalance] = useState(initialRamBalanceProp ?? 0);
+	const [burstAmount, setBurstAmount] = useState(0);
+	const [showBurst, setShowBurst] = useState(false);
+	const balanceChipRef = useRef<HTMLDivElement>(null);
+
+	// Manipulative slide-in state
+	const [dismissing, setDismissing] = useState(false);
+	const manipWrapRef = useRef<HTMLDivElement>(null);
+
+	// SSE feed via hook
+	const {
+		status,
+		pushedSpec,
+		pushedStandardCode,
+		showManip,
+		dismissManip,
+		ramAward,
+		clearRamAward,
+	} = useStudentFeed(sessionId, isActive);
 
 	// Poll for session going live when student joins early
 	useEffect(() => {
@@ -309,10 +326,14 @@ export function StudentSession({
 		return () => clearInterval(interval);
 	}, [isActive, sessionId, router]);
 
-	const [pushedSpec, setPushedSpec] = useState<ManipSpec>(null);
-	const [pushedStandardCode, setPushedStandardCode] = useState<string | undefined>(undefined);
-	const [showManip, setShowManip] = useState(false);
-	const esRef = useRef<EventSource | null>(null);
+	// Watch ramAward from SSE feed
+	useEffect(() => {
+		if (!ramAward) return;
+		setRamBalance(ramAward.newBalance);
+		setBurstAmount(ramAward.amount);
+		setShowBurst(true);
+		clearRamAward();
+	}, [ramAward, clearRamAward]);
 
 	const headerRef = useRef<HTMLDivElement>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
@@ -338,57 +359,94 @@ export function StudentSession({
 		});
 	}, []);
 
-	// SSE for pushed manipulatives
-	useEffect(() => {
-		if (!isActive) return;
-		const es = new EventSource(`/api/sessions/${sessionId}/student-feed`);
-		esRef.current = es;
-		es.onmessage = (e) => {
-			try {
-				const data = JSON.parse(e.data) as PushPayload;
-				if (data.spec) {
-					setPushedSpec(data.spec);
-					setPushedStandardCode(data.standardCode ?? undefined);
-					setShowManip(true);
-				}
-			} catch {
-				/* ignore */
+	// Manipulative slide-in animation
+	useGSAP(
+		() => {
+			if (showManip && !dismissing && manipWrapRef.current) {
+				gsap.fromTo(
+					manipWrapRef.current,
+					{ y: 40, opacity: 0, scale: 0.96 },
+					{ y: 0, opacity: 1, scale: 1, duration: 0.38, ease: "back.out(1.4)" },
+				);
 			}
-		};
-		return () => es.close();
-	}, [sessionId, isActive]);
+		},
+		{ dependencies: [showManip, dismissing] },
+	);
 
-	function tapButton(el: HTMLButtonElement | null) {
+	function handleDismissManip() {
+		if (!manipWrapRef.current) {
+			dismissManip();
+			return;
+		}
+		setDismissing(true);
+		gsap.to(manipWrapRef.current, {
+			y: 30,
+			opacity: 0,
+			duration: 0.22,
+			ease: "power2.in",
+			onComplete: () => {
+				setDismissing(false);
+				dismissManip();
+			},
+		});
+	}
+
+	const tapButton = useCallback((el: HTMLButtonElement | null) => {
 		if (!el) return;
 		gsap
 			.timeline()
 			.to(el, { scale: 0.93, duration: 0.08, ease: "power2.in" })
 			.to(el, { scale: 1.04, duration: 0.2, ease: "back.out(3)" })
 			.to(el, { scale: 1, duration: 0.12, ease: "power2.out" });
-	}
+	}, []);
 
-	async function submitSignal(signal: Signal, el: HTMLButtonElement | null) {
-		if (isPending) return;
-		tapButton(el);
-		setError("");
-		startTransition(async () => {
-			try {
-				const res = await fetch(`/api/sessions/${sessionId}/signal`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ signal }),
-				});
-				if (!res.ok) throw new Error("Failed");
-				setCurrentSignal(signal);
-				setMarkTrigger((t) => t + 1);
-			} catch {
-				setError("Couldn't save — try again");
-			}
-		});
-	}
+	const submitSignal = useCallback(
+		async (signal: Signal, el: HTMLButtonElement | null) => {
+			if (isPending) return;
+			tapButton(el);
+			setError("");
+			startTransition(async () => {
+				try {
+					const res = await fetch(`/api/sessions/${sessionId}/signal`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ signal }),
+					});
+					if (!res.ok) throw new Error("Failed");
+					setCurrentSignal(signal);
+					setMarkTrigger((t) => t + 1);
+				} catch {
+					setError("Couldn't save — try again");
+				}
+			});
+		},
+		[isPending, sessionId, tapButton],
+	);
 
 	return (
-		<div className="flex min-h-screen flex-col items-center justify-start px-4 py-8 gap-6">
+		<div className="student-content flex min-h-screen flex-col items-center justify-start px-4 py-8 gap-6">
+			{/* Connection status banners */}
+			{status === "reconnecting" && (
+				<div className="fixed top-0 inset-x-0 z-50 bg-amber-500/90 text-black text-center text-xs py-1 font-medium">
+					Reconnecting...
+				</div>
+			)}
+			{status === "failed" && (
+				<div className="fixed top-0 inset-x-0 z-50 bg-red-500/90 text-white text-center text-xs py-1 font-medium">
+					Connection lost — please rejoin
+				</div>
+			)}
+
+			{/* RAM Bucks burst animation */}
+			{showBurst && (
+				<RamBuckBurst
+					amount={burstAmount}
+					type="award"
+					anchorRef={balanceChipRef}
+					onDone={() => setShowBurst(false)}
+				/>
+			)}
+
 			{/* Header */}
 			<div ref={headerRef} className="flex flex-col items-center gap-3 pt-2">
 				<div className="flex items-center gap-3">
@@ -405,7 +463,10 @@ export function StudentSession({
 				{(ramBalance > 0 || groupBalance !== null) && (
 					<div className="flex items-center gap-2 flex-wrap justify-center">
 						{ramBalance > 0 && (
-							<div className="rounded-full bg-amber-500/15 border border-amber-500/30 px-3.5 py-1 text-sm font-bold text-amber-400">
+							<div
+								ref={balanceChipRef}
+								className="rounded-full bg-amber-500/15 border border-amber-500/30 px-3.5 py-1 text-sm font-bold text-amber-400"
+							>
 								{ramBalance} RAM Bucks
 							</div>
 						)}
@@ -419,13 +480,18 @@ export function StudentSession({
 			</div>
 
 			{/* Pushed manipulative */}
-			{showManip && pushedSpec && (
-				<div className="w-full max-w-sm">
+			{showManip && pushedSpec != null && (
+				<div ref={manipWrapRef} className="w-full max-w-sm">
 					<StudentManipulative
-						spec={pushedSpec}
+						spec={pushedSpec as ManipSpec}
 						sessionId={sessionId}
 						standardCode={pushedStandardCode}
-						onDismiss={() => setShowManip(false)}
+						onDismiss={handleDismissManip}
+						onRamEarned={(amount, newBalance) => {
+							setRamBalance(newBalance);
+							setBurstAmount(amount);
+							setShowBurst(true);
+						}}
 					/>
 				</div>
 			)}
