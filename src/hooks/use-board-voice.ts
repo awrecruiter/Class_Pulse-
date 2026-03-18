@@ -74,9 +74,9 @@ const APPS: AppEntry[] = [
 
 const OPEN_TRIGGERS = ["open", "go to", "launch", "show me", "pull up", "take me to", "switch to"];
 const PANEL_TRIGGERS: { aliases: string[]; panel: "portal" | "resources" | "pulse" }[] = [
-	{ aliases: ["portal panel", "my portal", "apps"], panel: "portal" },
-	{ aliases: ["resources", "resource viewer", "files", "file viewer"], panel: "resources" },
-	{ aliases: ["class pulse", "pulse", "comprehension"], panel: "pulse" },
+	{ aliases: ["portal panel", "app panel", "app launcher", "my portal"], panel: "portal" },
+	{ aliases: ["resource panel", "resource viewer", "file viewer"], panel: "resources" },
+	{ aliases: ["class pulse", "pulse panel", "comprehension check"], panel: "pulse" },
 ];
 const LAST_RESOURCE_TRIGGERS = [
 	"my last file",
@@ -96,11 +96,14 @@ export function matchBoardCommand(text: string): BoardCommand | null {
 		}
 	}
 
-	// Check for panel switches
+	// Check for panel switches — require explicit trigger word to avoid false positives
 	for (const { aliases, panel } of PANEL_TRIGGERS) {
 		for (const alias of aliases) {
+			// Exact utterance match (teacher says exactly "class pulse" etc.)
+			if (lower === alias) return { type: "switch_panel", panel };
+			// Trigger word + alias
 			for (const trigger of OPEN_TRIGGERS) {
-				if (lower.includes(`${trigger} ${alias}`) || lower.includes(alias)) {
+				if (lower.includes(`${trigger} ${alias}`)) {
 					return { type: "switch_panel", panel };
 				}
 			}

@@ -15,7 +15,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"validate": "npx tsc --noEmit && npm run lint && npm run test:run"
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.39.0",

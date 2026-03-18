@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
@@ -192,4 +192,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	}));
 
 	return NextResponse.json({ groups: groupsWithMembers, usedPerformanceScores: hasScores });
+}
+
+export async function DELETE(
+	request: NextRequest,
+	{ params }: { params: Promise<{ id: string }> },
+) {
+	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
+	const { success } = sessionRateLimiter.check(ip);
+	if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+
+	const { data } = await auth.getSession();
+	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+	const { id: classId } = await params;
+	const owns = await verifyTeacherOwnsClass(classId, data.user.id);
+	if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+	// Delete all group memberships for this class (keeps groups, just unassigns everyone)
+	const classGroups = await db
+		.select({ id: studentGroups.id })
+		.from(studentGroups)
+		.where(eq(studentGroups.classId, classId));
+
+	if (classGroups.length > 0) {
+		await db.delete(groupMemberships).where(
+			inArray(
+				groupMemberships.groupId,
+				classGroups.map((g) => g.id),
+			),
+		);
+	}
+
+	return NextResponse.json({ cleared: true });
 }

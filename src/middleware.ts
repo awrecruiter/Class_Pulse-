@@ -23,5 +23,7 @@ export const config = {
 		"/settings",
 		"/api/coach/:path*",
 		"/board",
+		"/parent-comms",
+		"/parent-comms/:path*",
 	],
 };

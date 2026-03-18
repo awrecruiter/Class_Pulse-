@@ -7,11 +7,29 @@ import { playActivationChime } from "@/lib/chime";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type QueueItemData =
+	// ── Existing ─────────────────────────────────────────────────────────────
 	| { type: "consequence"; studentName: string; step: number; stepLabel: string }
 	| { type: "ram_bucks"; studentName: string; amount: number }
 	| { type: "group_coins"; group: string; amount: number }
 	| { type: "parent_message"; studentName: string; messageText: string }
-	| { type: "move_to_group"; studentName: string; groupName: string };
+	| { type: "move_to_group"; studentName: string; groupName: string }
+	// ── New (voice agent) ─────────────────────────────────────────────────────
+	| { type: "behavior_log"; studentName: string; notes: string }
+	| { type: "ram_bucks_deduct"; studentName: string; amount: number; reason: string }
+	| { type: "clear_group"; groupName: string }
+	| { type: "start_session" }
+	| { type: "end_session" }
+	| { type: "open_store" }
+	| { type: "close_store" }
+	| { type: "start_lecture" }
+	| { type: "stop_lecture" }
+	| {
+			type: "navigate";
+			destination: "board" | "classes" | "settings" | "coach" | "store" | "gradebook";
+	  }
+	| { type: "ask_coach"; question: string }
+	| { type: "show_schedule" }
+	| { type: "open_doc"; label: string; url: string };
 
 export interface QueueItem {
 	id: string;
@@ -65,11 +83,17 @@ interface VoiceQueueCtx {
 	// Imperative stop — call before startListening() to synchronously kill global command mic
 	stopCommandsNow: () => void;
 	registerCommandStopper: (fn: () => void) => void;
+	// Schedule overlay state
+	scheduleOverlayOpen: boolean;
+	setScheduleOverlayOpen: (open: boolean) => void;
 	// Board commands
 	boardPanel: BoardPanel | null;
 	setBoardPanel: (panel: BoardPanel | null) => void;
 	boardOpenLast: number; // increments to signal "open last resource"
 	triggerBoardOpenLast: () => void;
+	// Voice agent thinking indicator
+	agentThinking: boolean;
+	setAgentThinking: (v: boolean) => void;
 }
 
 const VoiceQueueContext = createContext<VoiceQueueCtx | null>(null);
@@ -98,6 +122,8 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 	}, []);
 	const [boardPanel, setBoardPanel] = useState<BoardPanel | null>(null);
 	const [boardOpenLast, setBoardOpenLast] = useState(0);
+	const [agentThinking, setAgentThinking] = useState(false);
+	const [scheduleOverlayOpen, setScheduleOverlayOpen] = useState(false);
 
 	const enqueue = useCallback((data: QueueItemData, transcript: string) => {
 		const item: QueueItem = {
@@ -152,6 +178,10 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 				setBoardPanel,
 				boardOpenLast,
 				triggerBoardOpenLast,
+				agentThinking,
+				setAgentThinking,
+				scheduleOverlayOpen,
+				setScheduleOverlayOpen,
 			}}
 		>
 			{children}

@@ -1,9 +1,18 @@
 "use client";
 
-import { AlertCircleIcon, MicIcon, PlusIcon, ShieldCheckIcon, ShieldOffIcon } from "lucide-react";
+import {
+	AlertCircleIcon,
+	CalendarIcon,
+	MicIcon,
+	PlusIcon,
+	ShieldCheckIcon,
+	ShieldOffIcon,
+	XIcon,
+} from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
 import { Button } from "@/components/ui/button";
 import {
 	clearVoiceProfile,
@@ -19,6 +28,9 @@ type Settings = {
 	storeResetSchedule: "daily" | "weekly" | "monthly" | "quarterly" | "manual";
 	storeIsOpen: boolean;
 	diRewardAmount: number;
+	scheduleDocOpenMode: "toast" | "new-tab";
+	voiceNavMode: "immediate" | "toast";
+	voiceAppOpenMode: "immediate" | "confirm";
 };
 
 type FeeEntry = {
@@ -35,6 +47,287 @@ type PrivilegeItem = {
 	isActive: boolean;
 	sortOrder: number;
 };
+
+type ClassRow = { id: string; label: string };
+
+// ─── Schedule Manager ─────────────────────────────────────────────────────────
+
+type ScheduleDocLinkRow = {
+	id: string;
+	label: string;
+	url: string;
+	linkType: string;
+};
+
+type ScheduleBlockRow = {
+	id: string;
+	title: string;
+	color: string;
+	startTime: string;
+	endTime: string;
+	dayOfWeek: number | null;
+	specificDate: string | null;
+	sortOrder: number;
+	docs: ScheduleDocLinkRow[];
+};
+
+type ProposedBlock = {
+	title: string;
+	startTime: string;
+	endTime: string;
+	dayOfWeek: number | null;
+	color: string;
+};
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function ScheduleManager() {
+	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
+	const [importing, setImporting] = useState(false);
+	const [extractStatus, setExtractStatus] = useState<{
+		type: "success" | "warning" | "error";
+		msg: string;
+	} | null>(null);
+	const photoInputRef = useRef<HTMLInputElement>(null);
+	const icsInputRef = useRef<HTMLInputElement>(null);
+
+	const fetchBlocks = useCallback(async () => {
+		try {
+			const res = await fetch("/api/schedule");
+			const json = await res.json();
+			const fetched = json.blocks ?? [];
+			setBlocks(fetched);
+		} catch {
+			// silent
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchBlocks();
+	}, [fetchBlocks]);
+
+	function todayWeekday(): number {
+		// 0=Sun,1=Mon...6=Sat — clamp to Mon-Fri
+		const d = new Date().getDay();
+		if (d === 0) return 1; // Sun → Mon
+		if (d === 6) return 5; // Sat → Fri
+		return d;
+	}
+
+	async function handlePhotoImport(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		setImporting(true);
+		try {
+			const reader = new FileReader();
+			reader.onload = async (ev) => {
+				try {
+					const dataUrl = ev.target?.result as string;
+					const base64 = dataUrl.split(",")[1];
+					const mimeType = file.type || "image/jpeg";
+					const res = await fetch("/api/schedule/extract", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ type: "image", data: base64, mimeType }),
+					});
+					const json = await res.json();
+					if (!res.ok) throw new Error(json.error || "Extraction failed");
+					const extracted = json.blocks ?? [];
+					if (extracted.length === 0) {
+						setExtractStatus({
+							type: "warning",
+							msg: "No schedule blocks detected — try a different image.",
+						});
+						console.warn("[schedule/extract] 0 blocks. debug:", json.debug ?? "(no debug field)");
+					} else {
+						const today = todayWeekday();
+						const COLORS = [
+							"blue",
+							"indigo",
+							"violet",
+							"green",
+							"emerald",
+							"teal",
+							"cyan",
+							"red",
+							"orange",
+							"amber",
+							"pink",
+							"slate",
+						] as const;
+						const allSameColor = extracted.every(
+							(b: ProposedBlock) => b.color === extracted[0]?.color,
+						);
+						const bulkRes = await fetch("/api/schedule/bulk", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								blocks: extracted.map((b: ProposedBlock, i: number) => ({
+									...b,
+									dayOfWeek: b.dayOfWeek ?? today,
+									color: allSameColor ? COLORS[i % COLORS.length] : (b.color ?? "blue"),
+								})),
+							}),
+						});
+						if (!bulkRes.ok) {
+							const bulkErr = await bulkRes.json();
+							throw new Error(bulkErr.error || "Bulk save failed");
+						}
+						await fetchBlocks();
+						setExtractStatus({
+							type: "success",
+							msg: `Added ${extracted.length} block${extracted.length === 1 ? "" : "s"} to your calendar`,
+						});
+					}
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					console.error("[schedule/extract] error:", msg);
+					setExtractStatus({ type: "error", msg: `Error: ${msg}` });
+					toast.error(`Extract failed: ${msg}`);
+				} finally {
+					setImporting(false);
+				}
+			};
+			reader.readAsDataURL(file);
+		} catch {
+			toast.error("Could not read image file");
+			setImporting(false);
+		}
+	}
+
+	async function handleIcsImport(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		setImporting(true);
+		try {
+			const text = await file.text();
+			const res = await fetch("/api/schedule/extract", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ type: "ics", content: text }),
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Extraction failed");
+			const extracted = json.blocks ?? [];
+			if (extracted.length === 0) {
+				setExtractStatus({ type: "warning", msg: "No events found in this calendar file." });
+			} else {
+				const today = todayWeekday();
+				const COLORS = [
+					"blue",
+					"indigo",
+					"violet",
+					"green",
+					"emerald",
+					"teal",
+					"cyan",
+					"red",
+					"orange",
+					"amber",
+					"pink",
+					"slate",
+				] as const;
+				const allSameColor = extracted.every((b: ProposedBlock) => b.color === extracted[0]?.color);
+				const bulkRes = await fetch("/api/schedule/bulk", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						blocks: extracted.map((b: ProposedBlock, i: number) => ({
+							...b,
+							dayOfWeek: b.dayOfWeek ?? today,
+							color: allSameColor ? COLORS[i % COLORS.length] : (b.color ?? "blue"),
+						})),
+					}),
+				});
+				if (!bulkRes.ok) {
+					const bulkErr = await bulkRes.json();
+					throw new Error(bulkErr.error || "Bulk save failed");
+				}
+				await fetchBlocks();
+				setExtractStatus({
+					type: "success",
+					msg: `Added ${extracted.length} block${extracted.length === 1 ? "" : "s"} to your calendar`,
+				});
+			}
+		} catch {
+			setExtractStatus({ type: "error", msg: "Could not parse calendar file." });
+		} finally {
+			setImporting(false);
+		}
+	}
+
+	return (
+		<div className="flex flex-col gap-4">
+			{/* Import buttons */}
+			<div className="flex gap-2">
+				<input
+					ref={photoInputRef}
+					type="file"
+					accept="image/*"
+					onChange={handlePhotoImport}
+					className="hidden"
+				/>
+				<input
+					ref={icsInputRef}
+					type="file"
+					accept=".ics"
+					onChange={handleIcsImport}
+					className="hidden"
+				/>
+				<button
+					type="button"
+					onClick={() => photoInputRef.current?.click()}
+					disabled={importing}
+					className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
+				>
+					<CalendarIcon className="h-3.5 w-3.5" />
+					{importing ? "Extracting…" : "Upload Photo"}
+				</button>
+				<button
+					type="button"
+					onClick={() => icsInputRef.current?.click()}
+					disabled={importing}
+					className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
+				>
+					<CalendarIcon className="h-3.5 w-3.5" />
+					Import .ics
+				</button>
+				{blocks.length > 0 && (
+					<button
+						type="button"
+						onClick={async () => {
+							if (!confirm(`Clear all ${blocks.length} schedule blocks?`)) return;
+							await fetch("/api/schedule", { method: "DELETE" });
+							setBlocks([]);
+						}}
+						className="flex items-center gap-1.5 rounded-lg border border-red-900/50 px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:border-red-700 transition-colors ml-auto"
+					>
+						<XIcon className="h-3.5 w-3.5" />
+						Clear all
+					</button>
+				)}
+			</div>
+
+			{/* Extract status */}
+			{extractStatus && (
+				<div
+					className={`rounded-lg border px-3 py-2 text-xs flex items-center gap-2 ${
+						extractStatus.type === "success"
+							? "border-green-500/30 bg-green-500/10 text-green-300"
+							: extractStatus.type === "warning"
+								? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+								: "border-red-500/30 bg-red-500/10 text-red-300"
+					}`}
+				>
+					<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
+					{extractStatus.msg}
+				</div>
+			)}
+
+			<ScheduleCalendar blocks={blocks} onBlocksChange={setBlocks} />
+		</div>
+	);
+}
 
 export default function SettingsPage() {
 	const [settings, setSettings] = useState<Settings | null>(null);
@@ -59,6 +352,10 @@ export default function SettingsPage() {
 	const [privilegeItems, setPrivilegeItems] = useState<PrivilegeItem[]>([]);
 	const [itemsLoading, setItemsLoading] = useState(true);
 	const [_itemsSaving, setItemsSaving] = useState<Record<string, boolean>>({});
+
+	// Classes (for group reset)
+	const [classes, setClasses] = useState<ClassRow[]>([]);
+	const [clearingClass, setClearingClass] = useState<string | null>(null);
 
 	const fetchSettings = useCallback(async () => {
 		try {
@@ -109,6 +406,16 @@ export default function SettingsPage() {
 		fetchSettings();
 		fetchFeeSchedule();
 		fetchPrivilegeItems();
+		fetch("/api/classes")
+			.then((r) => r.json())
+			.then((j) =>
+				setClasses(
+					(j.classes ?? [])
+						.filter((c: ClassRow & { isArchived: boolean }) => !c.isArchived)
+						.map((c: ClassRow) => ({ id: c.id, label: c.label })),
+				),
+			)
+			.catch(() => {});
 	}, [fetchSettings, fetchFeeSchedule, fetchPrivilegeItems]);
 
 	async function handleEnrollVoice() {
@@ -145,6 +452,11 @@ export default function SettingsPage() {
 				body: JSON.stringify(settings),
 			});
 			if (!res.ok) throw new Error("Failed to save");
+			// Cache voice settings in localStorage so VoiceCommandProvider reads them instantly on next mount
+			if (settings.voiceNavMode)
+				localStorage.setItem("voiceSettings.voiceNavMode", settings.voiceNavMode);
+			if (settings.scheduleDocOpenMode)
+				localStorage.setItem("voiceSettings.scheduleDocOpenMode", settings.scheduleDocOpenMode);
 			toast.success("Settings saved");
 		} catch {
 			toast.error("Failed to save settings");
@@ -220,6 +532,19 @@ export default function SettingsPage() {
 		await handleUpdateItem(updated);
 	}
 
+	async function handleClearGroupAssignments(classId: string) {
+		setClearingClass(classId);
+		try {
+			const res = await fetch(`/api/classes/${classId}/groups`, { method: "DELETE" });
+			if (!res.ok) throw new Error("Failed");
+			toast.success("All group assignments cleared");
+		} catch {
+			toast.error("Failed to clear assignments");
+		} finally {
+			setClearingClass(null);
+		}
+	}
+
 	function updateLocalItem(
 		id: string,
 		field: keyof PrivilegeItem,
@@ -267,9 +592,34 @@ export default function SettingsPage() {
 				<p className="text-sm text-slate-400 mt-0.5">Configure your classroom preferences</p>
 			</div>
 
+			{/* ── Section nav ───────────────────────────────────── */}
+			<nav className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-[#0d1525]/90 backdrop-blur border-b border-slate-800 flex gap-1.5 overflow-x-auto scrollbar-none mb-2">
+				{(
+					[
+						["mastery", "Mastery"],
+						["comprehension", "Comprehension"],
+						["privacy", "Privacy"],
+						["store", "Store"],
+						["di", "DI Sessions"],
+						["voice", "Voice"],
+						["groups", "Groups"],
+						["fees", "Fees"],
+						["schedule", "Schedule"],
+					] as [string, string][]
+				).map(([id, label]) => (
+					<a
+						key={id}
+						href={`#${id}`}
+						className="shrink-0 rounded-full px-3 py-1 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+					>
+						{label}
+					</a>
+				))}
+			</nav>
+
 			<form onSubmit={handleSave} className="flex flex-col gap-6">
 				{/* ── Mastery Loop ────────────────────────────────── */}
-				<section className="flex flex-col gap-4">
+				<section id="mastery" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						Mastery Loop
 					</h2>
@@ -314,7 +664,7 @@ export default function SettingsPage() {
 				</section>
 
 				{/* ── Comprehension Pulse ─────────────────────────── */}
-				<section className="flex flex-col gap-4">
+				<section id="comprehension" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						Comprehension Pulse
 					</h2>
@@ -354,7 +704,7 @@ export default function SettingsPage() {
 				</section>
 
 				{/* ── Privacy ─────────────────────────────────────── */}
-				<section className="flex flex-col gap-4">
+				<section id="privacy" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Privacy</h2>
 
 					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -387,7 +737,7 @@ export default function SettingsPage() {
 				</section>
 
 				{/* ── RAM Buck Store ───────────────────────────────── */}
-				<section className="flex flex-col gap-4">
+				<section id="store" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						RAM Buck Store
 					</h2>
@@ -445,7 +795,7 @@ export default function SettingsPage() {
 				</section>
 
 				{/* ── DI Group Sessions ───────────────────────────────────── */}
-				<section className="flex flex-col gap-4">
+				<section id="di" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						DI Group Sessions
 					</h2>
@@ -489,7 +839,7 @@ export default function SettingsPage() {
 				</section>
 
 				{/* ── Voice Lock ──────────────────────────────────── */}
-				<section className="flex flex-col gap-4">
+				<section id="voice" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						Voice Lock
 					</h2>
@@ -561,8 +911,42 @@ export default function SettingsPage() {
 				</Button>
 			</form>
 
+			{/* ── Student Groups ───────────────────────────────── */}
+			<div id="groups" className="mt-8 flex flex-col gap-4">
+				<div>
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Student Groups
+					</h2>
+					<p className="text-xs text-slate-400 mt-0.5">
+						Clear all group assignments for a class (keeps the group circles, unassigns everyone)
+					</p>
+				</div>
+				{classes.length === 0 ? (
+					<p className="text-xs text-slate-500">No classes found.</p>
+				) : (
+					<div className="rounded-lg border border-slate-800 bg-slate-900 overflow-hidden">
+						{classes.map((cls, i) => (
+							<div
+								key={cls.id}
+								className={`flex items-center justify-between gap-3 px-4 py-3 ${i !== classes.length - 1 ? "border-b border-slate-800" : ""}`}
+							>
+								<span className="text-sm text-slate-200">{cls.label}</span>
+								<button
+									type="button"
+									onClick={() => handleClearGroupAssignments(cls.id)}
+									disabled={clearingClass === cls.id}
+									className="text-xs font-medium text-red-400 hover:text-red-300 border border-red-400/30 hover:border-red-400/60 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+								>
+									{clearingClass === cls.id ? "Clearing…" : "Clear Assignments"}
+								</button>
+							</div>
+						))}
+					</div>
+				)}
+			</div>
+
 			{/* ── Fee Schedule ─────────────────────────────────── */}
-			<div className="mt-8 flex flex-col gap-4">
+			<div id="fees" className="mt-8 flex flex-col gap-4">
 				<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 					Behavior Fee Schedule
 				</h2>
@@ -720,6 +1104,111 @@ export default function SettingsPage() {
 						)}
 					</div>
 				)}
+			</div>
+
+			{/* ── Schedule Settings + CRUD ────────────────────── */}
+			<div id="schedule" className="mt-8 flex flex-col gap-4">
+				<div>
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Schedule</h2>
+					<p className="text-xs text-slate-400 mt-0.5">
+						Configure your daily schedule and doc links for the schedule overlay
+					</p>
+				</div>
+
+				{/* Doc open mode */}
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<p className="text-sm font-medium text-slate-200">Document open mode</p>
+							<p className="text-xs text-slate-500 mt-0.5">
+								How schedule doc links open when tapped or triggered by voice
+							</p>
+						</div>
+						<select
+							value={settings.scheduleDocOpenMode ?? "toast"}
+							onChange={(e) =>
+								setSettings((s) =>
+									s
+										? {
+												...s,
+												scheduleDocOpenMode: e.target.value as "toast" | "new-tab",
+											}
+										: s,
+								)
+							}
+							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+						>
+							<option value="toast">Tappable toast (confirm first)</option>
+							<option value="new-tab">Open immediately in new tab</option>
+						</select>
+					</div>
+				</div>
+
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<p className="text-sm font-medium text-slate-200">Voice navigation</p>
+							<p className="text-xs text-slate-500 mt-0.5">
+								How voice commands like "go to classes" behave
+							</p>
+						</div>
+						<select
+							value={settings.voiceNavMode ?? "toast"}
+							onChange={async (e) => {
+								const v = e.target.value as "immediate" | "toast";
+								setSettings((s) => (s ? { ...s, voiceNavMode: v } : s));
+								localStorage.setItem("voiceSettings.voiceNavMode", v);
+								window.dispatchEvent(
+									new CustomEvent("voice-nav-mode-changed", { detail: { voiceNavMode: v } }),
+								);
+								await fetch("/api/teacher-settings", {
+									method: "PUT",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ voiceNavMode: v }),
+								});
+							}}
+							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+						>
+							<option value="toast">Tappable toast (confirm first)</option>
+							<option value="immediate">Navigate immediately</option>
+						</select>
+					</div>
+				</div>
+
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<p className="text-sm font-medium text-slate-200">Voice app opens</p>
+							<p className="text-xs text-slate-500 mt-0.5">
+								How “open Pinnacle / iReady / Schoology…” behaves
+							</p>
+						</div>
+						<select
+							value={settings.voiceAppOpenMode ?? "immediate"}
+							onChange={async (e) => {
+								const v = e.target.value as "immediate" | "confirm";
+								setSettings((s) => (s ? { ...s, voiceAppOpenMode: v } : s));
+								localStorage.setItem("voiceSettings.voiceAppOpenMode", v);
+								window.dispatchEvent(
+									new CustomEvent("voice-app-open-mode-changed", {
+										detail: { voiceAppOpenMode: v },
+									}),
+								);
+								await fetch("/api/teacher-settings", {
+									method: "PUT",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ voiceAppOpenMode: v }),
+								});
+							}}
+							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+						>
+							<option value="immediate">Open immediately (same tab)</option>
+							<option value="confirm">Tap to open (new tab)</option>
+						</select>
+					</div>
+				</div>
+
+				<ScheduleManager />
 			</div>
 		</div>
 	);

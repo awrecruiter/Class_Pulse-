@@ -13,6 +13,9 @@ const updateSettingsSchema = z.object({
 	storeResetSchedule: z.enum(["daily", "weekly", "monthly", "quarterly", "manual"]).optional(),
 	storeIsOpen: z.boolean().optional(),
 	diRewardAmount: z.number().int().min(1).max(500).optional(),
+	scheduleDocOpenMode: z.enum(["toast", "new-tab"]).optional(),
+	voiceNavMode: z.enum(["immediate", "toast"]).optional(),
+	voiceAppOpenMode: z.enum(["immediate", "confirm"]).optional(),
 });
 
 export async function GET(request: NextRequest) {

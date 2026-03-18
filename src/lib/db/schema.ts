@@ -80,6 +80,13 @@ export const teacherSettings = pgTable("teacher_settings", {
 	storeIsOpen: boolean("store_is_open").notNull().default(false),
 	// DI Group Sessions — RAM Bucks awarded to winners
 	diRewardAmount: integer("di_reward_amount").notNull().default(10),
+	// "toast" = tappable toast (default, matches board open_app pattern)
+	// "new-tab" = immediate window.open
+	scheduleDocOpenMode: text("schedule_doc_open_mode").notNull().default("toast"),
+	// "immediate" = navigate right away | "toast" = show confirm toast first
+	voiceNavMode: text("voice_nav_mode").notNull().default("toast"),
+	// "immediate" = open external app immediately (same tab) | "confirm" = show tappable toast first
+	voiceAppOpenMode: text("voice_app_open_mode").notNull().default("immediate"),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -723,6 +730,51 @@ export const diGroupMembers = pgTable(
 	],
 );
 
+// ─── Teacher Schedule ─────────────────────────────────────────────────────────
+
+export const scheduleBlocks = pgTable(
+	"schedule_blocks",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		title: text("title").notNull(),
+		color: text("color").notNull().default("blue"),
+		// HH:MM 24-hour format, e.g. "08:00"
+		startTime: text("start_time").notNull(),
+		endTime: text("end_time").notNull(),
+		// 0=Sun, 1=Mon, ..., 6=Sat — null means "applies to specific date only"
+		dayOfWeek: integer("day_of_week"),
+		// YYYY-MM-DD — if set, this is a date-specific override or one-off block
+		// Takes priority over weekly block on the same day
+		specificDate: text("specific_date"),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_schedule_blocks_teacher_id").on(table.teacherId),
+		index("idx_schedule_blocks_day_of_week").on(table.dayOfWeek),
+		index("idx_schedule_blocks_specific_date").on(table.specificDate),
+	],
+);
+
+export const scheduleDocLinks = pgTable(
+	"schedule_doc_links",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		blockId: uuid("block_id")
+			.notNull()
+			.references(() => scheduleBlocks.id, { onDelete: "cascade" }),
+		label: text("label").notNull(), // e.g. "Math Slides", "iReady Dashboard"
+		// Full URL, internal path like "/board", or portal key like "iready"
+		url: text("url").notNull(),
+		// "url" | "internal" | "portal" | "pdf"
+		linkType: text("link_type").notNull().default("url"),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [index("idx_schedule_doc_links_block_id").on(table.blockId)],
+);
+
 // ─── Relations ───────────────────────────────────────────────────────────────
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
@@ -979,5 +1031,16 @@ export const diGroupMembersRelations = relations(diGroupMembers, ({ one }) => ({
 	rosterEntry: one(rosterEntries, {
 		fields: [diGroupMembers.rosterId],
 		references: [rosterEntries.id],
+	}),
+}));
+
+export const scheduleBlocksRelations = relations(scheduleBlocks, ({ many }) => ({
+	docLinks: many(scheduleDocLinks),
+}));
+
+export const scheduleDocLinksRelations = relations(scheduleDocLinks, ({ one }) => ({
+	block: one(scheduleBlocks, {
+		fields: [scheduleDocLinks.blockId],
+		references: [scheduleBlocks.id],
 	}),
 }));

@@ -40,3 +40,5 @@ export const correctionRateLimiter = createRateLimiter(5, 60_000); // 5 req/min 
 export const animateLimiter = createRateLimiter(12, 60_000); // 12 req/min (Manim render)
 export const diRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (DI session CRUD)
 export const ttsRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (edge-tts synthesis)
+export const voiceAgentLimiter = createRateLimiter(20, 60_000); // 20 req/min (universal voice agent)
+export const scheduleExtractLimiter = createRateLimiter(5, 60_000); // 5 req/min (Vision + ics extract)

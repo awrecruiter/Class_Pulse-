@@ -27,8 +27,8 @@ import { ParentCommsPanel } from "@/components/coach/parent-comms-panel";
 import { RemediationFlow } from "@/components/coach/remediation-flow";
 import { StandardPicker } from "@/components/coach/standard-picker";
 import { WaveformMeter } from "@/components/coach/waveform-meter";
+import { ScheduleSidebarPanel } from "@/components/schedule/schedule-sidebar-panel";
 import { useVoiceQueue } from "@/contexts/voice-queue";
-import { parseCommand } from "@/hooks/use-global-voice-commands";
 import { useLectureTranscript } from "@/hooks/use-lecture-transcript";
 import { useMicAnalyser } from "@/hooks/use-mic-analyser";
 import { useMicSlot } from "@/hooks/use-mic-manager";
@@ -298,45 +298,9 @@ type ClassRow = { id: string; label: string; gradeLevel?: string; activeSessionI
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CoachPage() {
-	// Voice queue — used to pipe lecture finals through command parser
-	const {
-		queue,
-		enqueue,
-		confirm,
-		setDrawerOpen,
-		setLectureMicActive,
-		setActiveClassId,
-		stopCommandsNow,
-	} = useVoiceQueue();
-
-	const handleFinalResult = useCallback(
-		(text: string) => {
-			const cmd = parseCommand(text);
-			if (!cmd) return;
-			let label = "";
-			switch (cmd.type) {
-				case "consequence":
-					label = `Queued: ${cmd.stepLabel} for ${cmd.studentName}`;
-					break;
-				case "ram_bucks":
-					label = `Queued: +${cmd.amount} RAM Bucks for ${cmd.studentName}`;
-					break;
-				case "group_coins":
-					label = `Queued: +${cmd.amount} coins for ${cmd.group}`;
-					break;
-				case "parent_message":
-					label = `Queued: message to ${cmd.studentName}'s parent`;
-					break;
-			}
-			enqueue(cmd, text);
-			toast.success(label, {
-				description: "Tap Voice Queue to review",
-				duration: 4000,
-				action: { label: "Review", onClick: () => setDrawerOpen(true) },
-			});
-		},
-		[enqueue, setDrawerOpen],
-	);
+	// Voice queue
+	const { queue, confirm, setLectureMicActive, setActiveClassId, stopCommandsNow } =
+		useVoiceQueue();
 
 	// Lecture transcript
 	const {
@@ -347,7 +311,7 @@ export default function CoachPage() {
 		startListening,
 		stopListening,
 		clearTranscript,
-	} = useLectureTranscript({ onFinalResult: handleFinalResult });
+	} = useLectureTranscript({});
 
 	// Signal to VoiceCommandProvider to yield its mic while lecture is active
 	useEffect(() => {
@@ -408,7 +372,7 @@ export default function CoachPage() {
 
 	// Groups for differentiated instruction filtering
 	type GroupRow = { id: string; name: string; emoji: string; memberRosterIds: string[] };
-	const [_groups, setGroups] = useState<GroupRow[]>([]);
+	const [groups, setGroups] = useState<GroupRow[]>([]);
 	const [_selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 	const [showGroups, setShowGroups] = useState(true);
 
@@ -479,6 +443,51 @@ export default function CoachPage() {
 		}, 500);
 	}, [queue, students, confirm]);
 
+	// Execute move_to_group voice commands
+	useEffect(() => {
+		const item = queue.find((q) => q.data.type === "move_to_group");
+		if (!item || item.data.type !== "move_to_group") return;
+		const { studentName, groupName } = item.data;
+		const needle = studentName.toLowerCase();
+		const student = students.find(
+			(s) =>
+				s.firstName?.toLowerCase() === needle || s.displayName.toLowerCase().startsWith(needle),
+		);
+		const group = groups.find((g) => g.name.toLowerCase() === groupName.toLowerCase());
+		if (!student || !group || !selectedClassId) return;
+		confirm(item.id);
+		fetch(`/api/classes/${selectedClassId}/groups/${group.id}`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ rosterId: student.rosterId }),
+		})
+			.then((res) => {
+				if (res.ok) {
+					toast.success(`Moved ${student.displayName} \u2192 ${group.name}`);
+					window.dispatchEvent(new Event("group-assignment-changed"));
+					setGroups((prev) =>
+						prev.map((g) =>
+							g.id === group.id
+								? {
+										...g,
+										memberRosterIds: [
+											...g.memberRosterIds.filter((r) => r !== student.rosterId),
+											student.rosterId,
+										],
+									}
+								: {
+										...g,
+										memberRosterIds: g.memberRosterIds.filter((r) => r !== student.rosterId),
+									},
+						),
+					);
+				} else {
+					toast.error("Couldn't move student — group may be full");
+				}
+			})
+			.catch(() => toast.error("Move failed"));
+	}, [queue, students, groups, selectedClassId, confirm]);
+
 	useEffect(() => {
 		if (!selectedClassId) return;
 		setSelectedGroupId(null);
@@ -510,8 +519,11 @@ export default function CoachPage() {
 	const [, setShowTextInput] = useState(false);
 	// Panel collapse state
 	const [leftOpen, setLeftOpen] = useState(true);
-	const [studentsOpen, setStudentsOpen] = useState(true);
+	const [studentsOpen, setStudentsOpen] = useState(false);
+	const [scheduleOpen, setScheduleOpen] = useState(true);
+	const [comprehensionOpen, setComprehensionOpen] = useState(true);
 	const [rightOpen, setRightOpen] = useState(true);
+	const [groupsOpen, setGroupsOpen] = useState(true);
 	const [parentCommsPreselect, setParentCommsPreselect] = useState<{
 		rosterId: string;
 		text: string;
@@ -520,6 +532,7 @@ export default function CoachPage() {
 	// Auto command mode — activates when lecture mic is off
 	const autoCommandRef = useRef(false);
 	const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const hasEverListenedRef = useRef(false); // guard: don’t auto-start orb on initial mount
 	const isLoadingRef = useRef(false);
 	isLoadingRef.current = isLoading;
 	const startOrbRef = useRef<() => void>(() => {});
@@ -531,8 +544,13 @@ export default function CoachPage() {
 	const _micLevels = useMicAnalyser(isOrbRecording);
 
 	// Sync AI state to <html data-ai-state> so the AiPresenceBorder CSS reacts
+	// Only set when active — idle on mount should not illuminate the border
 	useEffect(() => {
-		document.documentElement.dataset.aiState = micState;
+		if (micState === "idle") {
+			delete document.documentElement.dataset.aiState;
+		} else {
+			document.documentElement.dataset.aiState = micState;
+		}
 		return () => {
 			delete document.documentElement.dataset.aiState;
 		};
@@ -778,11 +796,11 @@ export default function CoachPage() {
 		onResult: (t: string, isFinal: boolean) => {
 			if (!isFinal || !t.trim()) return;
 			if (inputModeRef.current === "di" && diDispatchRef.current) {
+				// DI stays direct — it has its own voice route
 				diDispatchRef.current(t);
-			} else if (inputModeRef.current === "ask") {
-				sendAcademicRef.current(t);
 			} else {
-				sendBehaviorRef.current(t);
+				// All other orb speech routes through the voice agent
+				window.dispatchEvent(new CustomEvent("orb-transcript", { detail: { transcript: t } }));
 			}
 		},
 		onNaturalEnd: () => setIsOrbRecording(false),
@@ -820,6 +838,7 @@ export default function CoachPage() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect(() => {
 		if (isListening) {
+			hasEverListenedRef.current = true;
 			autoCommandRef.current = false;
 			if (restartTimerRef.current) {
 				clearTimeout(restartTimerRef.current);
@@ -827,10 +846,12 @@ export default function CoachPage() {
 			}
 			setIsOrbRecording(false);
 		} else {
-			autoCommandRef.current = true;
-			restartTimerRef.current = setTimeout(() => {
-				if (autoCommandRef.current && !isLoadingRef.current) startOrbRef.current();
-			}, 700);
+			if (hasEverListenedRef.current) {
+				autoCommandRef.current = true;
+				restartTimerRef.current = setTimeout(() => {
+					if (autoCommandRef.current && !isLoadingRef.current) startOrbRef.current();
+				}, 700);
+			}
 		}
 		return () => {
 			if (restartTimerRef.current) {
@@ -839,6 +860,39 @@ export default function CoachPage() {
 			}
 		};
 	}, [isListening]);
+
+	// Voice agent → lecture/session control via CustomEvents
+	useEffect(() => {
+		function handleVoiceStartLecture() {
+			if (!isListening) {
+				autoCommandRef.current = false;
+				if (restartTimerRef.current) {
+					clearTimeout(restartTimerRef.current);
+					restartTimerRef.current = null;
+				}
+				stopCommandsNow();
+				setIsOrbRecording(false);
+				playActivationChime();
+				setTimeout(startListening, 350);
+			}
+		}
+		function handleVoiceStopLecture() {
+			if (isListening) stopListening();
+		}
+		function handleVoiceAskCoach(e: Event) {
+			const question = (e as CustomEvent<{ question: string }>).detail.question;
+			sendAcademic(question);
+			setInputMode("ask");
+		}
+		window.addEventListener("voice-start_lecture", handleVoiceStartLecture);
+		window.addEventListener("voice-stop_lecture", handleVoiceStopLecture);
+		window.addEventListener("voice-ask-coach", handleVoiceAskCoach);
+		return () => {
+			window.removeEventListener("voice-start_lecture", handleVoiceStartLecture);
+			window.removeEventListener("voice-stop_lecture", handleVoiceStopLecture);
+			window.removeEventListener("voice-ask-coach", handleVoiceAskCoach);
+		};
+	}, [isListening, startListening, stopListening, stopCommandsNow, sendAcademic]);
 
 	const lectureMinutes = wordCount > 0 ? Math.max(1, Math.round(wordCount / 130)) : 0;
 	const showOrbArea = true;
@@ -947,8 +1001,11 @@ export default function CoachPage() {
 				>
 					{leftOpen ? (
 						<>
-							{/* Sidebar header — collapse arrow only */}
-							<div className="sticky top-0 z-10 bg-[#0d1525] border-b border-slate-800 flex items-center justify-end px-3 py-2">
+							{/* Sidebar header */}
+							<div className="sticky top-0 z-10 bg-[#0d1525] border-b border-slate-800 flex items-center justify-between px-3 py-2">
+								<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 pl-1">
+									Class Pulse
+								</p>
 								<button
 									type="button"
 									onClick={() => setLeftOpen(false)}
@@ -959,11 +1016,52 @@ export default function CoachPage() {
 								</button>
 							</div>
 
-							{/* Comprehension panel — Student Understanding */}
-							<div className="p-4 border-b border-slate-800">
-								{selectedClassId && (
-									<ComprehensionPanel classId={selectedClassId} activeSessionId={activeSessionId} />
+							{/* Comprehension panel — collapsible */}
+							<div className="border-b border-slate-800">
+								<button
+									type="button"
+									onClick={() => setComprehensionOpen((o) => !o)}
+									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+								>
+									<ChevronDownIcon
+										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${comprehensionOpen ? "" : "-rotate-90"}`}
+									/>
+									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+										Comprehension
+									</p>
+								</button>
+								{comprehensionOpen && selectedClassId && (
+									<div className="px-4 pb-3">
+										<ComprehensionPanel
+											classId={selectedClassId}
+											activeSessionId={activeSessionId}
+										/>
+									</div>
 								)}
+							</div>
+
+							{/* Schedule — collapsible */}
+							<div className="border-b border-slate-800">
+								<button
+									type="button"
+									onClick={() => setScheduleOpen((o) => !o)}
+									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+								>
+									<ChevronDownIcon
+										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${scheduleOpen ? "" : "-rotate-90"}`}
+									/>
+									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+										Today's Schedule
+									</p>
+								</button>
+								<div className={scheduleOpen ? undefined : "hidden"}>
+									<ScheduleSidebarPanel
+										onShowDiGroups={() => {
+											setShowGroups(true);
+											setInputMode("ask");
+										}}
+									/>
+								</div>
 							</div>
 
 							{/* Student roster — collapsible */}
@@ -1131,15 +1229,12 @@ export default function CoachPage() {
 									))}
 								</div>
 							)}
-							{showGroups && selectedClassId && (
-								<div style={{ animation: "slide-down 0.2s ease" }}>
-									<GroupsSidebarPanel classId={selectedClassId} />
-								</div>
-							)}
 						</div>
 					)}
 					{/* Response content — flex-1 in ask/behavior; hidden in DI (DI panel owns all space) */}
-					<div className={`min-h-0 overflow-y-auto flex flex-col ${inputMode === "di" ? "hidden" : "flex-1"}`}>
+					<div
+						className={`min-h-0 overflow-y-auto flex flex-col ${inputMode === "di" ? "hidden" : "flex-1"}`}
+					>
 						{showOrbArea && (
 							<>
 								{/* Ask mode: loading + response appear immediately below input */}
@@ -1337,20 +1432,18 @@ export default function CoachPage() {
 					</div>
 
 					{/* Input row — pinned to bottom of center column */}
-					<div className="shrink-0 border-t border-slate-800 px-4 py-3 flex flex-col gap-2 group/inputrow relative">
-						{/* Standards picker — floats above input on hover, does NOT push input down */}
+					<div className="shrink-0 border-t border-slate-800 px-4 py-3 flex flex-col gap-2">
+						{/* Standards picker — always visible in ask mode */}
 						{inputMode === "ask" && (
-							<div className="absolute bottom-full left-0 right-0 px-4 pb-1 hidden group-hover/inputrow:block">
-								<StandardPicker
-									value={pinnedStandards}
-									onChange={setPinnedStandards}
-									defaultGrade={
-										selectedClass?.gradeLevel
-											? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
-											: undefined
-									}
-								/>
-							</div>
+							<StandardPicker
+								value={pinnedStandards}
+								onChange={setPinnedStandards}
+								defaultGrade={
+									selectedClass?.gradeLevel
+										? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
+										: undefined
+								}
+							/>
 						)}
 						{/* Done recording — prominent stop button while lecture capture is active */}
 						{isListening && (
@@ -1426,12 +1519,33 @@ export default function CoachPage() {
 				{selectedClassId && (
 					<div className="border-l border-slate-800 flex flex-col overflow-hidden min-h-0">
 						{rightOpen ? (
-							<ParentCommsPanel
-								classId={selectedClassId}
-								students={students}
-								externalPreselect={parentCommsPreselect}
-								onCollapse={() => setRightOpen(false)}
-							/>
+							<>
+								<div className="shrink-0 border-b border-slate-800">
+									<button
+										type="button"
+										onClick={() => setGroupsOpen((o) => !o)}
+										className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+									>
+										<ChevronDownIcon
+											className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${groupsOpen ? "" : "-rotate-90"}`}
+										/>
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+											Groups
+										</p>
+									</button>
+								</div>
+								<div className={`min-h-0 overflow-y-auto${groupsOpen ? " flex-1" : " hidden"}`}>
+									<GroupsSidebarPanel classId={selectedClassId} />
+								</div>
+								<div className={`min-h-0 overflow-y-scroll${groupsOpen ? " hidden" : " flex-1"}`}>
+									<ParentCommsPanel
+										classId={selectedClassId}
+										students={students}
+										externalPreselect={parentCommsPreselect}
+										onCollapse={() => setRightOpen(false)}
+									/>
+								</div>
+							</>
 						) : (
 							<div className="flex items-center justify-center py-3">
 								<button

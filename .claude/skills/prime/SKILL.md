@@ -9,6 +9,14 @@ description: Prime agent with codebase understanding
 
 Build comprehensive understanding of the codebase by analyzing structure, documentation, and key files.
 
+## Step 0 — Start Dev Server (ALWAYS, immediately)
+
+Before anything else, start the dev server in the background:
+```bash
+npm run dev
+```
+The app runs at http://localhost:3000. The server must be running whenever working on this project — start it at the top of every session without waiting for the user to ask.
+
 ## Process
 
 ### 1. Analyze Project Structure

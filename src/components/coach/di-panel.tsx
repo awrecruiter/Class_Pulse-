@@ -509,7 +509,13 @@ function ActiveGroupCard({
 
 // ─── Main DiPanel ─────────────────────────────────────────────────────────────
 
-export function DiPanel({ classId, students, onSessionEnd, dispatchRef, onActiveSessionChange }: DiPanelProps) {
+export function DiPanel({
+	classId,
+	students,
+	onSessionEnd,
+	dispatchRef,
+	onActiveSessionChange,
+}: DiPanelProps) {
 	// Session state
 	const [sessions, setSessions] = useState<DiSession[]>([]);
 	const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -547,12 +553,14 @@ export function DiPanel({ classId, students, onSessionEnd, dispatchRef, onActive
 		{ id: string; name: string; color: string; memberRosterIds: string[] }[]
 	>(
 		// Always start empty — group names/colors are remembered but members reset each session
-		(saved?.groups ?? [
-			{ id: "draft-red", name: "Red", color: "red", memberRosterIds: [] },
-			{ id: "draft-blue", name: "Blue", color: "blue", memberRosterIds: [] },
-			{ id: "draft-green", name: "Green", color: "green", memberRosterIds: [] },
-			{ id: "draft-yellow", name: "Yellow", color: "yellow", memberRosterIds: [] },
-		]).map((g) => ({ ...g, memberRosterIds: [] })),
+		(
+			saved?.groups ?? [
+				{ id: "draft-red", name: "Red", color: "red", memberRosterIds: [] },
+				{ id: "draft-blue", name: "Blue", color: "blue", memberRosterIds: [] },
+				{ id: "draft-green", name: "Green", color: "green", memberRosterIds: [] },
+				{ id: "draft-yellow", name: "Yellow", color: "yellow", memberRosterIds: [] },
+			]
+		).map((g) => ({ ...g, memberRosterIds: [] })),
 	);
 	const [starting, setStarting] = useState(false);
 

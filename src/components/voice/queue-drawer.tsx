@@ -1,11 +1,18 @@
 "use client";
 
 import {
+	AlertCircleIcon,
 	AlertTriangleIcon,
+	ArrowRightIcon,
 	CheckIcon,
 	CoinsIcon,
+	GraduationCapIcon,
 	MessageSquareIcon,
 	MicIcon,
+	MinusCircleIcon,
+	PlayCircleIcon,
+	ShoppingBagIcon,
+	Trash2Icon,
 	TrophyIcon,
 	UsersIcon,
 	XIcon,
@@ -24,6 +31,28 @@ function itemIcon(item: QueueItem) {
 			return <MessageSquareIcon className="h-4 w-4 text-violet-400" />;
 		case "move_to_group":
 			return <UsersIcon className="h-4 w-4 text-cyan-400" />;
+		case "behavior_log":
+			return <AlertCircleIcon className="h-4 w-4 text-orange-400" />;
+		case "ram_bucks_deduct":
+			return <MinusCircleIcon className="h-4 w-4 text-red-400" />;
+		case "clear_group":
+			return <Trash2Icon className="h-4 w-4 text-red-400" />;
+		case "start_session":
+		case "end_session":
+			return <PlayCircleIcon className="h-4 w-4 text-emerald-400" />;
+		case "open_store":
+		case "close_store":
+			return <ShoppingBagIcon className="h-4 w-4 text-amber-400" />;
+		case "start_lecture":
+		case "stop_lecture":
+			return <MicIcon className="h-4 w-4 text-blue-400" />;
+		case "navigate":
+			return <ArrowRightIcon className="h-4 w-4 text-slate-400" />;
+		case "ask_coach":
+			return <GraduationCapIcon className="h-4 w-4 text-indigo-400" />;
+		case "show_schedule":
+		case "open_doc":
+			return <ArrowRightIcon className="h-4 w-4 text-slate-400" />;
 	}
 }
 
@@ -40,12 +69,40 @@ function itemLabel(item: QueueItem): string {
 			return `Message to ${d.studentName}'s parent`;
 		case "move_to_group":
 			return `Move ${d.studentName} → ${d.groupName} group`;
+		case "behavior_log":
+			return `Log behavior — ${d.studentName}`;
+		case "ram_bucks_deduct":
+			return `-${d.amount} RAM Bucks — ${d.studentName}`;
+		case "clear_group":
+			return `Clear ${d.groupName} group`;
+		case "start_session":
+			return "Start class session";
+		case "end_session":
+			return "End class session";
+		case "open_store":
+			return "Open the store";
+		case "close_store":
+			return "Close the store";
+		case "start_lecture":
+			return "Start lecture recording";
+		case "stop_lecture":
+			return "Stop lecture recording";
+		case "navigate":
+			return `Go to ${d.destination}`;
+		case "ask_coach":
+			return `Ask coach: "${d.question.slice(0, 40)}${d.question.length > 40 ? "\u2026" : ""}"`;
+		case "show_schedule":
+			return "Show today's schedule";
+		case "open_doc":
+			return `Open doc: ${d.label}`;
 	}
 }
 
 function itemSub(item: QueueItem): string {
 	const d = item.data;
 	if (d.type === "parent_message") return `"${d.messageText}"`;
+	if (d.type === "behavior_log") return d.notes;
+	if (d.type === "ram_bucks_deduct") return d.reason;
 	return `Heard: "${item.transcript}"`;
 }
 

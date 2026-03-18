@@ -4,6 +4,7 @@ import {
 	BookOpenIcon,
 	GraduationCapIcon,
 	LogOutIcon,
+	MessageSquareIcon,
 	MicIcon,
 	MicOffIcon,
 	MonitorIcon,
@@ -20,8 +21,15 @@ import { authClient } from "@/lib/auth/client";
 // ─── Voice controls ───────────────────────────────────────────────────────────
 
 function VoiceControls() {
-	const { queue, commandsEnabled, toggleCommands, setDrawerOpen, micActive, lectureMicActive } =
-		useVoiceQueue();
+	const {
+		queue,
+		commandsEnabled,
+		toggleCommands,
+		setDrawerOpen,
+		micActive,
+		lectureMicActive,
+		agentThinking,
+	} = useVoiceQueue();
 	const pendingCount = queue.length;
 
 	const paused = commandsEnabled && lectureMicActive;
@@ -55,7 +63,9 @@ function VoiceControls() {
 					</>
 				) : commandsEnabled ? (
 					<>
-						{micActive ? (
+						{agentThinking ? (
+							<span className="h-2 w-2 rounded-full bg-violet-400 animate-pulse shrink-0" />
+						) : micActive ? (
 							<span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
 						) : (
 							<span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
@@ -179,6 +189,7 @@ const NAV_LINKS = [
 	{ href: "/gradebook", label: "Gradebook", icon: BookOpenIcon },
 	{ href: "/store", label: "Store", icon: ShoppingBagIcon },
 	{ href: "/board", label: "Board", icon: MonitorIcon },
+	{ href: "/parent-comms", label: "Comms", icon: MessageSquareIcon },
 ];
 
 // ─── NavBar ───────────────────────────────────────────────────────────────────

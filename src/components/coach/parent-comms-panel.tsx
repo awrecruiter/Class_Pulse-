@@ -545,7 +545,7 @@ export function ParentCommsPanel({
 
 					{/* Compose area */}
 					{!addingFor && (
-						<div className="px-3 pb-3 shrink-0">
+						<div className="px-3 pb-1 shrink-0">
 							<div
 								className={`rounded-xl border transition-colors ${
 									selectedRosterId

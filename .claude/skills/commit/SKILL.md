@@ -5,11 +5,40 @@ description: This skill should be used when the user asks to "commit", "create a
 
 # Commit Changes
 
-Create a new commit for all uncommitted changes.
+Validate first, then commit. Never commit without a clean validate pass.
 
 ## Steps
 
-1. Run `git status && git diff HEAD && git status --porcelain` to see what files are uncommitted
-2. Add the untracked and changed files
-3. Write an atomic commit message that accurately describes the changes
-4. Add a conventional commit tag (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, etc.) that reflects the work
+1. **Run validation first**
+   ```bash
+   npm run validate
+   ```
+   - If it fails: report the errors, stop — do NOT commit. Tell the user what needs fixing.
+   - If it passes: proceed to step 2.
+
+2. **Inspect changes**
+   ```bash
+   git status && git diff HEAD && git status --porcelain
+   ```
+
+3. **Stage files** — add specific files by name, never `git add -A` or `git add .`
+
+4. **Write the commit message**
+   - Conventional commit tag: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`
+   - One sentence describing *why*, not *what*
+   - Co-author line required
+
+5. **Commit**
+   ```bash
+   git commit -m "$(cat <<'EOF'
+   <tag>: <message>
+
+   Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+   EOF
+   )"
+   ```
+
+6. **Verify**
+   ```bash
+   git status
+   ```
