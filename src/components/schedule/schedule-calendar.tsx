@@ -103,13 +103,6 @@ function minutesToHhmm(minutes: number): string {
 		.padStart(2, "0")}:${(minutes % 60).toString().padStart(2, "0")}`;
 }
 
-function formatHourLabel(minutes: number): string {
-	const h = Math.floor(minutes / 60);
-	const m = minutes % 60;
-	if (m !== 0) return "";
-	return h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`;
-}
-
 // ─── SlotDropTarget ───────────────────────────────────────────────────────────
 
 function SlotDropTarget({

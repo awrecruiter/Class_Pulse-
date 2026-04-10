@@ -11,6 +11,9 @@ import { voiceAgentLimiter } from "@/lib/rate-limit";
 const schema = z.object({
 	transcript: z.string().min(1).max(500),
 	context: z.object({
+		surfaceId: z.string().optional(),
+		surfaceLabel: z.string().optional(),
+		surfaceCommands: z.array(z.string()).optional(),
 		students: z.array(
 			z.object({
 				rosterId: z.string(),
@@ -57,17 +60,25 @@ Action schemas (pick exactly one):
 {"type":"close_store"}
 {"type":"start_lecture"}
 {"type":"stop_lecture"}
-{"type":"navigate","destination":"<board|classes|settings|coach|store|gradebook>"}
+{"type":"navigate","destination":"<board|classes|settings|coach|store|gradebook|parent-comms>"}
 {"type":"ask_coach","question":"<question>"}
 {"type":"show_schedule"}
+{"type":"show_groups"}
 {"type":"open_doc","label":"<display name of the doc>","url":"<full URL>"}
+{"type":"create_class","label":"<class name>"}
+{"type":"open_class","className":"<class name>"}
+{"type":"export_gradebook","from":"<YYYY-MM-DD optional>","to":"<YYYY-MM-DD optional>"}
+{"type":"approve_purchase","studentName":"<optional>","itemName":"<optional>"}
+{"type":"reject_purchase","studentName":"<optional>","itemName":"<optional>"}
+{"type":"draft_parent_message","studentName":"<name>","messageText":"<message>"}
+{"type":"send_parent_message","studentName":"<name>","messageText":"<message>"}
 
 Rules:
 - Behavior OBSERVATION about a student (not explicit punishment) → behavior_log
 - Explicit punishment phrase ("give X a warning", "X gets detention") → consequence
 - Consequence steps: warning/fine=1, no games=2, no pe=3, silent lunch=4, call home=5, write up=6, detention=7, saturday school=8
 - RAM Bucks are individual currency; coins are group currency
-- "go to board/classes/settings/store/gradebook" → navigate
+- "go to board/classes/settings/store/gradebook/parent comms" → navigate
 - Academic question about math concepts → ask_coach
 - STUDENT NAME MATCHING — this is critical:
   * The teacher speaks names aloud. Speech recognition transcribes phonetically.
@@ -79,7 +90,15 @@ Rules:
 - Group names: match fuzzily (e.g. "dogs" → Dogs)
 - "move/put/place/add/assign [student] to/into/in the [group]" or "[student] goes/join [group]" → move_to_group
 - "show my schedule" / "what's next" / "open schedule" / "show schedule" → show_schedule
+- "show groups" / "show DI groups" / "open groups" / "open DI groups" → show_groups
 - "open [doc name]" when the name matches a schedule doc → open_doc with label and URL from context
+- "create class <name>" → create_class
+- "open <class name>" when talking about a known class → open_class
+- "export gradebook" / "download gradebook csv" → export_gradebook
+- "approve <student/item> purchase" → approve_purchase
+- "reject <student/item> purchase" / "deny <student/item> purchase" → reject_purchase
+- "draft message to <student>'s parent <message>" → draft_parent_message
+- "send message to <student>'s parent <message>" → send_parent_message
 - "close schedule" → treat as ignore (handled client-side by overlay dismiss)`;
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -109,6 +128,8 @@ export async function POST(request: NextRequest) {
 	const userContent = `Teacher said: "${transcript}"
 
 Class context:
+- Current surface: ${context.surfaceLabel ?? context.surfaceId ?? "unknown"}
+- Surface commands: ${context.surfaceCommands?.length ? context.surfaceCommands.join(", ") : "none listed"}
 - Students: ${studentList}
 - Groups: ${groupList}
 - Active session: ${context.hasActiveSession ? "yes" : "no"}

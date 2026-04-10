@@ -11,7 +11,6 @@ const HOUR_HEIGHT = 130; // px per hour — zoomed in
 const VIEWPORT_HOURS = 2; // visible hours at a time
 const GRID_START = 7 * 60; // 7 AM
 const GRID_END = 18 * 60; // 6 PM
-const TOTAL_HOURS = (GRID_END - GRID_START) / 60;
 
 // ─── Color map (solid, vivid — matches iPhone Calendar) ───────────────────────
 
@@ -68,10 +67,6 @@ function resolveTextColor(color: string): string {
 function timeToMinutes(hhmm: string): number {
 	const [h, m] = hhmm.split(":").map(Number);
 	return (h ?? 0) * 60 + (m ?? 0);
-}
-
-function minutesToPx(minutes: number): number {
-	return ((minutes - GRID_START) / 60) * HOUR_HEIGHT;
 }
 
 function formatHourLabel(hour: number): string {

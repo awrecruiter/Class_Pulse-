@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { type BoardCommand, matchBoardCommand } from "@/hooks/use-board-voice";
 import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
+import {
+	PRODUCTION_HANDOFF_MODE_KEY,
+	readBooleanPreference,
+	VOICE_LOCK_ENABLED_KEY,
+} from "@/lib/ui-prefs";
 import { detectPitch, getVoiceProfile, pitchMatchesProfile } from "@/lib/voice-profile";
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -80,6 +85,8 @@ export function useGlobalVoiceCommands({
 	}, []);
 
 	const speakerVerified = useCallback((): boolean => {
+		if (readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false)) return true;
+		if (!readBooleanPreference(VOICE_LOCK_ENABLED_KEY, true)) return true;
 		const profile = getVoiceProfile();
 		if (!profile) return true;
 		const recent = pitchBufferRef.current;
@@ -112,23 +119,6 @@ export function useGlobalVoiceCommands({
 			if (!rawTranscript.trim()) return;
 			console.log("[voice] heard:", JSON.stringify(rawTranscript));
 			onHeardRef.current?.(rawTranscript);
-
-			// Navigate commands: handled right here before ANY other processing.
-			// No AI, no refs, no closures, no rate limits — just regex → location.
-			const navMatch = rawTranscript
-				.toLowerCase()
-				.trim()
-				.match(
-					/\b(?:go(?:\s+to)?|navigate(?:\s+to)?|take(?:\s+me)?(?:\s+to)?|open|switch(?:\s+to)?)\s+(?:the\s+)?(?:my\s+)?(board|classes?|settings|coach|store|gradebook)\b/i,
-				);
-			console.log("[voice] navMatch:", navMatch ? navMatch[1] : "none");
-			if (navMatch) {
-				// Normalize "class" → "classes"
-				const dest = navMatch[1].toLowerCase().replace(/^class$/, "classes");
-				console.log("[voice] NAVIGATING to:", dest);
-				window.location.href = `/${dest}`;
-				return;
-			}
 
 			if (!speakerVerified()) return;
 
