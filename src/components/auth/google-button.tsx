@@ -10,9 +10,11 @@ export function GoogleButton() {
 	const handleGoogleSignIn = async () => {
 		setLoading(true);
 		try {
+			const callbackURL =
+				typeof window !== "undefined" ? `${window.location.origin}/coach` : "/coach";
 			await authClient.signIn.social({
 				provider: "google",
-				callbackURL: "/editor",
+				callbackURL,
 			});
 		} catch {
 			setLoading(false);

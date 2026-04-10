@@ -1,0 +1,80 @@
+{
+	"hooks": {
+		"SessionStart": [
+			{
+				"matcher": "compact",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-reminder.mjs"
+					}
+				]
+			}
+		],
+		"ConfigChange": [
+			{
+				"matcher": "project_settings|local_settings",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/audit-config-change.mjs"
+					}
+				]
+			}
+		],
+		"CwdChanged": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/reload-env-on-cwd.mjs"
+					}
+				]
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "Bash|Read|Edit|Write|MultiEdit|Grep",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-env.mjs"
+					}
+				]
+			}
+		],
+		"PermissionRequest": [
+			{
+				"matcher": "Bash|Read|Edit|Write|MultiEdit|Grep",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-env.mjs"
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "Bash|Read|Edit|Write|MultiEdit|Grep",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/log-tool-event.mjs success"
+					}
+				]
+			}
+		],
+		"PostToolUseFailure": [
+			{
+				"matcher": "Bash|Read|Edit|Write|MultiEdit|Grep",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/log-tool-event.mjs failure"
+					}
+				]
+			}
+		]
+	}
+}

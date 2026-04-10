@@ -7,6 +7,16 @@ import type { QueueItem } from "@/contexts/voice-queue";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import type { BoardCommand } from "@/hooks/use-board-voice";
 import { useGlobalVoiceCommands } from "@/hooks/use-global-voice-commands";
+import {
+	readBooleanPreference,
+	TOASTS_ENABLED_KEY,
+	VOICE_DEBUG_FEEDBACK_ENABLED_KEY,
+} from "@/lib/ui-prefs";
+import {
+	getVoiceSurface,
+	getVoiceSurfaceSummary,
+	matchNavigationDestination,
+} from "@/lib/voice/registry";
 import { QueueDrawer } from "./queue-drawer";
 
 export function VoiceCommandProvider({ children }: { children: React.ReactNode }) {
@@ -55,10 +65,14 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			? localStorage.getItem("voiceSettings.voiceAppOpenMode")
 			: null) as "immediate" | "confirm") ?? "immediate",
 	);
-	const [scheduleDocOpenMode, setScheduleDocOpenMode] = useState<"toast" | "new-tab">(
+	const [_scheduleDocOpenMode, setScheduleDocOpenMode] = useState<"toast" | "new-tab">(
 		scheduleDocOpenModeRef.current,
 	);
-	const [voiceNavMode, setVoiceNavMode] = useState<"immediate" | "toast">(voiceNavModeRef.current);
+	const [_voiceNavMode, setVoiceNavMode] = useState<"immediate" | "toast">(voiceNavModeRef.current);
+	const [pendingExternalOpen, setPendingExternalOpen] = useState<{
+		label: string;
+		href: string;
+	} | null>(null);
 	// NOTE: do NOT sync refs from state on render (scheduleDocOpenModeRef.current = scheduleDocOpenMode).
 	// Render-time overwrites race against direct ref assignments in event listeners and init effect.
 	// Refs are updated only by: (1) init (localStorage), (2) init effect (API), (3) event listeners.
@@ -68,6 +82,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			.then((j) => {
 				if (j.settings?.scheduleDocOpenMode) {
 					const v = j.settings.scheduleDocOpenMode as "toast" | "new-tab";
+					scheduleDocOpenModeRef.current = v;
 					setScheduleDocOpenMode(v);
 					localStorage.setItem("voiceSettings.scheduleDocOpenMode", v);
 				}
@@ -233,13 +248,19 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 
 	// ── Doc open helper ─────────────────────────────────────────────────────────
 
+	const tryOpenExternal = useCallback((label: string, href: string) => {
+		const newWin = window.open(href, "_blank", "noopener,noreferrer");
+		void label;
+		return !!newWin;
+	}, []);
+
 	function handleDocOpen(label: string, url: string, linkType: string, mode: "toast" | "new-tab") {
 		console.log("[voice] handleDocOpen:", { label, url, linkType, mode });
 		if (mode === "new-tab") {
 			if (linkType === "internal") {
 				window.location.href = url;
 			} else {
-				window.open(url, "_blank");
+				tryOpenExternal(label, url);
 			}
 		} else {
 			// toast mode — matches board open_app pattern (popup blocker safe)
@@ -254,14 +275,49 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					},
 				});
 			} else {
-				toast.success(`Open ${label}?`, {
-					description: `Heard: "open ${label}"`,
-					duration: 8000,
-					action: { label: "Open", onClick: () => window.open(url, "_blank") },
-				});
+				if (!tryOpenExternal(label, url)) {
+					if (readBooleanPreference(TOASTS_ENABLED_KEY, true)) {
+						toast.success(`Open ${label}?`, {
+							description: `Heard: "open ${label}"`,
+							duration: 8000,
+							action: { label: "Open", onClick: () => window.open(url, "_blank") },
+						});
+					} else {
+						setPendingExternalOpen({ label, href: url });
+					}
+				}
 			}
 		}
 	}
+
+	const handleNavigate = useCallback(
+		(
+			destination:
+				| "board"
+				| "classes"
+				| "settings"
+				| "coach"
+				| "store"
+				| "gradebook"
+				| "parent-comms",
+		) => {
+			const href = `/${destination}`;
+			if (voiceNavModeRef.current === "toast") {
+				toast.success(`Go to ${destination}?`, {
+					duration: 8000,
+					action: {
+						label: "Go",
+						onClick: () => {
+							window.location.href = href;
+						},
+					},
+				});
+				return;
+			}
+			window.location.href = href;
+		},
+		[],
+	);
 
 	// ── Incoming voice command handler ───────────────────────────────────────────
 
@@ -276,13 +332,19 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		// navigate: always immediate — window.location.href is internal routing, no popup blocker concern
 		if (data.type === "navigate") {
 			console.log("[voice] handleCommand navigate:", data.destination);
-			window.location.href = `/${data.destination}`;
+			handleNavigate(data.destination);
 			return;
 		}
 
 		// show_schedule: open overlay immediately
 		if (data.type === "show_schedule") {
 			setScheduleOverlayOpen(true);
+			return;
+		}
+
+		// show_groups: open the coach groups surface immediately
+		if (data.type === "show_groups") {
+			window.dispatchEvent(new CustomEvent("voice-show_groups"));
 			return;
 		}
 
@@ -294,6 +356,52 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				return;
 			}
 			handleDocOpen(data.label, data.url, "url", scheduleDocOpenModeRef.current);
+			return;
+		}
+
+		if (data.type === "parent_message") {
+			enqueue(data, transcript);
+			return;
+		}
+
+		if (data.type === "create_class") {
+			window.dispatchEvent(
+				new CustomEvent("voice-create_class", { detail: { label: data.label } }),
+			);
+			return;
+		}
+
+		if (data.type === "open_class") {
+			window.dispatchEvent(
+				new CustomEvent("voice-open_class", { detail: { className: data.className } }),
+			);
+			return;
+		}
+
+		if (data.type === "export_gradebook") {
+			window.dispatchEvent(
+				new CustomEvent("voice-export_gradebook", {
+					detail: { from: data.from, to: data.to },
+				}),
+			);
+			return;
+		}
+
+		if (data.type === "approve_purchase" || data.type === "reject_purchase") {
+			window.dispatchEvent(
+				new CustomEvent(`voice-${data.type}`, {
+					detail: { studentName: data.studentName, itemName: data.itemName },
+				}),
+			);
+			return;
+		}
+
+		if (data.type === "draft_parent_message" || data.type === "send_parent_message") {
+			window.dispatchEvent(
+				new CustomEvent(`voice-${data.type}`, {
+					detail: { studentName: data.studentName, messageText: data.messageText },
+				}),
+			);
 			return;
 		}
 
@@ -312,23 +420,19 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		(cmd: BoardCommand, transcript: string) => {
 			if (cmd.type === "open_app") {
 				if (voiceAppOpenModeRef.current === "confirm") {
-					// Confirm mode: always show toast so user taps → new tab (guaranteed user gesture)
-					toast.success(`Open ${cmd.label}?`, {
-						description: `Heard: "${transcript}"`,
-						duration: 8000,
-						action: { label: "Open", onClick: () => window.open(cmd.href, "_blank") },
-					});
-				} else {
-					// Immediate mode: try window.open directly — works if Chrome allows popups for this origin.
-					// If blocked, fall back to a tap-to-open toast automatically.
-					const newWin = window.open(cmd.href, "_blank", "noopener,noreferrer");
-					if (!newWin) {
-						toast.success(`Open ${cmd.label}?`, {
-							description: `Tap to open (popup was blocked)`,
-							duration: 8000,
-							action: { label: "Open", onClick: () => window.open(cmd.href, "_blank") },
-						});
+					if (!tryOpenExternal(cmd.label, cmd.href)) {
+						if (readBooleanPreference(TOASTS_ENABLED_KEY, true)) {
+							toast.success(`Open ${cmd.label}?`, {
+								description: `Heard: "${transcript}"`,
+								duration: 8000,
+								action: { label: "Open", onClick: () => window.open(cmd.href, "_blank") },
+							});
+						} else {
+							setPendingExternalOpen({ label: cmd.label, href: cmd.href });
+						}
 					}
+				} else {
+					window.location.href = cmd.href;
 				}
 			} else if (cmd.type === "switch_panel") {
 				setBoardPanel(cmd.panel);
@@ -350,7 +454,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				}
 			}
 		},
-		[setBoardPanel, triggerBoardOpenLast],
+		[setBoardPanel, triggerBoardOpenLast, tryOpenExternal],
 	);
 
 	// ── Voice agent context cache (refreshed every 30s, not per-utterance) ─────────
@@ -423,22 +527,9 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			const classId = activeClassIdRef.current;
 
 			// Fast-path: navigate commands don't need AI — regex is instant, reliable, and not rate-limited
-			const navMatch = transcript
-				.toLowerCase()
-				.trim()
-				.match(
-					/\b(?:go(?:\s+to)?|navigate(?:\s+to)?|take(?:\s+me)?(?:\s+to)?|open|switch(?:\s+to)?)\s+(?:the\s+)?(?:my\s+)?(board|classes?|settings|coach|store|gradebook)\b/i,
-				);
-			if (navMatch) {
-				// Normalize "class" → "classes"
-				const dest = navMatch[1].toLowerCase().replace(/^class$/, "classes") as
-					| "board"
-					| "classes"
-					| "settings"
-					| "coach"
-					| "store"
-					| "gradebook";
-				window.location.href = `/${dest}`;
+			const dest = matchNavigationDestination(transcript);
+			if (dest) {
+				handleNavigate(dest);
 				return;
 			}
 
@@ -470,6 +561,9 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					body: JSON.stringify({
 						transcript,
 						context: {
+							surfaceId: getVoiceSurface(window.location.pathname)?.id,
+							surfaceLabel: getVoiceSurface(window.location.pathname)?.label,
+							surfaceCommands: getVoiceSurfaceSummary(window.location.pathname),
 							students: ctx.students.map((s) => ({
 								rosterId: s.rosterId,
 								displayName: s.displayName,
@@ -484,9 +578,17 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					}),
 				});
 
-				if (!res.ok) return;
+				if (!res.ok) {
+					toast.error("Voice agent unavailable");
+					return;
+				}
 				const { action } = (await res.json()) as { action: VoiceAction };
-				if (action.type === "ignore") return;
+				if (action.type === "ignore") {
+					if (readBooleanPreference(VOICE_DEBUG_FEEDBACK_ENABLED_KEY, false)) {
+						toast.info("Didn't catch a command");
+					}
+					return;
+				}
 
 				// Fan out comma-separated studentName into one command per student
 				if (
@@ -505,12 +607,12 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					handleCommand(action, transcript);
 				}
 			} catch {
-				// Silent failure — voice agent errors must never crash the teacher's flow
+				toast.error("Voice command failed — check your connection");
 			} finally {
 				setAgentThinking(false);
 			}
 		},
-		[setAgentThinking, handleCommand, refreshAgentContext],
+		[setAgentThinking, handleCommand, refreshAgentContext, handleNavigate],
 	);
 
 	const callVoiceAgentRef = useRef(callVoiceAgent);
@@ -696,8 +798,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					toast.success(label);
 					confirm(item.id);
 				} else if (d.type === "navigate") {
-					const dest = d.destination === "coach" ? "coach" : d.destination;
-					window.location.href = `/${dest}`;
+					handleNavigate(d.destination);
 					confirm(item.id);
 				} else if (d.type === "ask_coach") {
 					window.dispatchEvent(
@@ -734,6 +835,35 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	return (
 		<>
 			{children}
+			{pendingExternalOpen && (
+				<div className="fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4">
+					<div className="flex w-full max-w-md items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-2xl backdrop-blur">
+						<div className="min-w-0 flex-1">
+							<p className="text-sm font-semibold text-slate-100">
+								Open {pendingExternalOpen.label}?
+							</p>
+							<p className="truncate text-xs text-slate-400">Voice command requested a new tab.</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => setPendingExternalOpen(null)}
+							className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+						>
+							Dismiss
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								window.open(pendingExternalOpen.href, "_blank");
+								setPendingExternalOpen(null);
+							}}
+							className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500"
+						>
+							Open
+						</button>
+					</div>
+				</div>
+			)}
 			<QueueDrawer
 				open={drawerOpen}
 				onClose={() => setDrawerOpen(false)}

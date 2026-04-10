@@ -15,6 +15,13 @@ import { toast } from "sonner";
 import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
 import { Button } from "@/components/ui/button";
 import {
+	PRODUCTION_HANDOFF_MODE_KEY,
+	readBooleanPreference,
+	TOASTS_ENABLED_KEY,
+	VOICE_DEBUG_FEEDBACK_ENABLED_KEY,
+	VOICE_LOCK_ENABLED_KEY,
+} from "@/lib/ui-prefs";
+import {
 	clearVoiceProfile,
 	enrollVoiceProfile,
 	getVoiceProfile,
@@ -31,6 +38,8 @@ type Settings = {
 	scheduleDocOpenMode: "toast" | "new-tab";
 	voiceNavMode: "immediate" | "toast";
 	voiceAppOpenMode: "immediate" | "confirm";
+	toastsEnabled?: boolean;
+	productionHandoffMode?: boolean;
 };
 
 type FeeEntry = {
@@ -78,8 +87,6 @@ type ProposedBlock = {
 	dayOfWeek: number | null;
 	color: string;
 };
-
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function ScheduleManager() {
 	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
@@ -366,7 +373,15 @@ export default function SettingsPage() {
 			}
 			const json = await res.json();
 			if (json.settings) {
-				setSettings(json.settings);
+				let toastsEnabled = true;
+				let productionHandoffMode = false;
+				try {
+					toastsEnabled = readBooleanPreference(TOASTS_ENABLED_KEY, true);
+					productionHandoffMode = readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false);
+				} catch {
+					/* noop */
+				}
+				setSettings({ ...json.settings, toastsEnabled, productionHandoffMode });
 			} else {
 				setLoadError(true);
 			}
@@ -446,10 +461,11 @@ export default function SettingsPage() {
 		if (!settings) return;
 		setSaving(true);
 		try {
+			const { toastsEnabled: _toastsEnabled, ...persistedSettings } = settings;
 			const res = await fetch("/api/teacher-settings", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(settings),
+				body: JSON.stringify(persistedSettings),
 			});
 			if (!res.ok) throw new Error("Failed to save");
 			// Cache voice settings in localStorage so VoiceCommandProvider reads them instantly on next mount
@@ -457,6 +473,20 @@ export default function SettingsPage() {
 				localStorage.setItem("voiceSettings.voiceNavMode", settings.voiceNavMode);
 			if (settings.scheduleDocOpenMode)
 				localStorage.setItem("voiceSettings.scheduleDocOpenMode", settings.scheduleDocOpenMode);
+			localStorage.setItem(TOASTS_ENABLED_KEY, settings.toastsEnabled === false ? "false" : "true");
+			localStorage.setItem(
+				PRODUCTION_HANDOFF_MODE_KEY,
+				settings.productionHandoffMode ? "true" : "false",
+			);
+			localStorage.setItem(
+				VOICE_LOCK_ENABLED_KEY,
+				settings.productionHandoffMode ? "false" : "true",
+			);
+			localStorage.setItem(
+				VOICE_DEBUG_FEEDBACK_ENABLED_KEY,
+				settings.productionHandoffMode ? "false" : "true",
+			);
+			window.dispatchEvent(new Event("toast-visibility-changed"));
 			toast.success("Settings saved");
 		} catch {
 			toast.error("Failed to save settings");
@@ -1204,6 +1234,74 @@ export default function SettingsPage() {
 						>
 							<option value="immediate">Open immediately (same tab)</option>
 							<option value="confirm">Tap to open (new tab)</option>
+						</select>
+					</div>
+				</div>
+
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<p className="text-sm font-medium text-slate-200">Production handoff mode</p>
+							<p className="text-xs text-slate-500 mt-0.5">
+								Disables toast popups, bypasses voice lock, and hides debug feedback
+							</p>
+						</div>
+						<select
+							value={settings.productionHandoffMode ? "on" : "off"}
+							onChange={(e) => {
+								const enabled = e.target.value === "on";
+								setSettings((s) =>
+									s
+										? {
+												...s,
+												productionHandoffMode: enabled,
+												toastsEnabled: !enabled,
+											}
+										: s,
+								);
+								localStorage.setItem(PRODUCTION_HANDOFF_MODE_KEY, enabled ? "true" : "false");
+								localStorage.setItem(TOASTS_ENABLED_KEY, enabled ? "false" : "true");
+								localStorage.setItem(VOICE_LOCK_ENABLED_KEY, enabled ? "false" : "true");
+								localStorage.setItem(VOICE_DEBUG_FEEDBACK_ENABLED_KEY, enabled ? "false" : "true");
+								window.dispatchEvent(new Event("toast-visibility-changed"));
+							}}
+							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+						>
+							<option value="off">Off</option>
+							<option value="on">On</option>
+						</select>
+					</div>
+				</div>
+
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<p className="text-sm font-medium text-slate-200">Toast notifications</p>
+							<p className="text-xs text-slate-500 mt-0.5">
+								Disable all toast popups for production handoff
+							</p>
+						</div>
+						<select
+							value={settings.toastsEnabled === false ? "off" : "on"}
+							onChange={(e) => {
+								const enabled = e.target.value === "on";
+								setSettings((s) =>
+									s
+										? {
+												...s,
+												toastsEnabled: enabled,
+												productionHandoffMode: enabled ? false : s.productionHandoffMode,
+											}
+										: s,
+								);
+								localStorage.setItem(TOASTS_ENABLED_KEY, enabled ? "true" : "false");
+								if (enabled) localStorage.setItem(PRODUCTION_HANDOFF_MODE_KEY, "false");
+								window.dispatchEvent(new Event("toast-visibility-changed"));
+							}}
+							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+						>
+							<option value="on">On</option>
+							<option value="off">Off</option>
 						</select>
 					</div>
 				</div>

@@ -2,7 +2,7 @@
 
 import { BookOpenIcon, ClockIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type ClassRow = {
@@ -19,6 +19,7 @@ type ClassRow = {
 export default function ClassesPage() {
 	const router = useRouter();
 	const [classes, setClasses] = useState<ClassRow[]>([]);
+	const classesRef = useRef<ClassRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [showForm, setShowForm] = useState(false);
 	const [creating, setCreating] = useState(false);
@@ -33,7 +34,9 @@ export default function ClassesPage() {
 		try {
 			const res = await fetch("/api/classes");
 			const json = await res.json();
-			setClasses((json.classes ?? []).filter((c: ClassRow) => !c.isArchived));
+			const nextClasses = (json.classes ?? []).filter((c: ClassRow) => !c.isArchived);
+			classesRef.current = nextClasses;
+			setClasses(nextClasses);
 		} catch {
 			toast.error("Failed to load classes");
 		} finally {
@@ -42,8 +45,64 @@ export default function ClassesPage() {
 	}, []);
 
 	useEffect(() => {
+		classesRef.current = classes;
+	}, [classes]);
+
+	useEffect(() => {
 		fetchClasses();
 	}, [fetchClasses]);
+
+	useEffect(() => {
+		function normalize(value: string) {
+			return value.trim().toLowerCase();
+		}
+
+		async function handleVoiceCreateClass(e: Event) {
+			const label = (e as CustomEvent<{ label: string }>).detail.label.trim();
+			if (!label) return;
+			setCreating(true);
+			try {
+				const res = await fetch("/api/classes", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ ...form, label }),
+				});
+				if (!res.ok) {
+					const json = await res.json().catch(() => ({}));
+					throw new Error((json as { error?: string }).error ?? "Failed to create class");
+				}
+				toast.success(`Created class "${label}"`);
+				setShowForm(false);
+				setForm((prev) => ({ ...prev, label: "" }));
+				fetchClasses();
+			} catch (err) {
+				toast.error(err instanceof Error ? err.message : "Failed to create class");
+			} finally {
+				setCreating(false);
+			}
+		}
+
+		function handleVoiceOpenClass(e: Event) {
+			const className = normalize((e as CustomEvent<{ className: string }>).detail.className);
+			if (!className) return;
+			const match = classesRef.current.find((cls) => {
+				const label = normalize(cls.label);
+				return label === className || label.includes(className) || className.includes(label);
+			});
+			if (!match) {
+				toast.error(`Class "${className}" not found`);
+				return;
+			}
+			router.push(`/classes/${match.id}`);
+		}
+
+		window.addEventListener("voice-create_class", handleVoiceCreateClass);
+		window.addEventListener("voice-open_class", handleVoiceOpenClass);
+		return () => {
+			window.removeEventListener("voice-create_class", handleVoiceCreateClass);
+			window.removeEventListener("voice-open_class", handleVoiceOpenClass);
+		};
+	}, [fetchClasses, form, router]);
 
 	async function handleCreate(e: React.FormEvent) {
 		e.preventDefault();

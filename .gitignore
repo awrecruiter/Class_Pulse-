@@ -15,6 +15,8 @@
 
 # next.js
 /.next/
+/.next-prod/
+/.next_*/
 /out/
 
 # production
@@ -33,6 +35,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+
+# Claude hook audit logs
+.claude/logs/
+
+# Codex hook audit logs
+.codex/logs/
 
 # E2E screenshots
 tests/e2e/screenshots/

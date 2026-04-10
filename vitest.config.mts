@@ -9,6 +9,7 @@ export default defineConfig({
 		globals: true,
 		setupFiles: ["./src/test/setup.ts"],
 		include: ["src/**/*.{test,spec}.{ts,tsx}", "tests/unit/**/*.{test,spec}.{ts,tsx}"],
+		exclude: [".next/**", ".next-prod/**", ".next_*/*", "node_modules/**"],
 		css: true,
 	},
 });

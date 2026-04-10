@@ -12,6 +12,7 @@ import {
 	Volume2Icon,
 	XIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
@@ -34,6 +35,8 @@ import { useMicAnalyser } from "@/hooks/use-mic-analyser";
 import { useMicSlot } from "@/hooks/use-mic-manager";
 import type { CoachResponse } from "@/lib/ai/coach";
 import { playActivationChime } from "@/lib/chime";
+import { type ParentCommsPreselect, useCoachClassroom } from "./use-coach-classroom";
+import { useCoachVoiceEvents } from "./use-coach-voice-events";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -293,8 +296,6 @@ type BehaviorMsg = {
 	response?: BehaviorResponse;
 	rosterId?: string;
 };
-type ClassRow = { id: string; label: string; gradeLevel?: string; activeSessionId?: string };
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CoachPage() {
@@ -362,152 +363,6 @@ export default function CoachPage() {
 		};
 	}, [transcript, isListening, wordCount]);
 
-	// Classes + roster
-	const [classes, setClasses] = useState<ClassRow[]>([]);
-	const [selectedClassId, setSelectedClassId] = useState("");
-	const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
-	const [students, setStudents] = useState<StudentOverview[]>([]);
-	const [studentsLoading, setStudentsLoading] = useState(false);
-	const [activeStudent, setActiveStudent] = useState<StudentOverview | null>(null);
-
-	// Groups for differentiated instruction filtering
-	type GroupRow = { id: string; name: string; emoji: string; memberRosterIds: string[] };
-	const [groups, setGroups] = useState<GroupRow[]>([]);
-	const [_selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-	const [showGroups, setShowGroups] = useState(true);
-
-	useEffect(() => {
-		fetch("/api/classes")
-			.then((r) => r.json())
-			.then((j) => {
-				const active = (j.classes ?? []).filter(
-					(c: ClassRow & { isArchived: boolean }) => !c.isArchived,
-				);
-				setClasses(active);
-				if (active.length > 0) setSelectedClassId(active[0].id);
-			})
-			.catch(() => {});
-	}, []);
-
-	// Fetch active session when class changes
-	useEffect(() => {
-		if (!selectedClassId) return;
-		fetch(`/api/classes/${selectedClassId}`)
-			.then((r) => r.json())
-			.then((j) => setActiveSessionId(j.activeSession?.id))
-			.catch(() => {});
-	}, [selectedClassId]);
-
-	const fetchStudents = useCallback(async (classId: string) => {
-		setStudentsLoading(true);
-		try {
-			const res = await fetch(`/api/classes/${classId}/roster-overview`);
-			if (res.ok) setStudents((await res.json()).students ?? []);
-		} catch {
-			/* noop */
-		} finally {
-			setStudentsLoading(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		if (selectedClassId) fetchStudents(selectedClassId);
-	}, [selectedClassId, fetchStudents]);
-
-	useEffect(() => {
-		if (selectedClassId) setActiveClassId(selectedClassId);
-	}, [selectedClassId, setActiveClassId]);
-
-	// Sync selected class to localStorage for board view
-	useEffect(() => {
-		if (selectedClassId) localStorage.setItem("board-class-id", selectedClassId);
-	}, [selectedClassId]);
-
-	// Route parent_message voice commands → Parent Comms panel
-	useEffect(() => {
-		const item = queue.find((q) => q.data.type === "parent_message");
-		if (!item || item.data.type !== "parent_message") return;
-		const { studentName, messageText } = item.data;
-		const needle = studentName.toLowerCase();
-		const match = students.find(
-			(s) => s.firstName?.toLowerCase() === needle || s.firstInitial.toLowerCase() === needle[0],
-		);
-		if (!match) return;
-		confirm(item.id);
-		setRightOpen(true);
-		setParentCommsPreselect({ rosterId: match.rosterId, text: messageText, nonce: Date.now() });
-		playActivationChime();
-		setTimeout(() => {
-			const utt = new SpeechSynthesisUtterance("Go ahead");
-			window.speechSynthesis.speak(utt);
-		}, 500);
-	}, [queue, students, confirm]);
-
-	// Execute move_to_group voice commands
-	useEffect(() => {
-		const item = queue.find((q) => q.data.type === "move_to_group");
-		if (!item || item.data.type !== "move_to_group") return;
-		const { studentName, groupName } = item.data;
-		const needle = studentName.toLowerCase();
-		const student = students.find(
-			(s) =>
-				s.firstName?.toLowerCase() === needle || s.displayName.toLowerCase().startsWith(needle),
-		);
-		const group = groups.find((g) => g.name.toLowerCase() === groupName.toLowerCase());
-		if (!student || !group || !selectedClassId) return;
-		confirm(item.id);
-		fetch(`/api/classes/${selectedClassId}/groups/${group.id}`, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ rosterId: student.rosterId }),
-		})
-			.then((res) => {
-				if (res.ok) {
-					toast.success(`Moved ${student.displayName} \u2192 ${group.name}`);
-					window.dispatchEvent(new Event("group-assignment-changed"));
-					setGroups((prev) =>
-						prev.map((g) =>
-							g.id === group.id
-								? {
-										...g,
-										memberRosterIds: [
-											...g.memberRosterIds.filter((r) => r !== student.rosterId),
-											student.rosterId,
-										],
-									}
-								: {
-										...g,
-										memberRosterIds: g.memberRosterIds.filter((r) => r !== student.rosterId),
-									},
-						),
-					);
-				} else {
-					toast.error("Couldn't move student — group may be full");
-				}
-			})
-			.catch(() => toast.error("Move failed"));
-	}, [queue, students, groups, selectedClassId, confirm]);
-
-	useEffect(() => {
-		if (!selectedClassId) return;
-		setSelectedGroupId(null);
-		fetch(`/api/classes/${selectedClassId}/groups`)
-			.then((r) => r.json())
-			.then((j) =>
-				setGroups(
-					(j.groups ?? []).map(
-						(g: { id: string; name: string; emoji: string; members: { rosterId: string }[] }) => ({
-							id: g.id,
-							name: g.name,
-							emoji: g.emoji,
-							memberRosterIds: g.members.map((m) => m.rosterId),
-						}),
-					),
-				),
-			)
-			.catch(() => setGroups([]));
-	}, [selectedClassId]);
-
 	// Track whether DiPanel has a live session (so we keep it visible when user switches modes)
 	const [diSessionActive, setDiSessionActive] = useState(false);
 
@@ -524,11 +379,31 @@ export default function CoachPage() {
 	const [comprehensionOpen, setComprehensionOpen] = useState(true);
 	const [rightOpen, setRightOpen] = useState(true);
 	const [groupsOpen, setGroupsOpen] = useState(true);
-	const [parentCommsPreselect, setParentCommsPreselect] = useState<{
-		rosterId: string;
-		text: string;
-		nonce: number;
-	} | null>(null);
+	const [parentCommsPreselect, setParentCommsPreselect] = useState<ParentCommsPreselect>(null);
+	const {
+		classes,
+		selectedClassId,
+		setSelectedClassId,
+		activeSessionId,
+		setActiveSessionId,
+		activeSessionIdRef,
+		selectedClassIdRef,
+		students,
+		studentsLoading,
+		activeStudent,
+		setActiveStudent,
+		fetchStudents,
+		groups,
+		showGroups,
+		setShowGroups,
+	} = useCoachClassroom({
+		queue,
+		confirm,
+		setActiveClassId,
+		setRightOpen,
+		setGroupsOpen,
+		setParentCommsPreselect,
+	});
 	// Auto command mode — activates when lecture mic is off
 	const autoCommandRef = useRef(false);
 	const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -803,6 +678,21 @@ export default function CoachPage() {
 				window.dispatchEvent(new CustomEvent("orb-transcript", { detail: { transcript: t } }));
 			}
 		},
+		onError: (error: string) => {
+			if (error === "not-allowed" || error === "service-not-allowed") {
+				toast.error("Microphone access is blocked — allow mic access in your browser");
+				return;
+			}
+			if (error === "audio-capture") {
+				toast.error("No microphone found");
+				return;
+			}
+			if (error === "network") {
+				toast.error("Speech recognition lost connection");
+				return;
+			}
+			toast.error(`Voice input failed: ${error}`);
+		},
 		onNaturalEnd: () => setIsOrbRecording(false),
 	};
 
@@ -825,6 +715,7 @@ export default function CoachPage() {
 			typeof window !== "undefined" &&
 			!!(window.SpeechRecognition ?? window.webkitSpeechRecognition);
 		if (!hasSpeech) {
+			toast.error("Voice input is not supported in this browser");
 			setShowTextInput(true);
 			return;
 		}
@@ -861,38 +752,38 @@ export default function CoachPage() {
 		};
 	}, [isListening]);
 
-	// Voice agent → lecture/session control via CustomEvents
-	useEffect(() => {
-		function handleVoiceStartLecture() {
-			if (!isListening) {
-				autoCommandRef.current = false;
-				if (restartTimerRef.current) {
-					clearTimeout(restartTimerRef.current);
-					restartTimerRef.current = null;
-				}
-				stopCommandsNow();
-				setIsOrbRecording(false);
-				playActivationChime();
-				setTimeout(startListening, 350);
+	useCoachVoiceEvents({
+		selectedClassIdRef,
+		activeSessionIdRef,
+		isListening,
+		startListening,
+		stopListening,
+		stopCommandsNow,
+		setIsOrbRecording,
+		clearOrbRestartTimer: () => {
+			if (restartTimerRef.current) {
+				clearTimeout(restartTimerRef.current);
+				restartTimerRef.current = null;
 			}
+		},
+		disableAutoCommand: () => {
+			autoCommandRef.current = false;
+		},
+		sendAcademic,
+		setInputMode,
+		setActiveSessionId,
+	});
+
+	useEffect(() => {
+		function handleVoiceShowGroups() {
+			setRightOpen(true);
+			setGroupsOpen(true);
+			setShowGroups(true);
 		}
-		function handleVoiceStopLecture() {
-			if (isListening) stopListening();
-		}
-		function handleVoiceAskCoach(e: Event) {
-			const question = (e as CustomEvent<{ question: string }>).detail.question;
-			sendAcademic(question);
-			setInputMode("ask");
-		}
-		window.addEventListener("voice-start_lecture", handleVoiceStartLecture);
-		window.addEventListener("voice-stop_lecture", handleVoiceStopLecture);
-		window.addEventListener("voice-ask-coach", handleVoiceAskCoach);
-		return () => {
-			window.removeEventListener("voice-start_lecture", handleVoiceStartLecture);
-			window.removeEventListener("voice-stop_lecture", handleVoiceStopLecture);
-			window.removeEventListener("voice-ask-coach", handleVoiceAskCoach);
-		};
-	}, [isListening, startListening, stopListening, stopCommandsNow, sendAcademic]);
+
+		window.addEventListener("voice-show_groups", handleVoiceShowGroups);
+		return () => window.removeEventListener("voice-show_groups", handleVoiceShowGroups);
+	}, [setShowGroups]);
 
 	const lectureMinutes = wordCount > 0 ? Math.max(1, Math.round(wordCount / 130)) : 0;
 	const showOrbArea = true;
@@ -991,7 +882,7 @@ export default function CoachPage() {
 					gridTemplateColumns: [
 						leftOpen ? "320px" : "2rem",
 						"1fr",
-						selectedClassId ? (rightOpen ? "300px" : "2rem") : "0px",
+						rightOpen ? "300px" : "2rem",
 					].join(" "),
 				}}
 			>
@@ -1156,8 +1047,41 @@ export default function CoachPage() {
 						</div>
 					</div>
 
+					{classes.length === 0 && (
+						<div className="flex-1 min-h-0 flex items-start justify-center px-6 pt-10">
+							<div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-center">
+								<p className="text-sm font-semibold text-slate-100">No classes yet</p>
+								<p className="mt-2 text-sm text-slate-400">
+									Coach is working, but this account does not have any classes to load. Create a
+									class first, then come back here to start sessions and groups, or open Parent
+									Comms directly from here.
+								</p>
+								<div className="mt-5 flex items-center justify-center gap-3">
+									<Link
+										href="/classes"
+										className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+									>
+										Open Classes
+									</Link>
+									<Link
+										href="/parent-comms"
+										className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+									>
+										Open Parent Comms
+									</Link>
+									<Link
+										href="/settings"
+										className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+									>
+										Account Settings
+									</Link>
+								</div>
+							</div>
+						</div>
+					)}
+
 					{/* DI Panel */}
-					{(inputMode === "di" || diSessionActive) && (
+					{classes.length > 0 && (inputMode === "di" || diSessionActive) && (
 						<div className={`flex-1 min-h-0 overflow-y-auto${inputMode !== "di" ? " hidden" : ""}`}>
 							{selectedClassId ? (
 								<DiPanel
@@ -1176,34 +1100,40 @@ export default function CoachPage() {
 					)}
 
 					{/* Reserved space — mic button at rest, waveform when capturing */}
-					{showOrbArea && inputMode !== "di" && !(inputMode === "ask" && scaffoldResponse) && (
-						<div className="shrink-0 flex items-center justify-center px-6" style={{ height: 160 }}>
-							{isListening || isOrbRecording ? (
-								<WaveformMeter
-									active={isListening || isOrbRecording}
-									height={136}
-									className="w-full"
-								/>
-							) : (
-								<div className="relative flex items-center justify-center">
-									<span className="absolute h-20 w-20 rounded-full border border-slate-600/40 [animation:mic-center-pulse_2.8s_ease-in-out_infinite]" />
-									<span className="absolute h-24 w-24 rounded-full border border-slate-700/25 [animation:mic-center-pulse_2.8s_ease-in-out_infinite_0.4s]" />
-									<button
-										type="button"
-										onClick={toggleOrb}
-										disabled={isLoading}
-										title="Voice input"
-										className="relative z-10 h-16 w-16 rounded-full flex items-center justify-center border-2 border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:border-slate-500 hover:text-slate-200 transition-all active:scale-95 disabled:opacity-40"
-									>
-										<MicIcon className="h-7 w-7" />
-									</button>
-								</div>
-							)}
-						</div>
-					)}
+					{classes.length > 0 &&
+						showOrbArea &&
+						inputMode !== "di" &&
+						!(inputMode === "ask" && scaffoldResponse) && (
+							<div
+								className="shrink-0 flex items-center justify-center px-6"
+								style={{ height: 160 }}
+							>
+								{isListening || isOrbRecording ? (
+									<WaveformMeter
+										active={isListening || isOrbRecording}
+										height={136}
+										className="w-full"
+									/>
+								) : (
+									<div className="relative flex items-center justify-center">
+										<span className="absolute h-20 w-20 rounded-full border border-slate-600/40 [animation:mic-center-pulse_2.8s_ease-in-out_infinite]" />
+										<span className="absolute h-24 w-24 rounded-full border border-slate-700/25 [animation:mic-center-pulse_2.8s_ease-in-out_infinite_0.4s]" />
+										<button
+											type="button"
+											onClick={toggleOrb}
+											disabled={isLoading}
+											title="Voice input"
+											className="relative z-10 h-16 w-16 rounded-full flex items-center justify-center border-2 border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:border-slate-500 hover:text-slate-200 transition-all active:scale-95 disabled:opacity-40"
+										>
+											<MicIcon className="h-7 w-7" />
+										</button>
+									</div>
+								)}
+							</div>
+						)}
 
 					{/* Groups zone — fixed height, no scroll */}
-					{showOrbArea && inputMode !== "di" && (
+					{classes.length > 0 && showOrbArea && inputMode !== "di" && (
 						<div className="shrink-0 flex flex-col">
 							{/* Class selector + group cards */}
 							{classes.length > 0 && (
@@ -1218,7 +1148,6 @@ export default function CoachPage() {
 												} else {
 													setSelectedClassId(c.id);
 													setShowGroups(true);
-													setSelectedGroupId(null);
 												}
 											}}
 											className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedClassId === c.id ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"}`}
@@ -1516,50 +1445,62 @@ export default function CoachPage() {
 				</div>
 
 				{/* ── RIGHT: Parent Comms ──────────────────────────────── */}
-				{selectedClassId && (
-					<div className="border-l border-slate-800 flex flex-col overflow-hidden min-h-0">
-						{rightOpen ? (
-							<>
-								<div className="shrink-0 border-b border-slate-800">
-									<button
-										type="button"
-										onClick={() => setGroupsOpen((o) => !o)}
-										className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
-									>
-										<ChevronDownIcon
-											className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${groupsOpen ? "" : "-rotate-90"}`}
-										/>
-										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
-											Groups
-										</p>
-									</button>
-								</div>
-								<div className={`min-h-0 overflow-y-auto${groupsOpen ? " flex-1" : " hidden"}`}>
-									<GroupsSidebarPanel classId={selectedClassId} />
-								</div>
-								<div className={`min-h-0 overflow-y-scroll${groupsOpen ? " hidden" : " flex-1"}`}>
-									<ParentCommsPanel
-										classId={selectedClassId}
-										students={students}
-										externalPreselect={parentCommsPreselect}
-										onCollapse={() => setRightOpen(false)}
-									/>
-								</div>
-							</>
-						) : (
-							<div className="flex items-center justify-center py-3">
+				<div className="border-l border-slate-800 flex flex-col overflow-hidden min-h-0">
+					{rightOpen ? (
+						<>
+							<div className="shrink-0 border-b border-slate-800">
 								<button
 									type="button"
-									onClick={() => setRightOpen(true)}
-									title="Expand Parent Comms"
-									className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
+									onClick={() => setGroupsOpen((o) => !o)}
+									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
 								>
-									<ChevronLeftIcon className="h-3.5 w-3.5" />
+									<ChevronDownIcon
+										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${groupsOpen ? "" : "-rotate-90"}`}
+									/>
+									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+										Groups
+									</p>
 								</button>
 							</div>
-						)}
-					</div>
-				)}
+							{selectedClassId ? (
+								<>
+									<div className={`min-h-0 overflow-y-auto${groupsOpen ? " flex-1" : " hidden"}`}>
+										<GroupsSidebarPanel
+											classId={selectedClassId}
+											initialStudents={students}
+											initialGroups={groups}
+										/>
+									</div>
+									<div className={`min-h-0 overflow-y-scroll${groupsOpen ? " hidden" : " flex-1"}`}>
+										<ParentCommsPanel
+											classId={selectedClassId}
+											students={students}
+											externalPreselect={parentCommsPreselect}
+											onCollapse={() => setRightOpen(false)}
+										/>
+									</div>
+								</>
+							) : (
+								<div className="flex-1 flex items-center justify-center px-5 text-center">
+									<p className="text-sm text-slate-500">
+										Select or create a class to load groups and parent communications.
+									</p>
+								</div>
+							)}
+						</>
+					) : (
+						<div className="flex items-center justify-center py-3">
+							<button
+								type="button"
+								onClick={() => setRightOpen(true)}
+								title="Expand Parent Comms"
+								className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
+							>
+								<ChevronLeftIcon className="h-3.5 w-3.5" />
+							</button>
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);

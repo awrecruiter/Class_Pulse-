@@ -10,7 +10,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 
-// ─── Legacy: Link-in-bio ────────────────────────────────────────────────────
+// ─── Legacy profile/link data ───────────────────────────────────────────────
 
 export const profiles = pgTable(
 	"profiles",

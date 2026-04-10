@@ -1,4 +1,5 @@
 import { createAuthServer } from "@neondatabase/auth/next/server";
+import { readBooleanEnv } from "@/lib/env";
 
 const _auth = createAuthServer();
 
@@ -16,7 +17,11 @@ const DEV_USER = {
 export const auth = {
 	getSession: async () => {
 		const result = await _auth.getSession();
-		if (!result.data?.user && process.env.NODE_ENV === "development") {
+		if (
+			!result.data?.user &&
+			process.env.NODE_ENV === "development" &&
+			readBooleanEnv("ALLOW_DEV_AUTH_BYPASS")
+		) {
 			return { data: { user: DEV_USER } };
 		}
 		return result;

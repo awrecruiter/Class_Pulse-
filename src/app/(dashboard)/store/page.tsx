@@ -15,6 +15,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -762,7 +763,17 @@ export default function StorePage() {
 			.then((j) => {
 				const active = (j.classes ?? []).filter((c: ClassRow) => !c.isArchived);
 				setClasses(active);
-				if (active.length > 0) setSelectedClassId(active[0].id);
+				if (active.length === 0) {
+					setSelectedClassId("");
+					setRoster([]);
+					setPurchases([]);
+					setLoading(false);
+					return;
+				}
+				const savedClassId =
+					typeof window !== "undefined" ? localStorage.getItem("activeClassId") : null;
+				const preferred = active.find((c: ClassRow) => c.id === savedClassId) ?? active[0];
+				setSelectedClassId(preferred?.id ?? "");
 			})
 			.catch(() => {});
 	}, []);
@@ -785,7 +796,11 @@ export default function StorePage() {
 	}, []);
 
 	useEffect(() => {
-		if (!selectedClassId) return;
+		if (!selectedClassId) {
+			setRoster([]);
+			return;
+		}
+		localStorage.setItem("activeClassId", selectedClassId);
 		fetch(`/api/classes/${selectedClassId}/roster-overview`)
 			.then((r) => r.json())
 			.then((j) =>
@@ -804,8 +819,82 @@ export default function StorePage() {
 	}, [selectedClassId]);
 
 	useEffect(() => {
-		if (selectedClassId) fetchPurchases(selectedClassId);
+		if (!selectedClassId) {
+			setPurchases([]);
+			setLoading(false);
+			return;
+		}
+		fetchPurchases(selectedClassId);
 	}, [selectedClassId, fetchPurchases]);
+
+	useEffect(() => {
+		function normalize(value?: string) {
+			return value?.trim().toLowerCase() ?? "";
+		}
+
+		async function processVoicePurchase(
+			action: "approve" | "reject",
+			detail: { studentName?: string; itemName?: string },
+		) {
+			if (!selectedClassId) {
+				toast.error("Select a class before processing store purchases");
+				return;
+			}
+			const studentNeedle = normalize(detail.studentName);
+			const itemNeedle = normalize(detail.itemName);
+			const pending = purchases.filter((p) => p.status === "pending");
+			const match =
+				pending.find((purchase) => {
+					const studentLabel = `${purchase.firstInitial}.${purchase.lastInitial}.`.toLowerCase();
+					const itemLabel = purchase.itemName.toLowerCase();
+					const studentMatches =
+						!studentNeedle ||
+						studentLabel.includes(studentNeedle) ||
+						studentNeedle.includes(studentLabel);
+					const itemMatches =
+						!itemNeedle || itemLabel.includes(itemNeedle) || itemNeedle.includes(itemLabel);
+					return studentMatches && itemMatches;
+				}) ?? pending[0];
+
+			if (!match) {
+				toast.error("No matching pending purchase found");
+				return;
+			}
+
+			const res = await fetch(`/api/classes/${selectedClassId}/purchases/${match.id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ action }),
+			});
+			if (!res.ok) {
+				toast.error(`Failed to ${action} purchase`);
+				return;
+			}
+			toast.success(action === "approve" ? "Purchase approved" : "Purchase rejected");
+			fetchPurchases(selectedClassId);
+		}
+
+		function handleVoiceApprovePurchase(e: Event) {
+			void processVoicePurchase(
+				"approve",
+				(e as CustomEvent<{ studentName?: string; itemName?: string }>).detail,
+			);
+		}
+
+		function handleVoiceRejectPurchase(e: Event) {
+			void processVoicePurchase(
+				"reject",
+				(e as CustomEvent<{ studentName?: string; itemName?: string }>).detail,
+			);
+		}
+
+		window.addEventListener("voice-approve_purchase", handleVoiceApprovePurchase);
+		window.addEventListener("voice-reject_purchase", handleVoiceRejectPurchase);
+		return () => {
+			window.removeEventListener("voice-approve_purchase", handleVoiceApprovePurchase);
+			window.removeEventListener("voice-reject_purchase", handleVoiceRejectPurchase);
+		};
+	}, [fetchPurchases, purchases, selectedClassId]);
 
 	async function handleAddItem() {
 		setAddingItem(true);

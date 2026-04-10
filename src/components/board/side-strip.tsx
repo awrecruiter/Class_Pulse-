@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
+import { useEffect, useState } from "react";
 import { useVoiceQueue } from "@/contexts/voice-queue";
+import { PRODUCTION_HANDOFF_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 
 export type BoardPanel = "portal" | "resources" | "pulse" | "groups";
 
@@ -30,7 +32,23 @@ interface SideStripProps {
 
 function QueueBadgeButton() {
 	const { queue, setDrawerOpen } = useVoiceQueue();
+	const [handoffMode, setHandoffMode] = useState(false);
 	const count = queue.length;
+
+	useEffect(() => {
+		function syncPrefs() {
+			setHandoffMode(readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false));
+		}
+		syncPrefs();
+		window.addEventListener("storage", syncPrefs);
+		window.addEventListener("toast-visibility-changed", syncPrefs);
+		return () => {
+			window.removeEventListener("storage", syncPrefs);
+			window.removeEventListener("toast-visibility-changed", syncPrefs);
+		};
+	}, []);
+
+	if (handoffMode) return null;
 	return (
 		<button
 			type="button"

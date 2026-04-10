@@ -24,17 +24,23 @@ export default function ParentCommsPage() {
 			.then((j) => {
 				const list: ClassItem[] = j.classes ?? [];
 				setClasses(list);
-				if (list.length > 0) {
-					const saved = localStorage.getItem("activeClassId");
-					const match = list.find((c) => c.id === saved);
-					setSelectedClassId(match ? match.id : list[0].id);
+				if (list.length === 0) {
+					setSelectedClassId("");
+					setStudents([]);
+					return;
 				}
+				const saved = localStorage.getItem("activeClassId");
+				const preferred = list.find((c) => c.id === saved) ?? list[0];
+				setSelectedClassId(preferred?.id ?? "");
 			})
 			.catch(() => {});
 	}, []);
 
 	useEffect(() => {
-		if (!selectedClassId) return;
+		if (!selectedClassId) {
+			setStudents([]);
+			return;
+		}
 		fetch(`/api/classes/${selectedClassId}/roster-overview`)
 			.then((r) => (r.ok ? r.json() : { students: [] }))
 			.then((j) => setStudents(j.students ?? []))

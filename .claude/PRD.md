@@ -220,7 +220,7 @@ Default items (teacher configures):
 
 ### Existing Tables
 - `profiles` — teacher profiles
-- `link_items` — link-in-bio items (legacy)
+- `link_items` — legacy profile link records
 - `click_events` — click analytics (legacy)
 
 ### Phase 1 (Session Foundation)
