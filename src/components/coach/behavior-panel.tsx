@@ -11,10 +11,12 @@ import {
 	XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
 import { RamBuckBurst } from "@/components/coach/ram-buck-burst";
 import { useMicSlot } from "@/hooks/use-mic-manager";
+import { GLOBAL_VOICE_ONLY_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
 
@@ -449,6 +451,10 @@ export function BehaviorPanel() {
 	const { start: dictStart, stop: dictStop } = useMicSlot("dictation", dictConfig);
 
 	function startRecording() {
+		if (readBooleanPreference(GLOBAL_VOICE_ONLY_MODE_KEY, false)) {
+			toast.error("Global voice only mode is on — use the Command listener instead");
+			return;
+		}
 		dictStart();
 		setIsRecording(true);
 	}

@@ -35,6 +35,7 @@ import { useMicAnalyser } from "@/hooks/use-mic-analyser";
 import { useMicSlot } from "@/hooks/use-mic-manager";
 import type { CoachResponse } from "@/lib/ai/coach";
 import { playActivationChime } from "@/lib/chime";
+import { GLOBAL_VOICE_ONLY_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 import { type ParentCommsPreselect, useCoachClassroom } from "./use-coach-classroom";
 import { useCoachVoiceEvents } from "./use-coach-voice-events";
 
@@ -705,6 +706,10 @@ export default function CoachPage() {
 
 	function toggleOrb() {
 		if (isLoading) return;
+		if (readBooleanPreference(GLOBAL_VOICE_ONLY_MODE_KEY, false)) {
+			toast.error("Global voice only mode is on — use the Command listener instead");
+			return;
+		}
 		if (isOrbRecording) {
 			autoCommandRef.current = false;
 			orbStop();
@@ -832,6 +837,10 @@ export default function CoachPage() {
 								if (isListening) {
 									stopListening();
 								} else {
+									if (readBooleanPreference(GLOBAL_VOICE_ONLY_MODE_KEY, false)) {
+										toast.error("Global voice only mode is on — turn it off to record a lesson");
+										return;
+									}
 									// Kill command mode before starting lecture recording
 									autoCommandRef.current = false;
 									if (restartTimerRef.current) {

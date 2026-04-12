@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
 import { playQueueChime } from "@/lib/chime";
+import { GLOBAL_VOICE_ONLY_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -406,6 +407,10 @@ export function ParentCommsPanel({
 	function toggleDictation() {
 		if (isDictating) {
 			dictStopFn();
+			return;
+		}
+		if (readBooleanPreference(GLOBAL_VOICE_ONLY_MODE_KEY, false)) {
+			toast.error("Global voice only mode is on — turn it off to dictate a message");
 			return;
 		}
 		committedRef.current = textRef.current; // seed with any existing text

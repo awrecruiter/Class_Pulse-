@@ -1,17 +1,22 @@
 /* @vitest-environment jsdom */
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VoiceQueueProvider } from "@/contexts/voice-queue";
 import CoachPage from "./page";
 
+const toastError = vi.fn();
+
 vi.mock("sonner", () => ({
 	toast: {
 		success: vi.fn(),
-		error: vi.fn(),
+		error: (...args: unknown[]) => toastError(...args),
 		info: vi.fn(),
 	},
 }));
+
+const startListeningMock = vi.fn();
+const stopListeningMock = vi.fn();
 
 vi.mock("@/components/coach/ambient-hud", () => ({
 	AmbientHud: () => <div data-testid="ambient-hud" />,
@@ -50,8 +55,8 @@ vi.mock("@/hooks/use-lecture-transcript", () => ({
 		isListening: false,
 		wordCount: 0,
 		isSupported: true,
-		startListening: vi.fn(),
-		stopListening: vi.fn(),
+		startListening: startListeningMock,
+		stopListening: stopListeningMock,
 		clearTranscript: vi.fn(),
 	}),
 }));
@@ -83,6 +88,9 @@ function renderCoachPage() {
 describe("CoachPage voice session events", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		toastError.mockReset();
+		startListeningMock.mockReset();
+		stopListeningMock.mockReset();
 		vi.stubGlobal(
 			"fetch",
 			vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -179,5 +187,19 @@ describe("CoachPage voice session events", () => {
 			);
 			expect(fetch).toHaveBeenCalledWith("/api/sessions/session-456/end", { method: "PUT" });
 		});
+	});
+
+	it("blocks lecture recording when global voice only mode is enabled", async () => {
+		localStorage.setItem("voice.globalVoiceOnlyMode", "true");
+
+		renderCoachPage();
+
+		const button = await screen.findByRole("button", { name: /record lesson/i });
+		fireEvent.click(button);
+
+		expect(startListeningMock).not.toHaveBeenCalled();
+		expect(toastError).toHaveBeenCalledWith(
+			"Global voice only mode is on — turn it off to record a lesson",
+		);
 	});
 });
