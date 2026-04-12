@@ -17,6 +17,7 @@ interface UseGlobalVoiceOptions {
 	onHeard?: (transcript: string) => void;
 	onBoardCommand?: (cmd: BoardCommand, transcript: string) => void;
 	onVoiceTranscript?: (transcript: string) => void;
+	onError?: (error: string) => void;
 	enabled: boolean;
 }
 
@@ -24,14 +25,17 @@ export function useGlobalVoiceCommands({
 	onCommand: _onCommand,
 	onHeard,
 	onBoardCommand,
+	onError,
 	onVoiceTranscript,
 	enabled,
 }: UseGlobalVoiceOptions) {
 	const onHeardRef = useRef(onHeard);
 	const onBoardCommandRef = useRef(onBoardCommand);
+	const onErrorRef = useRef(onError);
 	const onVoiceTranscriptRef = useRef(onVoiceTranscript);
 	onHeardRef.current = onHeard;
 	onBoardCommandRef.current = onBoardCommand;
+	onErrorRef.current = onError;
 	onVoiceTranscriptRef.current = onVoiceTranscript;
 
 	// ── Parallel Web Audio analyser for voice-profile pitch verification ────────
@@ -136,6 +140,9 @@ export function useGlobalVoiceCommands({
 
 			// Everything else → voice agent (async, via VoiceCommandProvider)
 			onVoiceTranscriptRef.current?.(rawTranscript);
+		},
+		onError: (error) => {
+			onErrorRef.current?.(error);
 		},
 	};
 

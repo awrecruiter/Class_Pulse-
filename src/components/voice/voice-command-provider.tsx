@@ -820,6 +820,32 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 
 	const { isListening, stop: stopGlobalNow } = useGlobalVoiceCommands({
 		onBoardCommand: handleBoardCommand,
+		onError: (error) => {
+			if (error === "no-speech" || error === "aborted") return;
+			if (error === "not-supported") {
+				toast.error("Voice commands are not supported in this browser");
+				return;
+			}
+			if (error === "not-allowed" || error === "service-not-allowed") {
+				toast.error("Microphone access is blocked — allow mic access in your browser");
+				return;
+			}
+			if (error === "audio-capture") {
+				toast.error("No microphone found");
+				return;
+			}
+			if (error === "network") {
+				toast.error("Speech recognition lost connection");
+				return;
+			}
+			if (error === "start-failed") {
+				toast.error(
+					"Voice commands could not start — refresh the page and allow microphone access",
+				);
+				return;
+			}
+			toast.error(`Voice commands failed: ${error}`);
+		},
 		onVoiceTranscript: callVoiceAgent,
 		enabled: commandsEnabled && !lectureMicActive && !commsDictating,
 	});

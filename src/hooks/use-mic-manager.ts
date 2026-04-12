@@ -94,9 +94,14 @@ function notifyAll() {
 
 function startFor(owner: MicConsumer) {
 	const SpeechAPI = getSpeechAPI();
-	if (!SpeechAPI) return;
 	const slot = slots.get(owner);
 	if (!slot) return;
+	if (!SpeechAPI) {
+		slot.wantsActive = false;
+		slot.config.onError?.("not-supported");
+		notifyAll();
+		return;
+	}
 
 	const rec = new SpeechAPI();
 	rec.continuous = slot.config.continuous;
@@ -155,7 +160,10 @@ function startFor(owner: MicConsumer) {
 
 	try {
 		rec.start();
-	} catch {
+	} catch (error) {
+		console.warn("[mic-manager] failed to start speech recognition", error);
+		slot.wantsActive = false;
+		slot.config.onError?.("start-failed");
 		recognition = null;
 		activeOwner = null;
 		notifyAll();
