@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { VoiceAction } from "@/app/api/coach/voice-agent/route";
@@ -20,6 +21,8 @@ import {
 import { QueueDrawer } from "./queue-drawer";
 
 export function VoiceCommandProvider({ children }: { children: React.ReactNode }) {
+	const pathname = usePathname();
+	const voiceDisabledOnRoute = pathname === "/login" || pathname === "/signup";
 	const {
 		enqueue,
 		confirm,
@@ -821,7 +824,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	const { isListening, stop: stopGlobalNow } = useGlobalVoiceCommands({
 		onBoardCommand: handleBoardCommand,
 		onVoiceTranscript: callVoiceAgent,
-		enabled: commandsEnabled && !lectureMicActive && !commsDictating,
+		enabled: commandsEnabled && !lectureMicActive && !commsDictating && !voiceDisabledOnRoute,
 	});
 	// Register imperative stop so coach page can kill mic before startListening()
 	useEffect(() => {
