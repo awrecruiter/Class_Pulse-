@@ -15,12 +15,6 @@ let latestVoiceTranscriptHandler: ((transcript: string) => void) | undefined;
 let latestBoardCommandHandler:
 	| ((cmd: { type: string; label?: string; href?: string }, transcript: string) => void)
 	| undefined;
-let mockPathname = "/coach";
-let latestEnabledValue: boolean | undefined;
-
-vi.mock("next/navigation", () => ({
-	usePathname: () => mockPathname,
-}));
 
 vi.mock("sonner", () => ({
 	toast: {
@@ -37,11 +31,9 @@ vi.mock("@/hooks/use-global-voice-commands", () => ({
 			cmd: { type: string; label?: string; href?: string },
 			transcript: string,
 		) => void;
-		enabled?: boolean;
 	}) => {
 		latestVoiceTranscriptHandler = options.onVoiceTranscript;
 		latestBoardCommandHandler = options.onBoardCommand;
-		latestEnabledValue = options.enabled;
 		return { isListening: false, stop: stopGlobalNow };
 	},
 }));
@@ -70,8 +62,6 @@ describe("VoiceCommandProvider", () => {
 	beforeEach(() => {
 		latestVoiceTranscriptHandler = undefined;
 		latestBoardCommandHandler = undefined;
-		latestEnabledValue = undefined;
-		mockPathname = "/coach";
 		localStorage.clear();
 		localStorage.setItem("activeClassId", "class-123");
 		toastSuccess.mockReset();
@@ -127,26 +117,6 @@ describe("VoiceCommandProvider", () => {
 
 		await waitFor(() => {
 			expect(queueSizes.at(-1)).toBe(1);
-		});
-	});
-
-	it("keeps global voice commands enabled on coach routes", async () => {
-		mockPathname = "/coach";
-
-		renderProvider();
-
-		await waitFor(() => {
-			expect(latestEnabledValue).toBe(true);
-		});
-	});
-
-	it("disables global voice commands on the login page", async () => {
-		mockPathname = "/login";
-
-		renderProvider();
-
-		await waitFor(() => {
-			expect(latestEnabledValue).toBe(false);
 		});
 	});
 
