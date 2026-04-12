@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDownIcon, ChevronUpIcon, RotateCcwIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -88,10 +88,17 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 		fetchAccounts();
 	}, [fetchAccounts]);
 
+	const fetchAccountsRef = useRef(fetchAccounts);
 	useEffect(() => {
-		window.addEventListener("ram-bucks-updated", fetchAccounts);
-		return () => window.removeEventListener("ram-bucks-updated", fetchAccounts);
+		fetchAccountsRef.current = fetchAccounts;
 	}, [fetchAccounts]);
+	useEffect(() => {
+		function handle() {
+			fetchAccountsRef.current();
+		}
+		window.addEventListener("ram-bucks-updated", handle);
+		return () => window.removeEventListener("ram-bucks-updated", handle);
+	}, []);
 
 	async function loadTransactions() {
 		setTxLoading(true);
