@@ -15,6 +15,7 @@ import {
 	XCircleIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import { type MicConfig, useMicSlot } from "@/hooks/use-mic-manager";
 import { playQueueChime } from "@/lib/chime";
@@ -271,13 +272,39 @@ export function ParentCommsPanel({
 		[classId],
 	);
 
-	function selectStudent(rosterId: string) {
-		setSelectedRosterId(rosterId);
-		setAddingFor(null);
-		setSentMsgs([]);
-		fetchSent(rosterId);
-		textareaRef.current?.focus();
-	}
+	const selectStudent = useCallback(
+		(rosterId: string) => {
+			setSelectedRosterId(rosterId);
+			setAddingFor(null);
+			setSentMsgs([]);
+			fetchSent(rosterId);
+			textareaRef.current?.focus();
+		},
+		[fetchSent],
+	);
+
+	const resolveRosterIdByStudentName = useCallback(
+		(studentName: string): string | null => {
+			const needle = studentName.trim().toLowerCase();
+			if (!needle) return null;
+			const studentMatch = students.find((student) => {
+				const display = student.displayName.toLowerCase();
+				return (
+					display === needle ||
+					display.includes(needle) ||
+					needle.includes(display) ||
+					student.firstInitial.toLowerCase() === needle[0]
+				);
+			});
+			if (studentMatch) return studentMatch.rosterId;
+			const contactMatch = contacts.find((contact) => {
+				const display = `${contact.firstInitial}.${contact.lastInitial}.`.toLowerCase();
+				return display === needle || display.includes(needle) || needle.includes(display);
+			});
+			return contactMatch?.rosterId ?? null;
+		},
+		[contacts, students],
+	);
 
 	addToQueueRef.current = addToQueue;
 
@@ -385,36 +412,95 @@ export function ParentCommsPanel({
 		dictStartFn();
 	}
 
-	async function sendQueued(item: QueuedMessage) {
-		if (sendingId) return;
-		setSendingId(item.id);
-		setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: false } : q)));
-		try {
-			const res = await fetch(`/api/classes/${classId}/parent-message`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ rosterId: item.rosterId, body: item.body, triggeredBy: "manual" }),
-			});
-			if (res.ok) {
-				// Stop continuous dictation now that the message is sent
-				if (dictationRef.current) {
-					dictationRef.current.onend = null;
-					dictationRef.current.stop();
-					dictationRef.current = null;
-					setIsDictating(false);
-					setCommsDictating(false);
+	const sendQueued = useCallback(
+		async (item: QueuedMessage) => {
+			if (sendingId) return;
+			setSendingId(item.id);
+			setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: false } : q)));
+			try {
+				const res = await fetch(`/api/classes/${classId}/parent-message`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ rosterId: item.rosterId, body: item.body, triggeredBy: "manual" }),
+				});
+				if (res.ok) {
+					const json = await res.json();
+					// Stop continuous dictation now that the message is sent
+					if (dictationRef.current) {
+						dictationRef.current.onend = null;
+						dictationRef.current.stop();
+						dictationRef.current = null;
+						setIsDictating(false);
+						setCommsDictating(false);
+					}
+					setQueue((prev) => prev.filter((q) => q.id !== item.id));
+					if (item.rosterId === selectedRosterId) fetchSent(item.rosterId);
+					if (!json.smsSent) {
+						toast.warning(
+							`Message logged but SMS not delivered: ${json.smsNote ?? "unknown error"}`,
+						);
+					}
+				} else {
+					setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: true } : q)));
+					toast.error("SMS failed to send — check parent number or connection");
 				}
-				setQueue((prev) => prev.filter((q) => q.id !== item.id));
-				if (item.rosterId === selectedRosterId) fetchSent(item.rosterId);
-			} else {
+			} catch {
 				setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: true } : q)));
+				toast.error("Network error — message not sent");
+			} finally {
+				setSendingId(null);
 			}
-		} catch {
-			setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, errored: true } : q)));
-		} finally {
-			setSendingId(null);
+		},
+		[classId, fetchSent, selectedRosterId, sendingId, setCommsDictating],
+	);
+
+	useEffect(() => {
+		function handleVoiceDraftParentMessage(e: Event) {
+			const detail = (e as CustomEvent<{ studentName: string; messageText: string }>).detail;
+			const rosterId = resolveRosterIdByStudentName(detail.studentName);
+			if (!rosterId) {
+				toast.error(`Student "${detail.studentName}" not found`);
+				return;
+			}
+			selectStudent(rosterId);
+			setText(detail.messageText);
 		}
-	}
+
+		function handleVoiceSendParentMessage(e: Event) {
+			const detail = (e as CustomEvent<{ studentName: string; messageText: string }>).detail;
+			const rosterId = resolveRosterIdByStudentName(detail.studentName);
+			if (!rosterId) {
+				toast.error(`Student "${detail.studentName}" not found`);
+				return;
+			}
+			selectStudent(rosterId);
+			setText(detail.messageText);
+			const student =
+				students.find((s) => s.rosterId === rosterId) ??
+				contacts.find((c) => c.rosterId === rosterId);
+			const studentName = student
+				? "displayName" in student
+					? student.displayName
+					: `${student.firstInitial}.${student.lastInitial}.`
+				: detail.studentName;
+			const item: QueuedMessage = {
+				id: crypto.randomUUID(),
+				rosterId,
+				studentName,
+				body: detail.messageText,
+				errored: false,
+			};
+			setQueue((prev) => [...prev, item]);
+			void sendQueued(item);
+		}
+
+		window.addEventListener("voice-draft_parent_message", handleVoiceDraftParentMessage);
+		window.addEventListener("voice-send_parent_message", handleVoiceSendParentMessage);
+		return () => {
+			window.removeEventListener("voice-draft_parent_message", handleVoiceDraftParentMessage);
+			window.removeEventListener("voice-send_parent_message", handleVoiceSendParentMessage);
+		};
+	}, [contacts, resolveRosterIdByStudentName, selectStudent, sendQueued, students]);
 
 	// Rows: merge roster students with contacts
 	const rows =

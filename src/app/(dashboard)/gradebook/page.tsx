@@ -66,16 +66,30 @@ export default function GradebookPage() {
 					(c: ClassOption & { isArchived: boolean }) => !c.isArchived,
 				);
 				setClasses(cls);
-				if (cls.length > 0 && !selectedClassId) {
-					setSelectedClassId(cls[0]?.id);
+				if (cls.length === 0) {
+					setSelectedClassId("");
+					setRoster([]);
+					setScores({});
+					setExistingEntries([]);
+					return;
 				}
+				const savedClassId =
+					typeof window !== "undefined" ? localStorage.getItem("activeClassId") : null;
+				const preferred = cls.find((c) => c.id === savedClassId) ?? cls[0];
+				setSelectedClassId(preferred?.id ?? "");
 			})
 			.catch(() => toast.error("Failed to load classes"));
-	}, [selectedClassId]);
+	}, []);
 
 	// Fetch roster when class changes
 	useEffect(() => {
-		if (!selectedClassId) return;
+		if (!selectedClassId) {
+			setRoster([]);
+			setScores({});
+			setExistingEntries([]);
+			return;
+		}
+		localStorage.setItem("activeClassId", selectedClassId);
 		fetch(`/api/classes/${selectedClassId}`)
 			.then((r) => r.json())
 			.then((json) => {
@@ -95,7 +109,10 @@ export default function GradebookPage() {
 
 	// Fetch existing entries when class + date change
 	const fetchExisting = useCallback(async () => {
-		if (!selectedClassId || !date) return;
+		if (!selectedClassId || !date) {
+			setExistingEntries([]);
+			return;
+		}
 		setLoading(true);
 		try {
 			const res = await fetch(`/api/classes/${selectedClassId}/gradebook?date=${date}`);
@@ -182,6 +199,24 @@ export default function GradebookPage() {
 		const url = `/api/classes/${selectedClassId}/gradebook/export?from=${exportFrom}&to=${exportTo}`;
 		window.open(url, "_blank");
 	}
+
+	useEffect(() => {
+		function handleVoiceExportGradebook(e: Event) {
+			if (!selectedClassId) {
+				toast.error("Select a class before exporting the gradebook");
+				return;
+			}
+			const detail = (e as CustomEvent<{ from?: string; to?: string }>).detail;
+			const from = detail.from?.trim() || exportFrom;
+			const to = detail.to?.trim() || exportTo;
+			const url = `/api/classes/${selectedClassId}/gradebook/export?from=${from}&to=${to}`;
+			window.open(url, "_blank");
+			toast.success("Exporting gradebook CSV");
+		}
+
+		window.addEventListener("voice-export_gradebook", handleVoiceExportGradebook);
+		return () => window.removeEventListener("voice-export_gradebook", handleVoiceExportGradebook);
+	}, [selectedClassId, exportFrom, exportTo]);
 
 	const selectedClass = classes.find((c) => c.id === selectedClassId);
 

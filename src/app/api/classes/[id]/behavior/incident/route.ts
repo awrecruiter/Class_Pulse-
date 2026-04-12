@@ -15,7 +15,7 @@ import {
 	ramBuckTransactions,
 	rosterEntries,
 } from "@/lib/db/schema";
-import { sessionRateLimiter } from "@/lib/rate-limit";
+import { sessionRateLimiter, smsRateLimiter } from "@/lib/rate-limit";
 import { sendSms } from "@/lib/sms";
 
 const DEFAULT_FEE_SCHEDULE = [
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	const newStep = result.data.step ?? Math.min(profile.currentStep + 1, 8);
 	const stepLabel = STEP_LABELS[newStep - 1] ?? `Step ${newStep}`;
 
-	// Get teacher's fee schedule (or defaults)
+	// Get teacher\'s fee schedule (or defaults)
 	const feeRows = await db
 		.select()
 		.from(ramBuckFeeSchedule)
@@ -180,6 +180,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 	// Generate parent notification for step >= 5
 	let parentMessage: { message: string; notificationId: string } | null = null;
+	let smsAutoResult: { sent: boolean; reason: string | null } = { sent: false, reason: null };
+
 	if (newStep >= 5) {
 		// Get student initials
 		const [student] = await db
@@ -219,30 +221,76 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		if (notification) {
 			parentMessage = { message: notification.message, notificationId: notification.id };
 
-			// Auto-send SMS if parent contact on file
-			const [contact] = await db
-				.select({ phone: parentContacts.phone })
-				.from(parentContacts)
-				.where(
-					and(
-						eq(parentContacts.classId, classId),
-						eq(parentContacts.rosterId, rosterId),
-						eq(parentContacts.isActive, true),
-					),
-				);
+			// Auto-send SMS if parent contact on file wrapped so SMS never crashes the behavior ladder
+			try {
+				const smsAllowed = smsRateLimiter.check(ip).success;
+				if (!smsAllowed) {
+					console.warn(
+						"[incident] smsRateLimiter exceeded skipping auto SMS for incident",
+						incident.id,
+					);
+					await db.insert(parentMessages).values({
+						classId,
+						rosterId,
+						incidentId: incident.id,
+						phone: "",
+						body: message,
+						triggeredBy: "incident",
+						status: "failed",
+						smsSid: null,
+					});
+					smsAutoResult = { sent: false, reason: "rate_limited" };
+				} else {
+					const [contact] = await db
+						.select({ phone: parentContacts.phone })
+						.from(parentContacts)
+						.where(
+							and(
+								eq(parentContacts.classId, classId),
+								eq(parentContacts.rosterId, rosterId),
+								eq(parentContacts.isActive, true),
+							),
+						);
 
-			if (contact) {
-				const smsResult = await sendSms(contact.phone, message);
-				await db.insert(parentMessages).values({
-					classId,
-					rosterId,
-					incidentId: incident.id,
-					phone: contact.phone,
-					body: message,
-					triggeredBy: "incident",
-					status: smsResult.ok ? "sent" : "failed",
-					smsSid: smsResult.sid ?? null,
-				});
+					if (!contact) {
+						// No contact on file log for audit trail
+						await db.insert(parentMessages).values({
+							classId,
+							rosterId,
+							incidentId: incident.id,
+							phone: "",
+							body: message,
+							triggeredBy: "incident",
+							status: "no_number",
+							smsSid: null,
+						});
+						smsAutoResult = { sent: false, reason: "no_number" };
+					} else {
+						const smsResult = await sendSms(contact.phone, message);
+						if (!smsResult.ok) {
+							console.error(
+								"[incident] SMS send failed for incident",
+								incident.id,
+								smsResult.error,
+							);
+						}
+						await db.insert(parentMessages).values({
+							classId,
+							rosterId,
+							incidentId: incident.id,
+							phone: contact.phone,
+							body: message,
+							triggeredBy: "incident",
+							status: smsResult.ok ? "sent" : "failed",
+							smsSid: smsResult.sid ?? null,
+						});
+						smsAutoResult = { sent: smsResult.ok, reason: smsResult.error ?? null };
+					}
+				}
+			} catch (smsErr) {
+				// SMS block must NEVER crash the behavior ladder
+				console.error("[incident] SMS/parentMessages block threw continuing:", smsErr);
+				smsAutoResult = { sent: false, reason: "internal_error" };
 			}
 		}
 	}
@@ -253,5 +301,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		incident,
 		profile: updatedProfile,
 		parentMessage,
+		smsAutoResult,
 	});
 }

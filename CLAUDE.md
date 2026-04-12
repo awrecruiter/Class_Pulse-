@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-UnGhettoMyLife is a full-stack Next.js web app with two features: a **link-in-bio page builder** (users create a public profile with drag-and-drop links) and an **AI Instructional Coach** for 5th-grade Florida math teachers (real-time lesson transcription + Claude-powered remediation plans grounded in FL BEST Math standards). Auth is handled by Neon Auth; data is stored in a Neon (Postgres) database via Drizzle ORM.
+UnGhettoMyLife is a full-stack Next.js classroom intelligence app for 5th-grade Florida math teachers. It includes AI instructional coaching, live class tools, student session workflows, schedule management, behavior tracking, and reporting. Auth is handled by Neon Auth; data is stored in PostgreSQL via Drizzle ORM.
 
 ---
 
@@ -18,7 +18,7 @@ UnGhettoMyLife is a full-stack Next.js web app with two features: a **link-in-bi
 | Tailwind CSS v4 | Styling |
 | shadcn/ui (radix-ui) | Component library |
 | Neon Auth (`@neondatabase/auth`) | Authentication — session cookie pattern |
-| Neon Serverless + Drizzle ORM | Database — Postgres, query builder |
+| PostgreSQL + Drizzle ORM | Database — Postgres, query builder |
 | `@anthropic-ai/sdk` | AI — Claude Haiku for instructional coaching |
 | Web Speech API | Browser-native speech recognition (no dependency) |
 | Zod v4 | Schema validation |
@@ -107,7 +107,7 @@ src/
 │   │   └── server.ts         # auth.getSession() (server)
 │   ├── db/
 │   │   ├── index.ts          # Drizzle db instance
-│   │   └── schema.ts         # profiles, linkItems, clickEvents tables
+│   │   └── schema.ts         # PostgreSQL schema definitions
 │   ├── rate-limit.ts         # createRateLimiter + shared instances
 │   ├── utils.ts              # cn() helper
 │   └── validations.ts        # Zod schemas
@@ -181,15 +181,13 @@ export async function POST(request: NextRequest) {
 ## Database Schema
 
 Three tables in `src/lib/db/schema.ts`:
-- `profiles` — one per user; has `userId`, `slug`, `displayName`, `bio`, `avatarUrl`, `theme`
-- `link_items` — belongs to a profile; has `type` (`link`|`header`|`divider`), `title`, `url`, `sortOrder`
-- `click_events` — belongs to a link item; has `clickedAt` (analytics, Phase 4)
+- Legacy profile/link tables still exist in the schema, but they are not the active product focus for this codebase.
 
 ---
 
 ## Auth Pattern
 
-Protected routes: `/editor`, `/analytics`, `/settings`, `/coach` (and their sub-paths) — see `src/middleware.ts`.
+Protected routes include the authenticated classroom surfaces such as settings and coach paths — see `src/middleware.ts`.
 
 In API routes, always call `auth.getSession()` from `@/lib/auth/server`. Never trust client-supplied user IDs.
 
@@ -198,9 +196,10 @@ In API routes, always call `auth.getSession()` from `@/lib/auth/server`. Never t
 ## Environment Variables
 
 ```bash
-DATABASE_URL=             # Neon Postgres connection string
+DATABASE_URL=             # PostgreSQL connection string
 NEON_AUTH_BASE_URL=       # Neon Auth endpoint
 NEON_AUTH_COOKIE_SECRET=  # Cookie signing secret
+ALLOW_DEV_AUTH_BYPASS=    # Optional — set true only for explicit local dev bypass
 ANTHROPIC_API_KEY=        # Required for /coach AI feature
 GOOGLE_CLIENT_ID=         # Optional — production OAuth
 GOOGLE_CLIENT_SECRET=     # Optional — production OAuth

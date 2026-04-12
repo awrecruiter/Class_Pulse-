@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
-// @ts-expect-error — pdf-parse has no types bundle
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import { PDFParse } from "pdf-parse";
 import { read as xlsxRead, utils as xlsxUtils } from "xlsx";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -61,8 +60,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	if (contentType.includes("application/pdf") || contentType.includes("octet-stream")) {
 		// Try PDF first, fall back to XLSX
 		try {
-			const result = (await pdfParse(buf)) as { text: string };
-			rows = parseCsvRows(result.text);
+			const parser = new PDFParse({ data: new Uint8Array(buf) });
+			try {
+				const result = await parser.getText();
+				rows = parseCsvRows(result.text);
+			} finally {
+				await parser.destroy();
+			}
 		} catch {
 			try {
 				rows = parseXlsxRows(buf);

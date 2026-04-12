@@ -42,3 +42,4 @@ export const diRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (DI se
 export const ttsRateLimiter = createRateLimiter(30, 60_000); // 30 req/min (edge-tts synthesis)
 export const voiceAgentLimiter = createRateLimiter(20, 60_000); // 20 req/min (universal voice agent)
 export const scheduleExtractLimiter = createRateLimiter(5, 60_000); // 5 req/min (Vision + ics extract)
+export const remindersRateLimiter = createRateLimiter(20, 60_000); // 20 req/min (voice reminders)

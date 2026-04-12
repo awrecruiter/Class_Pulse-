@@ -293,7 +293,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 		}
 	}, [id, diSessionsLoaded]);
 
-	async function startSession() {
+	const startSession = useCallback(async () => {
 		setSessionLoading(true);
 		try {
 			const res = await fetch("/api/sessions", {
@@ -309,9 +309,9 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 		} finally {
 			setSessionLoading(false);
 		}
-	}
+	}, [fetchData, id]);
 
-	async function endSession() {
+	const endSession = useCallback(async () => {
 		if (!activeSession) return;
 		const endedId = activeSession.id;
 		setSessionLoading(true);
@@ -325,7 +325,24 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 		} finally {
 			setSessionLoading(false);
 		}
-	}
+	}, [activeSession]);
+
+	useEffect(() => {
+		function handleVoiceStartSession() {
+			if (!activeSession && !sessionLoading) void startSession();
+		}
+
+		function handleVoiceEndSession() {
+			if (activeSession && !sessionLoading) void endSession();
+		}
+
+		window.addEventListener("voice-start_session", handleVoiceStartSession);
+		window.addEventListener("voice-end_session", handleVoiceEndSession);
+		return () => {
+			window.removeEventListener("voice-start_session", handleVoiceStartSession);
+			window.removeEventListener("voice-end_session", handleVoiceEndSession);
+		};
+	}, [activeSession, endSession, sessionLoading, startSession]);
 
 	function copyJoinCode() {
 		if (!activeSession) return;

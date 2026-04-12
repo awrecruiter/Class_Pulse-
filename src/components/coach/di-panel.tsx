@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { DiVoiceAction } from "@/app/api/coach/di-voice/route";
 import { RamBuckBurst } from "@/components/coach/ram-buck-burst";
+import { readBooleanPreference, VOICE_DEBUG_FEEDBACK_ENABLED_KEY } from "@/lib/ui-prefs";
 
 // ─── Listen badge ────────────────────────────────────────────────────────────
 
@@ -622,7 +623,9 @@ export function DiPanel({
 				if (!result?.isFinal) return;
 				const transcript = result[0]?.transcript ?? "";
 				if (!transcript.trim()) return;
-				toast.info(`Heard: "${transcript}"`, { duration: 2000 });
+				if (readBooleanPreference(VOICE_DEBUG_FEEDBACK_ENABLED_KEY, true)) {
+					toast.info(`Heard: "${transcript}"`, { duration: 2000 });
+				}
 				setListenState("processing");
 				await dispatchFnRef.current(transcript);
 				setListenState("on");

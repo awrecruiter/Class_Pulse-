@@ -1,22 +1,19 @@
-# Link-in-Bio Page Builder
+# UnGhettoMyLife
 
-A full-stack link-in-bio page builder where users can create a personalized page with links, headers, and dividers — similar to Linktree. Built with Next.js 15, React 19, and Neon Postgres.
+A classroom intelligence platform for 5th grade Florida math teachers, built with Next.js 15, React 19, and PostgreSQL via Drizzle ORM.
 
 ## Features
 
-- **Email/Password Authentication** — Sign up, log in, and session management via Neon Auth
-- **Profile Editor** — Edit display name, bio, and avatar URL with a live phone-frame preview
-- **Link Management** — Add links, section headers, and dividers
-- **Drag-and-Drop Reorder** — Rearrange items with dnd-kit drag handles
-- **Live Preview** — Real-time preview panel that mirrors the public page layout
-- **Responsive Layout** — Side-by-side editor/preview on desktop, tab toggle on mobile
-- **Save with Feedback** — Explicit save button with toast notifications
+- **Teacher Cockpit** — Live classroom controls, voice actions, schedule tools, and behavior workflows
+- **Student Sessions** — Join-by-code classroom experiences with live signals and pushed activities
+- **AI Coaching** — Instructional, behavior, and ambient classroom guidance flows
+- **Classroom Data** — Rosters, groups, schedule blocks, RAM Bucks, behavior, and reporting
 
 ## Tech Stack
 
 - **Framework:** Next.js 15 (App Router, `src/` directory)
 - **UI:** React 19, Tailwind CSS v4, shadcn/ui, Lucide icons
-- **Database:** Neon Postgres + Drizzle ORM
+- **Database:** PostgreSQL + Drizzle ORM
 - **Auth:** Neon Auth (`@neondatabase/auth`)
 - **Drag-and-Drop:** dnd-kit
 - **Validation:** Zod
@@ -28,7 +25,9 @@ A full-stack link-in-bio page builder where users can create a personalized page
 ### Prerequisites
 
 - Node.js 18+
-- A [Neon](https://neon.tech) project with Auth enabled
+- Node.js 18+
+- A PostgreSQL database with TLS enabled
+- A Neon Auth project, or a compatible replacement if you migrate auth separately
 
 ### Setup
 
@@ -44,7 +43,7 @@ A full-stack link-in-bio page builder where users can create a personalized page
    cp .env.example .env.local
    ```
 
-   Fill in your Neon database URL, auth base URL, and cookie secret.
+   Fill in your PostgreSQL database URL, auth base URL, and cookie secret.
 
 3. **Push the database schema:**
 
@@ -62,6 +61,12 @@ A full-stack link-in-bio page builder where users can create a personalized page
 
 > **Note:** Do not use `--turbopack` — middleware does not execute with Turbopack in Next.js 15.
 
+## Security Notes
+
+- Student session cookies now require `NEON_AUTH_COOKIE_SECRET`; the app no longer falls back to an insecure default.
+- Development auth bypass is disabled unless `ALLOW_DEV_AUTH_BYPASS=true` is set explicitly.
+- For education workloads handling student records, use a managed PostgreSQL platform with a signed data processing agreement and required security controls. There is no general U.S. government "FERPA-approved database" certification.
+
 ## Project Structure
 
 ```
@@ -71,15 +76,15 @@ src/
 │   ├── (dashboard)/     # Editor page
 │   └── api/             # Profile, links, links/reorder, slug/check routes
 ├── components/
-│   ├── auth/            # Signup/login forms, slug input
-│   ├── editor/          # Link list, link item, add button, profile form, toolbar
-│   ├── preview/         # Phone-frame preview panel
-│   ├── themes/          # Minimal theme (reusable for public pages)
+│   ├── auth/            # Signup/login forms
+│   ├── board/           # Board and resource surfaces
+│   ├── coach/           # Coach panels and classroom controls
+│   ├── schedule/        # Calendar and schedule UI
+│   ├── voice/           # Voice command surfaces
 │   └── ui/              # shadcn/ui primitives
-├── db/                  # Drizzle schema + connection
-├── hooks/               # useProfile data fetching hook
-├── lib/                 # Validations, rate limiter, utils
-├── middleware.ts        # Route protection for /editor, /analytics, /settings
+├── hooks/               # Voice, mic, transcript, and schedule hooks
+├── lib/                 # Auth, DB, AI, rate limiting, and shared utilities
+├── middleware.ts        # Protected route handling
 └── types/               # Shared TypeScript types
 ```
 

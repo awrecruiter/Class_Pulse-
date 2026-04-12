@@ -17,6 +17,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import { authClient } from "@/lib/auth/client";
+import { PRODUCTION_HANDOFF_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 
 // ─── Voice controls ───────────────────────────────────────────────────────────
 
@@ -30,9 +31,23 @@ function VoiceControls() {
 		lectureMicActive,
 		agentThinking,
 	} = useVoiceQueue();
+	const [handoffMode, setHandoffMode] = useState(false);
 	const pendingCount = queue.length;
 
 	const paused = commandsEnabled && lectureMicActive;
+
+	useEffect(() => {
+		function syncPrefs() {
+			setHandoffMode(readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false));
+		}
+		syncPrefs();
+		window.addEventListener("storage", syncPrefs);
+		window.addEventListener("toast-visibility-changed", syncPrefs);
+		return () => {
+			window.removeEventListener("storage", syncPrefs);
+			window.removeEventListener("toast-visibility-changed", syncPrefs);
+		};
+	}, []);
 
 	return (
 		<div className="flex items-center gap-1 mr-2">
@@ -65,10 +80,10 @@ function VoiceControls() {
 					<>
 						{agentThinking ? (
 							<span className="h-2 w-2 rounded-full bg-violet-400 animate-pulse shrink-0" />
-						) : micActive ? (
-							<span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
 						) : (
-							<span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+							<span
+								className={`h-2 w-2 rounded-full bg-emerald-400 shrink-0 ${micActive ? "animate-pulse" : ""}`}
+							/>
 						)}
 						Command
 					</>
@@ -80,24 +95,26 @@ function VoiceControls() {
 				)}
 			</button>
 
-			<button
-				type="button"
-				onClick={() => setDrawerOpen(true)}
-				className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-					pendingCount > 0
-						? "bg-violet-500/15 text-violet-300 hover:bg-violet-500/25"
-						: "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
-				}`}
-				title="Voice queue"
-			>
-				<MicIcon className="h-3.5 w-3.5" />
-				Queue
-				{pendingCount > 0 && (
-					<span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 text-white text-[9px] font-bold flex items-center justify-center">
-						{pendingCount}
-					</span>
-				)}
-			</button>
+			{!handoffMode && (
+				<button
+					type="button"
+					onClick={() => setDrawerOpen(true)}
+					className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+						pendingCount > 0
+							? "bg-violet-500/15 text-violet-300 hover:bg-violet-500/25"
+							: "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
+					}`}
+					title="Voice queue"
+				>
+					<MicIcon className="h-3.5 w-3.5" />
+					Queue
+					{pendingCount > 0 && (
+						<span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 text-white text-[9px] font-bold flex items-center justify-center">
+							{pendingCount}
+						</span>
+					)}
+				</button>
+			)}
 		</div>
 	);
 }

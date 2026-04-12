@@ -25,11 +25,26 @@ export type QueueItemData =
 	| { type: "stop_lecture" }
 	| {
 			type: "navigate";
-			destination: "board" | "classes" | "settings" | "coach" | "store" | "gradebook";
+			destination:
+				| "board"
+				| "classes"
+				| "settings"
+				| "coach"
+				| "store"
+				| "gradebook"
+				| "parent-comms";
 	  }
 	| { type: "ask_coach"; question: string }
 	| { type: "show_schedule" }
-	| { type: "open_doc"; label: string; url: string };
+	| { type: "show_groups" }
+	| { type: "open_doc"; label: string; url: string }
+	| { type: "create_class"; label: string }
+	| { type: "open_class"; className: string }
+	| { type: "export_gradebook"; from?: string; to?: string }
+	| { type: "approve_purchase"; studentName?: string; itemName?: string }
+	| { type: "reject_purchase"; studentName?: string; itemName?: string }
+	| { type: "draft_parent_message"; studentName: string; messageText: string }
+	| { type: "send_parent_message"; studentName: string; messageText: string };
 
 export interface QueueItem {
 	id: string;
@@ -115,7 +130,8 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 	const setActiveClassId = useCallback((id: string) => {
 		setActiveClassIdRaw(id);
 		try {
-			localStorage.setItem("activeClassId", id);
+			if (id) localStorage.setItem("activeClassId", id);
+			else localStorage.removeItem("activeClassId");
 		} catch {
 			/* noop */
 		}

@@ -8,10 +8,29 @@ import {
 	TriangleAlertIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
+import { readBooleanPreference, TOASTS_ENABLED_KEY } from "@/lib/ui-prefs";
 
 const Toaster = ({ ...props }: ToasterProps) => {
 	const { theme = "system" } = useTheme();
+	const [enabled, setEnabled] = useState(true);
+
+	useEffect(() => {
+		function syncFromStorage() {
+			setEnabled(readBooleanPreference(TOASTS_ENABLED_KEY, true));
+		}
+
+		syncFromStorage();
+		window.addEventListener("toast-visibility-changed", syncFromStorage);
+		window.addEventListener("storage", syncFromStorage);
+		return () => {
+			window.removeEventListener("toast-visibility-changed", syncFromStorage);
+			window.removeEventListener("storage", syncFromStorage);
+		};
+	}, []);
+
+	if (!enabled) return null;
 
 	return (
 		<Sonner

@@ -13,6 +13,7 @@ import {
 import { CoinsIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { GroupRow } from "@/app/(dashboard)/coach/use-coach-classroom";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 
 interface MilestoneData {
@@ -33,6 +34,8 @@ interface GroupData {
 
 interface Props {
 	classId: string;
+	initialStudents?: StudentOverview[];
+	initialGroups?: GroupRow[];
 }
 
 // ── Color map ─────────────────────────────────────────────────────────────────
@@ -312,16 +315,26 @@ function UnassignedDropZone({ unassigned }: { unassigned: StudentOverview[] }) {
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
-export function GroupsSidebarPanel({ classId }: Props) {
-	const [groups, setGroups] = useState<GroupData[]>([]);
+export function GroupsSidebarPanel({ classId, initialStudents, initialGroups }: Props) {
+	const [groups, setGroups] = useState<GroupData[]>(
+		(initialGroups ?? []).map((g) => ({
+			id: g.id,
+			name: g.name,
+			emoji: g.emoji,
+			color: "blue",
+			balance: 0,
+			memberRosterIds: g.memberRosterIds,
+		})),
+	);
 	const [milestones, setMilestones] = useState<MilestoneData[]>([]);
-	const [students, setStudents] = useState<StudentOverview[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [students, setStudents] = useState<StudentOverview[]>(initialStudents ?? []);
+	const [loading, setLoading] = useState((initialGroups?.length ?? 0) === 0);
 	const [draggingStudent, setDraggingStudent] = useState<{
 		rosterId: string;
 		displayName: string;
 	} | null>(null);
 	const autoCreatedClassRef = useRef<string>("");
+	const hydratedClassRef = useRef<string | null>(null);
 
 	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -399,8 +412,29 @@ export function GroupsSidebarPanel({ classId }: Props) {
 		}
 	}
 
+	useEffect(() => {
+		if (initialStudents) setStudents(initialStudents);
+	}, [initialStudents]);
+
+	useEffect(() => {
+		if (!initialGroups) return;
+		setGroups((prev) => {
+			const balances = new Map(prev.map((g) => [g.id, g.balance]));
+			const colors = new Map(prev.map((g) => [g.id, g.color]));
+			return initialGroups.map((g) => ({
+				id: g.id,
+				name: g.name,
+				emoji: g.emoji,
+				color: colors.get(g.id) ?? "blue",
+				balance: balances.get(g.id) ?? 0,
+				memberRosterIds: g.memberRosterIds,
+			}));
+		});
+		if (initialGroups.length > 0) setLoading(false);
+	}, [initialGroups]);
+
 	const fetchData = (id: string, silent = false) => {
-		if (!silent) setLoading(true);
+		if (!silent && !(hydratedClassRef.current === id && groups.length > 0)) setLoading(true);
 		const safeGroups = fetch(`/api/classes/${id}/groups`)
 			.then((r) => (r.ok ? r.json() : { groups: [] }))
 			.catch(() => ({ groups: [] }));
@@ -410,9 +444,11 @@ export function GroupsSidebarPanel({ classId }: Props) {
 		const safeMilestones = fetch(`/api/classes/${id}/group-milestones`)
 			.then((r) => (r.ok ? r.json() : { milestones: [] }))
 			.catch(() => ({ milestones: [] }));
-		const safeRoster = fetch(`/api/classes/${id}/roster-overview`)
-			.then((r) => (r.ok ? r.json() : { students: [] }))
-			.catch(() => ({ students: [] }));
+		const safeRoster = initialStudents
+			? Promise.resolve({ students: initialStudents })
+			: fetch(`/api/classes/${id}/roster-overview`)
+					.then((r) => (r.ok ? r.json() : { students: [] }))
+					.catch(() => ({ students: [] }));
 		Promise.all([safeGroups, safeAccounts, safeMilestones, safeRoster])
 			.then(([groupsJson, accountsJson, milestonesJson, rosterJson]) => {
 				type RawGroup = {
@@ -423,9 +459,6 @@ export function GroupsSidebarPanel({ classId }: Props) {
 					members: { rosterId: string }[];
 				};
 				const groupsData: RawGroup[] = groupsJson.groups ?? [];
-
-				if (silent && groupsData.length === 0) return;
-
 				if (groupsData.length === 0 && autoCreatedClassRef.current !== id) {
 					autoCreatedClassRef.current = id;
 					fetch(`/api/classes/${id}/groups`, {
@@ -433,7 +466,7 @@ export function GroupsSidebarPanel({ classId }: Props) {
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ action: "create-groups" }),
 					})
-						.then(() => fetchData(id))
+						.then(() => fetchData(id, silent))
 						.catch(() => setLoading(false));
 					return;
 				}
@@ -461,6 +494,7 @@ export function GroupsSidebarPanel({ classId }: Props) {
 					),
 				);
 				setStudents(rosterJson.students ?? []);
+				hydratedClassRef.current = id;
 			})
 			.finally(() => setLoading(false));
 	};

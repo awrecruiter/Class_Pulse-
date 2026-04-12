@@ -50,6 +50,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		.from(studentGroups)
 		.where(eq(studentGroups.classId, classId))
 		.orderBy(studentGroups.sortOrder);
+	const ensuredGroups =
+		groups.length > 0
+			? groups
+			: (
+					await db
+						.insert(studentGroups)
+						.values(DEFAULT_GROUPS.map((g) => ({ ...g, classId })))
+						.returning()
+				).sort((a, b) => a.sortOrder - b.sortOrder);
 
 	const memberships = await db
 		.select({
@@ -65,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		.innerJoin(rosterEntries, eq(groupMemberships.rosterId, rosterEntries.id))
 		.where(eq(groupMemberships.classId, classId));
 
-	const groupsWithMembers = groups.map((g) => ({
+	const groupsWithMembers = ensuredGroups.map((g) => ({
 		...g,
 		members: memberships.filter((m) => m.groupId === g.id),
 	}));

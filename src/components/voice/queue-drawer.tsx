@@ -17,7 +17,9 @@ import {
 	UsersIcon,
 	XIcon,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { type QueueItem, useVoiceQueue } from "@/contexts/voice-queue";
+import { PRODUCTION_HANDOFF_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 
 function itemIcon(item: QueueItem) {
 	switch (item.data.type) {
@@ -53,6 +55,18 @@ function itemIcon(item: QueueItem) {
 		case "show_schedule":
 		case "open_doc":
 			return <ArrowRightIcon className="h-4 w-4 text-slate-400" />;
+		case "create_class":
+		case "open_class":
+			return <UsersIcon className="h-4 w-4 text-indigo-400" />;
+		case "export_gradebook":
+			return <ArrowRightIcon className="h-4 w-4 text-emerald-400" />;
+		case "approve_purchase":
+			return <CheckIcon className="h-4 w-4 text-emerald-400" />;
+		case "reject_purchase":
+			return <XIcon className="h-4 w-4 text-red-400" />;
+		case "draft_parent_message":
+		case "send_parent_message":
+			return <MessageSquareIcon className="h-4 w-4 text-violet-400" />;
 	}
 }
 
@@ -95,6 +109,22 @@ function itemLabel(item: QueueItem): string {
 			return "Show today's schedule";
 		case "open_doc":
 			return `Open doc: ${d.label}`;
+		case "create_class":
+			return `Create class: ${d.label}`;
+		case "open_class":
+			return `Open class: ${d.className}`;
+		case "export_gradebook":
+			return "Export gradebook CSV";
+		case "approve_purchase":
+			return `Approve purchase${d.studentName ? ` for ${d.studentName}` : ""}`;
+		case "reject_purchase":
+			return `Reject purchase${d.studentName ? ` for ${d.studentName}` : ""}`;
+		case "draft_parent_message":
+			return `Draft parent message for ${d.studentName}`;
+		case "send_parent_message":
+			return `Send parent message for ${d.studentName}`;
+		default:
+			return `Heard: "${item.transcript}"`;
 	}
 }
 
@@ -103,6 +133,9 @@ function itemSub(item: QueueItem): string {
 	if (d.type === "parent_message") return `"${d.messageText}"`;
 	if (d.type === "behavior_log") return d.notes;
 	if (d.type === "ram_bucks_deduct") return d.reason;
+	if (d.type === "approve_purchase" || d.type === "reject_purchase")
+		return [d.studentName, d.itemName].filter(Boolean).join(" • ") || `Heard: "${item.transcript}"`;
+	if (d.type === "draft_parent_message" || d.type === "send_parent_message") return d.messageText;
 	return `Heard: "${item.transcript}"`;
 }
 
@@ -114,8 +147,22 @@ interface QueueDrawerProps {
 
 export function QueueDrawer({ open, onClose, onExecute }: QueueDrawerProps) {
 	const { queue, dismiss, dismissAll } = useVoiceQueue();
+	const [handoffMode, setHandoffMode] = useState(false);
 
-	if (!open) return null;
+	useEffect(() => {
+		function syncPrefs() {
+			setHandoffMode(readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false));
+		}
+		syncPrefs();
+		window.addEventListener("storage", syncPrefs);
+		window.addEventListener("toast-visibility-changed", syncPrefs);
+		return () => {
+			window.removeEventListener("storage", syncPrefs);
+			window.removeEventListener("toast-visibility-changed", syncPrefs);
+		};
+	}, []);
+
+	if (!open || handoffMode) return null;
 
 	return (
 		<>

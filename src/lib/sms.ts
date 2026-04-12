@@ -83,6 +83,7 @@ export async function sendSms(to: string, body: string): Promise<SmsResult> {
 	const region = process.env.AWS_REGION ?? "us-east-1";
 
 	if (!accessKeyId || !secretAccessKey) {
+		console.warn("[sms] AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not set — SMS disabled");
 		return { ok: false, error: "AWS SNS not configured" };
 	}
 
@@ -114,6 +115,7 @@ export async function sendSms(to: string, body: string): Promise<SmsResult> {
 
 		if (!res.ok) {
 			const match = text.match(/<Message>(.+?)<\/Message>/);
+			console.error("[sms] SNS HTTP error:", match?.[1] ?? `HTTP ${res.status}`);
 			return { ok: false, error: match?.[1] ?? `HTTP ${res.status}` };
 		}
 
@@ -121,6 +123,7 @@ export async function sendSms(to: string, body: string): Promise<SmsResult> {
 		return { ok: true, sid: idMatch?.[1] };
 	} catch (err) {
 		const error = err instanceof Error ? err.message : "Unknown error";
+		console.error("[sms] sendSms threw:", err);
 		return { ok: false, error };
 	}
 }
