@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/server";
 import { type ProposedBlock, parseIcs } from "@/lib/ics-parser";
 import { scheduleExtractLimiter } from "@/lib/rate-limit";
+import { isSurfaceEnabledForUser } from "@/lib/subscription/gates";
 
 const imageSchema = z.object({
 	type: z.literal("image"),
@@ -25,6 +26,11 @@ export async function POST(request: NextRequest) {
 
 	const { data } = await auth.getSession();
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+	const isEnabled = await isSurfaceEnabledForUser(data.user.id, "planning");
+	if (!isEnabled) {
+		return NextResponse.json({ error: "Feature not enabled" }, { status: 403 });
+	}
 
 	const body = await request.json();
 	const result = bodySchema.safeParse(body);

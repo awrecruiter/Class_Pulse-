@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { type CoachRequest, getScaffold } from "@/lib/ai/coach";
 import { auth } from "@/lib/auth/server";
 import { coachRateLimiter } from "@/lib/rate-limit";
+import { isSurfaceEnabledForUser } from "@/lib/subscription/gates";
 
 export async function POST(request: NextRequest) {
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
@@ -13,6 +14,11 @@ export async function POST(request: NextRequest) {
 	const { data } = await auth.getSession();
 	if (!data?.user) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
+	const isEnabled = await isSurfaceEnabledForUser(data.user.id, "instructional_coach");
+	if (!isEnabled) {
+		return NextResponse.json({ error: "Feature not enabled" }, { status: 403 });
 	}
 
 	let body: unknown;

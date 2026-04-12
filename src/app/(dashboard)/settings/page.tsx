@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
 import { Button } from "@/components/ui/button";
+import type { ServiceSurface } from "@/lib/subscription";
 import {
 	PRODUCTION_HANDOFF_MODE_KEY,
 	readBooleanPreference,
@@ -58,6 +59,21 @@ type PrivilegeItem = {
 };
 
 type ClassRow = { id: string; label: string };
+
+const SURFACE_META: Record<ServiceSurface, { label: string; description: string }> = {
+	behavior_class_management: {
+		label: "Behavior / Class Management",
+		description: "Classes, roster, groups, behavior, RAM Bucks, store, and class operations.",
+	},
+	instructional_coach: {
+		label: "Instructional Coach",
+		description: "AI coaching, ambient scan, academic guidance, and intervention support.",
+	},
+	planning: {
+		label: "Planning",
+		description: "Schedule workflows, extraction/import, planning docs, and prep-time tooling.",
+	},
+};
 
 // ─── Schedule Manager ─────────────────────────────────────────────────────────
 
@@ -341,6 +357,8 @@ export default function SettingsPage() {
 	const [loadError, setLoadError] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [enabledSurfaces, setEnabledSurfaces] = useState<ServiceSurface[]>([]);
+	const [surfacesLoading, setSurfacesLoading] = useState(true);
 
 	// Voice lock
 	const [voiceProfile, setVoiceProfile] = useState<VoiceProfile | null>(null);
@@ -393,6 +411,19 @@ export default function SettingsPage() {
 		}
 	}, []);
 
+	const fetchEnabledSurfaces = useCallback(async () => {
+		try {
+			const res = await fetch("/api/subscription");
+			if (!res.ok) return;
+			const json = (await res.json()) as { enabledSurfaces?: ServiceSurface[] };
+			setEnabledSurfaces(json.enabledSurfaces ?? []);
+		} catch {
+			/* noop */
+		} finally {
+			setSurfacesLoading(false);
+		}
+	}, []);
+
 	const fetchFeeSchedule = useCallback(async () => {
 		try {
 			const res = await fetch("/api/teacher-settings/fee-schedule");
@@ -419,6 +450,7 @@ export default function SettingsPage() {
 
 	useEffect(() => {
 		fetchSettings();
+		fetchEnabledSurfaces();
 		fetchFeeSchedule();
 		fetchPrivilegeItems();
 		fetch("/api/classes")
@@ -431,7 +463,7 @@ export default function SettingsPage() {
 				),
 			)
 			.catch(() => {});
-	}, [fetchSettings, fetchFeeSchedule, fetchPrivilegeItems]);
+	}, [fetchEnabledSurfaces, fetchSettings, fetchFeeSchedule, fetchPrivilegeItems]);
 
 	async function handleEnrollVoice() {
 		setEnrolling(true);
@@ -629,6 +661,7 @@ export default function SettingsPage() {
 						["mastery", "Mastery"],
 						["comprehension", "Comprehension"],
 						["privacy", "Privacy"],
+						["surfaces", "Surfaces"],
 						["store", "Store"],
 						["di", "DI Sessions"],
 						["voice", "Voice"],
@@ -648,6 +681,48 @@ export default function SettingsPage() {
 			</nav>
 
 			<form onSubmit={handleSave} className="flex flex-col gap-6">
+				<section id="surfaces" className="flex flex-col gap-4">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Product Surfaces
+					</h2>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-3">
+						<p className="text-xs text-slate-400">
+							These surfaces control which major feature areas are enabled for your account.
+						</p>
+						<div className="grid gap-3">
+							{(
+								Object.entries(SURFACE_META) as [
+									ServiceSurface,
+									(typeof SURFACE_META)[ServiceSurface],
+								][]
+							).map(([surface, meta]) => {
+								const enabled = enabledSurfaces.includes(surface);
+								return (
+									<div
+										key={surface}
+										className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-3 flex items-start justify-between gap-3"
+									>
+										<div className="min-w-0">
+											<p className="text-sm font-medium text-slate-200">{meta.label}</p>
+											<p className="text-xs text-slate-400 mt-1">{meta.description}</p>
+										</div>
+										<span
+											className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+												enabled
+													? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+													: "bg-slate-800 text-slate-400 border border-slate-700"
+											}`}
+										>
+											{surfacesLoading ? "Loading..." : enabled ? "Enabled" : "Locked"}
+										</span>
+									</div>
+								);
+							})}
+						</div>
+					</div>
+				</section>
+
 				{/* ── Mastery Loop ────────────────────────────────── */}
 				<section id="mastery" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">

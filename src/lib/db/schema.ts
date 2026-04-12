@@ -91,6 +91,60 @@ export const teacherSettings = pgTable("teacher_settings", {
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── Organizations and entitlement foundation ───────────────────────────────
+
+export const organizations = pgTable(
+	"organizations",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		slug: text("slug").notNull().unique(),
+		name: text("name").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [uniqueIndex("idx_organizations_slug").on(table.slug)],
+);
+
+export const organizationMemberships = pgTable(
+	"organization_memberships",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		organizationId: uuid("organization_id")
+			.notNull()
+			.references(() => organizations.id, { onDelete: "cascade" }),
+		userId: text("user_id").notNull(),
+		role: text("role").notNull().default("teacher"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_organization_memberships_organization_id").on(table.organizationId),
+		uniqueIndex("idx_organization_memberships_user_id").on(table.userId),
+		uniqueIndex("idx_organization_memberships_org_user").on(table.organizationId, table.userId),
+	],
+);
+
+export const subscriptions = pgTable(
+	"subscriptions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		organizationId: uuid("organization_id")
+			.notNull()
+			.references(() => organizations.id, { onDelete: "cascade" }),
+		status: text("status").notNull().default("active"),
+		behaviorClassManagementEnabled: boolean("behavior_class_management_enabled")
+			.notNull()
+			.default(true),
+		instructionalCoachEnabled: boolean("instructional_coach_enabled").notNull().default(true),
+		planningEnabled: boolean("planning_enabled").notNull().default(true),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_subscriptions_organization_id").on(table.organizationId),
+		index("idx_subscriptions_status").on(table.status),
+	],
+);
+
 // A recurring class period — exists all semester. Teacher may have AM + PM + Period 3, etc.
 export const classes = pgTable(
 	"classes",
@@ -1042,5 +1096,24 @@ export const scheduleDocLinksRelations = relations(scheduleDocLinks, ({ one }) =
 	block: one(scheduleBlocks, {
 		fields: [scheduleDocLinks.blockId],
 		references: [scheduleBlocks.id],
+	}),
+}));
+
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+	memberships: many(organizationMemberships),
+	subscriptions: many(subscriptions),
+}));
+
+export const organizationMembershipsRelations = relations(organizationMemberships, ({ one }) => ({
+	organization: one(organizations, {
+		fields: [organizationMemberships.organizationId],
+		references: [organizations.id],
+	}),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+	organization: one(organizations, {
+		fields: [subscriptions.organizationId],
+		references: [organizations.id],
 	}),
 }));

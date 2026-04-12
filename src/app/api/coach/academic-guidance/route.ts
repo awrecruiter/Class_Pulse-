@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
 import { sendSms } from "@/lib/sms";
+import { isSurfaceEnabledForUser } from "@/lib/subscription/gates";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -40,6 +41,11 @@ export async function POST(request: NextRequest) {
 
 	const { data } = await auth.getSession();
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+	const isEnabled = await isSurfaceEnabledForUser(data.user.id, "instructional_coach");
+	if (!isEnabled) {
+		return NextResponse.json({ error: "Feature not enabled" }, { status: 403 });
+	}
 
 	const body = await request.json();
 	const result = guidanceSchema.safeParse(body);
