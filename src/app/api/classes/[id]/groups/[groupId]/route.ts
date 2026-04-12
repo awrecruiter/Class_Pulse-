@@ -8,6 +8,7 @@ import {
 	classes,
 	groupMemberships,
 	ramBuckAccounts,
+	rosterEntries,
 	studentGroups,
 } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
@@ -59,33 +60,58 @@ export async function PUT(
 
 	const { rosterId } = result.data;
 
-	// Enforce max 6 students per group
-	const currentMembers = await db
-		.select({ rosterId: groupMemberships.rosterId })
-		.from(groupMemberships)
-		.where(and(eq(groupMemberships.groupId, groupId), eq(groupMemberships.classId, classId)));
+	try {
+		const [rosterEntry] = await db
+			.select({ id: rosterEntries.id })
+			.from(rosterEntries)
+			.where(and(eq(rosterEntries.id, rosterId), eq(rosterEntries.classId, classId)));
+		if (!rosterEntry) {
+			return NextResponse.json({ error: "Student not found in this class" }, { status: 404 });
+		}
 
-	const alreadyInGroup = currentMembers.some((m) => m.rosterId === rosterId);
-	if (!alreadyInGroup && currentMembers.length >= 6) {
-		return NextResponse.json({ error: "Group is full (max 6 students)" }, { status: 400 });
-	}
+		// Enforce max 6 students per group
+		const currentMembers = await db
+			.select({ rosterId: groupMemberships.rosterId })
+			.from(groupMemberships)
+			.where(and(eq(groupMemberships.groupId, groupId), eq(groupMemberships.classId, classId)));
 
-	// Upsert membership
-	await db
-		.insert(groupMemberships)
-		.values({ classId, groupId, rosterId })
-		.onConflictDoUpdate({
-			target: [groupMemberships.classId, groupMemberships.rosterId],
-			set: { groupId, assignedAt: new Date() },
+		const alreadyInGroup = currentMembers.some((m) => m.rosterId === rosterId);
+		if (!alreadyInGroup && currentMembers.length >= 6) {
+			return NextResponse.json({ error: "Group is full (max 6 students)" }, { status: 400 });
+		}
+
+		const [existingMembership] = await db
+			.select({ id: groupMemberships.id, groupId: groupMemberships.groupId })
+			.from(groupMemberships)
+			.where(and(eq(groupMemberships.classId, classId), eq(groupMemberships.rosterId, rosterId)));
+
+		if (existingMembership) {
+			if (existingMembership.groupId !== groupId) {
+				await db
+					.update(groupMemberships)
+					.set({ groupId, assignedAt: new Date() })
+					.where(eq(groupMemberships.id, existingMembership.id));
+			}
+		} else {
+			await db.insert(groupMemberships).values({ classId, groupId, rosterId });
+		}
+
+		// Ensure ram buck account exists for student
+		await db.insert(ramBuckAccounts).values({ classId, rosterId }).onConflictDoNothing();
+
+		// Ensure behavior profile exists for student
+		await db.insert(behaviorProfiles).values({ classId, rosterId }).onConflictDoNothing();
+
+		return NextResponse.json({ ok: true });
+	} catch (error) {
+		console.error("[groups.move] failed to move student", {
+			classId,
+			groupId,
+			rosterId,
+			error,
 		});
-
-	// Ensure ram buck account exists for student
-	await db.insert(ramBuckAccounts).values({ classId, rosterId }).onConflictDoNothing();
-
-	// Ensure behavior profile exists for student
-	await db.insert(behaviorProfiles).values({ classId, rosterId }).onConflictDoNothing();
-
-	return NextResponse.json({ ok: true });
+		return NextResponse.json({ error: "Failed to move student" }, { status: 500 });
+	}
 }
 
 // DELETE /api/classes/[id]/groups/[groupId] — remove student from group
