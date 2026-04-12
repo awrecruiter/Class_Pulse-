@@ -25,6 +25,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		confirm,
 		dismiss,
 		commandsEnabled,
+		setCommandsEnabled,
 		drawerOpen,
 		setDrawerOpen,
 		setMicActive,
@@ -821,7 +822,12 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	const { isListening, stop: stopGlobalNow } = useGlobalVoiceCommands({
 		onBoardCommand: handleBoardCommand,
 		onError: (error) => {
-			if (error === "no-speech" || error === "aborted") return;
+			if (error === "no-speech") return;
+			if (error === "aborted") {
+				setCommandsEnabled(false);
+				toast.error("Voice commands were stopped by the browser — tap Command to re-enable them");
+				return;
+			}
 			if (error === "not-supported") {
 				toast.error("Voice commands are not supported in this browser");
 				return;

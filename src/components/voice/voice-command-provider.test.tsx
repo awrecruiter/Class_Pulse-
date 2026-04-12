@@ -15,6 +15,7 @@ let latestVoiceTranscriptHandler: ((transcript: string) => void) | undefined;
 let latestBoardCommandHandler:
 	| ((cmd: { type: string; label?: string; href?: string }, transcript: string) => void)
 	| undefined;
+let latestVoiceErrorHandler: ((error: string) => void) | undefined;
 
 vi.mock("sonner", () => ({
 	toast: {
@@ -31,21 +32,23 @@ vi.mock("@/hooks/use-global-voice-commands", () => ({
 			cmd: { type: string; label?: string; href?: string },
 			transcript: string,
 		) => void;
+		onError?: (error: string) => void;
 	}) => {
 		latestVoiceTranscriptHandler = options.onVoiceTranscript;
 		latestBoardCommandHandler = options.onBoardCommand;
+		latestVoiceErrorHandler = options.onError;
 		return { isListening: false, stop: stopGlobalNow };
 	},
 }));
 
 function Harness({ onQueueChange }: { onQueueChange?: (size: number) => void }) {
-	const { queue } = useVoiceQueue();
+	const { queue, commandsEnabled } = useVoiceQueue();
 
 	useEffect(() => {
 		onQueueChange?.(queue.length);
 	}, [queue.length, onQueueChange]);
 
-	return null;
+	return <div data-testid="commands-enabled">{String(commandsEnabled)}</div>;
 }
 
 function renderProvider(onQueueChange?: (size: number) => void) {
@@ -62,6 +65,7 @@ describe("VoiceCommandProvider", () => {
 	beforeEach(() => {
 		latestVoiceTranscriptHandler = undefined;
 		latestBoardCommandHandler = undefined;
+		latestVoiceErrorHandler = undefined;
 		localStorage.clear();
 		localStorage.setItem("activeClassId", "class-123");
 		toastSuccess.mockReset();
@@ -118,6 +122,22 @@ describe("VoiceCommandProvider", () => {
 		await waitFor(() => {
 			expect(queueSizes.at(-1)).toBe(1);
 		});
+	});
+
+	it("turns commands off after an aborted browser stop and tells the user to re-enable them", async () => {
+		renderProvider();
+
+		await waitFor(() => expect(latestVoiceErrorHandler).toBeTypeOf("function"));
+		expect(screen.getByTestId("commands-enabled")).toHaveTextContent("true");
+
+		await act(async () => {
+			latestVoiceErrorHandler?.("aborted");
+		});
+
+		expect(screen.getByTestId("commands-enabled")).toHaveTextContent("false");
+		expect(toastError).toHaveBeenCalledWith(
+			"Voice commands were stopped by the browser — tap Command to re-enable them",
+		);
 	});
 
 	it("emits a start-session event when the voice agent returns start_session", async () => {

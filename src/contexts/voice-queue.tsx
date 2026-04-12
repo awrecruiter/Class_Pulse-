@@ -85,6 +85,7 @@ interface VoiceQueueCtx {
 	dismissAll: () => void;
 	commandsEnabled: boolean;
 	toggleCommands: () => void;
+	setCommandsEnabled: (enabled: boolean) => void;
 	drawerOpen: boolean;
 	setDrawerOpen: (open: boolean) => void;
 	micActive: boolean;
@@ -155,12 +156,15 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 	const dismiss = useCallback((id: string) => dispatch({ type: "DISMISS", id }), []);
 	const dismissAll = useCallback(() => dispatch({ type: "DISMISS_ALL" }), []);
 	const commandsEnabledRef = useRef(true);
+	const setCommandsEnabledDirectly = useCallback((enabled: boolean) => {
+		commandsEnabledRef.current = enabled;
+		setCommandsEnabled(enabled);
+	}, []);
 	const toggleCommands = useCallback(() => {
 		const turningOn = !commandsEnabledRef.current;
 		if (turningOn) playActivationChime();
-		commandsEnabledRef.current = turningOn;
-		setCommandsEnabled(turningOn);
-	}, []);
+		setCommandsEnabledDirectly(turningOn);
+	}, [setCommandsEnabledDirectly]);
 	const triggerBoardOpenLast = useCallback(() => setBoardOpenLast((n) => n + 1), []);
 	const commandStopperRef = useRef<() => void>(() => {});
 	const stopCommandsNow = useCallback(() => commandStopperRef.current(), []);
@@ -178,6 +182,7 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 				dismissAll,
 				commandsEnabled,
 				toggleCommands,
+				setCommandsEnabled: setCommandsEnabledDirectly,
 				drawerOpen,
 				setDrawerOpen,
 				micActive,
