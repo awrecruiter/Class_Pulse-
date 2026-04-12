@@ -744,6 +744,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					});
 					if (!res.ok) throw new Error("Failed");
 					toast.success(`+${d.amount} 🐏 RAM Bucks → ${d.studentName}`);
+					window.dispatchEvent(new CustomEvent("ram-bucks-updated"));
 					confirm(item.id);
 				} else if (d.type === "group_coins") {
 					const group = await resolveGroup(classId, d.group);
@@ -800,6 +801,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					});
 					if (!res.ok) throw new Error("Failed");
 					toast.success(`-${d.amount} RAM Bucks from ${d.studentName}`);
+					window.dispatchEvent(new CustomEvent("ram-bucks-updated"));
 					confirm(item.id);
 				} else if (d.type === "clear_group") {
 					const groupRes = await fetch(`/api/classes/${classId}/groups`);

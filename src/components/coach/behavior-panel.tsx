@@ -284,6 +284,14 @@ export function BehaviorPanel() {
 		if (selectedClassId) fetchStudents(selectedClassId);
 	}, [selectedClassId, fetchStudents]);
 
+	useEffect(() => {
+		function handleRamBucksUpdated() {
+			if (selectedClassId) fetchStudents(selectedClassId);
+		}
+		window.addEventListener("ram-bucks-updated", handleRamBucksUpdated);
+		return () => window.removeEventListener("ram-bucks-updated", handleRamBucksUpdated);
+	}, [selectedClassId, fetchStudents]);
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: isLoading triggers scroll
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
