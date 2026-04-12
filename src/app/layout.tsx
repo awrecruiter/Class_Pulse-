@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "UnGhettoMyLife — AI Instructional Coach",
+	title: "Class Pulse — AI Instructional Coach",
 	description: "AI-powered remediation coaching for Florida math teachers",
 };
 

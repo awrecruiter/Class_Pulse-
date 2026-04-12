@@ -1,4 +1,4 @@
-# UnGhettoMyLife
+# Class Pulse
 
 A classroom intelligence platform for 5th grade Florida math teachers, built with Next.js 15, React 19, and PostgreSQL via Drizzle ORM.
 

@@ -1,5 +1,5 @@
 # Product Requirements Document
-## UnGhettoMyLife — Classroom Intelligence Platform
+## Class Pulse — Classroom Intelligence Platform
 
 **Last updated:** 2026-02-28
 **Status:** Phase 6 (Lecture Visualizer + Settings) shipped — Phases 1–6 of Classroom Intelligence System complete
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-UnGhettoMyLife is a mobile-first classroom intelligence platform for 5th grade Florida math teachers. It combines an AI Instructional Coach, a real-time student comprehension system, an interactive adaptive learning engine, and a classroom behavior/economy management system — all built for the specific needs of FL BEST Math instruction.
+Class Pulse is a mobile-first classroom intelligence platform for 5th grade Florida math teachers. It combines an AI Instructional Coach, a real-time student comprehension system, an interactive adaptive learning engine, and a classroom behavior/economy management system — all built for the specific needs of FL BEST Math instruction.
 
 The platform operates across three surfaces:
 - **Teacher device** — AI coach, live class dashboard, behavior management, RAM Buck economy

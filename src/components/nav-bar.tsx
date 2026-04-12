@@ -218,7 +218,7 @@ export function NavBar() {
 		<nav className="border-b border-slate-800 bg-slate-900 sticky top-0 z-30">
 			<div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
 				<Link href="/coach" className="text-base font-bold shrink-0 text-white">
-					UnGhettoMyLife
+					Class Pulse
 				</Link>
 
 				<div className="flex items-center gap-0.5 ml-6">

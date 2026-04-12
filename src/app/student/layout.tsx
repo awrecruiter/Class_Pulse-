@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-	title: "RAM Class — Student",
+	title: "Class Pulse — Student",
 };
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {

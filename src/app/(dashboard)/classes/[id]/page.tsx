@@ -677,7 +677,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 								{/* Join code — large and prominent */}
 								<div className="flex flex-col items-center gap-2 py-3">
 									<p className="text-xs text-slate-400">
-										Students go to unghettoMyLife.com/student and enter:
+										Students go to class-pulse-nine.vercel.app/student and enter:
 									</p>
 									<div className="flex items-center gap-3">
 										<span className="font-mono text-4xl font-bold tracking-[0.25em] text-slate-200">

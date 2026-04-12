@@ -17,7 +17,7 @@ This file is the Codex-facing equivalent of `CLAUDE.md` for this repository.
 
 ## Project Overview
 
-UnGhettoMyLife is a classroom intelligence platform for 5th-grade Florida math teachers with AI instructional coaching, live classroom workflows, student session tools, and reporting.
+Class Pulse is a classroom intelligence platform for 5th-grade Florida math teachers with AI instructional coaching, live classroom workflows, student session tools, and reporting.
 
 Auth is currently handled by Neon Auth. Data is stored in PostgreSQL via Drizzle ORM.
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-UnGhettoMyLife is a full-stack Next.js classroom intelligence app for 5th-grade Florida math teachers. It includes AI instructional coaching, live class tools, student session workflows, schedule management, behavior tracking, and reporting. Auth is handled by Neon Auth; data is stored in PostgreSQL via Drizzle ORM.
+Class Pulse is a full-stack Next.js classroom intelligence app for 5th-grade Florida math teachers. It includes AI instructional coaching, live class tools, student session workflows, schedule management, behavior tracking, and reporting. Auth is handled by Neon Auth; data is stored in PostgreSQL via Drizzle ORM.
 
 ---
 
