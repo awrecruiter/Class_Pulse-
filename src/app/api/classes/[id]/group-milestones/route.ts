@@ -26,13 +26,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const owns = await verifyTeacherOwnsClass(classId, data.user.id);
 	if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-	const milestones = await db
-		.select()
-		.from(groupMilestones)
-		.where(eq(groupMilestones.classId, classId))
-		.orderBy(asc(groupMilestones.coinsRequired), asc(groupMilestones.sortOrder));
+	try {
+		const milestones = await db
+			.select()
+			.from(groupMilestones)
+			.where(eq(groupMilestones.classId, classId))
+			.orderBy(asc(groupMilestones.coinsRequired), asc(groupMilestones.sortOrder));
 
-	return NextResponse.json({ milestones });
+		return NextResponse.json({ milestones });
+	} catch (err) {
+		console.error("[group-milestones GET]", err);
+		return NextResponse.json({ error: "Database error" }, { status: 500 });
+	}
 }
 
 const createSchema = z.object({
@@ -57,12 +62,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
-	const [milestone] = await db
-		.insert(groupMilestones)
-		.values({ classId, name: result.data.name, coinsRequired: result.data.coinsRequired })
-		.returning();
+	try {
+		const [milestone] = await db
+			.insert(groupMilestones)
+			.values({ classId, name: result.data.name, coinsRequired: result.data.coinsRequired })
+			.returning();
 
-	return NextResponse.json({ milestone });
+		return NextResponse.json({ milestone });
+	} catch (err) {
+		console.error("[group-milestones POST]", err);
+		return NextResponse.json({ error: "Database error" }, { status: 500 });
+	}
 }
 
 const deleteSchema = z.object({ milestoneId: z.string().uuid() });
@@ -87,11 +97,16 @@ export async function DELETE(
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
-	await db
-		.delete(groupMilestones)
-		.where(
-			and(eq(groupMilestones.id, result.data.milestoneId), eq(groupMilestones.classId, classId)),
-		);
+	try {
+		await db
+			.delete(groupMilestones)
+			.where(
+				and(eq(groupMilestones.id, result.data.milestoneId), eq(groupMilestones.classId, classId)),
+			);
 
-	return NextResponse.json({ ok: true });
+		return NextResponse.json({ ok: true });
+	} catch (err) {
+		console.error("[group-milestones DELETE]", err);
+		return NextResponse.json({ error: "Database error" }, { status: 500 });
+	}
 }

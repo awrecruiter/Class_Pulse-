@@ -433,7 +433,14 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 						}
 					}
 				} else {
-					window.location.href = cmd.href;
+					if (!tryOpenExternal(cmd.label, cmd.href)) {
+						// Popup blocked — fall back to toast so the teacher can still open it
+						toast.success(`Open ${cmd.label}?`, {
+							description: `Heard: "${transcript}"`,
+							duration: 8000,
+							action: { label: "Open", onClick: () => window.open(cmd.href, "_blank") },
+						});
+					}
 				}
 			} else if (cmd.type === "switch_panel") {
 				setBoardPanel(cmd.panel);

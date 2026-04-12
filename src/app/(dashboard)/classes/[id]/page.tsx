@@ -274,6 +274,12 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 		fetchContacts();
 	}, [fetchData, fetchGroups, fetchMilestones, fetchContacts]);
 
+	// Re-fetch groups when a voice command moves a student
+	useEffect(() => {
+		window.addEventListener("group-assignment-changed", fetchGroups);
+		return () => window.removeEventListener("group-assignment-changed", fetchGroups);
+	}, [fetchGroups]);
+
 	const fetchDiSessions = useCallback(async () => {
 		if (diSessionsLoaded) return;
 		setDiSessionsLoading(true);

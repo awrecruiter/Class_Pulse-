@@ -13,7 +13,8 @@ DO $$ BEGIN
 		WHERE constraint_name = 'group_milestones_class_id_classes_id_fk'
 		  AND table_name = 'group_milestones'
 	) THEN
-		ALTER TABLE "group_milestones" ADD CONSTRAINT "group_milestones_class_id_classes_id_fk" FOREIGN KEY ("class_id") REFERENCES "public"."classes"("id") ON DELETE cascade ON UPDATE no action;
+		ALTER TABLE "group_milestones" ADD CONSTRAINT "group_milestones_class_id_classes_id_fk"
+			FOREIGN KEY ("class_id") REFERENCES "public"."classes"("id") ON DELETE cascade ON UPDATE no action;
 	END IF;
 END $$;
 --> statement-breakpoint

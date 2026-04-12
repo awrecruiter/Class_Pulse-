@@ -57,6 +57,20 @@
       "when": 1742256000000,
       "tag": "0007_voice_app_open_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773700000000,
+      "tag": "0008_organizations_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773800000000,
+      "tag": "0009_group_milestones_create",
+      "breakpoints": true
     }
   ]
 }

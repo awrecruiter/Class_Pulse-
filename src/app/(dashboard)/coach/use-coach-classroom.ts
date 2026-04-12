@@ -205,15 +205,11 @@ export function useCoachClassroom({
 			.catch(() => toast.error("Move failed"));
 	}, [queue, students, groups, selectedClassId, confirm]);
 
-	useEffect(() => {
-		if (!selectedClassId) {
-			setSelectedGroupId(null);
-			setGroups([]);
-			return;
-		}
+	const fetchGroups = useCallback(() => {
+		if (!selectedClassIdRef.current) return;
 		setSelectedGroupId(null);
 		const reqId = ++groupsReqRef.current;
-		fetch(`/api/classes/${selectedClassId}/groups`)
+		fetch(`/api/classes/${selectedClassIdRef.current}/groups`)
 			.then((r) => r.json())
 			.then((j) => {
 				if (groupsReqRef.current !== reqId) return;
@@ -229,7 +225,22 @@ export function useCoachClassroom({
 				);
 			})
 			.catch(() => setGroups([]));
-	}, [selectedClassId]);
+	}, []);
+
+	useEffect(() => {
+		if (!selectedClassId) {
+			setSelectedGroupId(null);
+			setGroups([]);
+			return;
+		}
+		fetchGroups();
+	}, [selectedClassId, fetchGroups]);
+
+	// Re-fetch groups when a voice command moves a student
+	useEffect(() => {
+		window.addEventListener("group-assignment-changed", fetchGroups);
+		return () => window.removeEventListener("group-assignment-changed", fetchGroups);
+	}, [fetchGroups]);
 
 	return {
 		classes,
