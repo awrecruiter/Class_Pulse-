@@ -84,25 +84,30 @@ export function useGlobalVoiceCommands({
 		pitchBufferRef.current = [];
 	}, []);
 
+	const shouldVerifySpeaker = useCallback(() => {
+		if (readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false)) return false;
+		if (!readBooleanPreference(VOICE_LOCK_ENABLED_KEY, true)) return false;
+		return !!getVoiceProfile();
+	}, []);
+
 	const speakerVerified = useCallback((): boolean => {
-		if (readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false)) return true;
-		if (!readBooleanPreference(VOICE_LOCK_ENABLED_KEY, true)) return true;
+		if (!shouldVerifySpeaker()) return true;
 		const profile = getVoiceProfile();
 		if (!profile) return true;
 		const recent = pitchBufferRef.current;
 		if (recent.length === 0) return true;
 		const avg = recent.reduce((s, p) => s + p.pitch, 0) / recent.length;
 		return pitchMatchesProfile(avg, profile);
-	}, []);
+	}, [shouldVerifySpeaker]);
 
 	// Start/stop pitch analyser alongside the recognition slot
 	useEffect(() => {
-		if (enabled) {
+		if (enabled && shouldVerifySpeaker()) {
 			startPitchAnalyser();
 		} else {
 			stopPitchAnalyser();
 		}
-	}, [enabled, startPitchAnalyser, stopPitchAnalyser]);
+	}, [enabled, shouldVerifySpeaker, startPitchAnalyser, stopPitchAnalyser]);
 
 	// Cleanup on unmount
 	useEffect(() => {
