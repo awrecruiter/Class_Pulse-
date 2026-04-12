@@ -292,6 +292,13 @@ export function BehaviorPanel() {
 		return () => window.removeEventListener("ram-bucks-updated", handleRamBucksUpdated);
 	}, [selectedClassId, fetchStudents]);
 
+	// Keep activeStudent in sync when students list refreshes (e.g. after voice RAM buck award)
+	useEffect(() => {
+		if (!activeStudent) return;
+		const fresh = students.find((s) => s.rosterId === activeStudent.rosterId);
+		if (fresh && fresh.balance !== activeStudent.balance) setActiveStudent(fresh);
+	}, [students, activeStudent]);
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: isLoading triggers scroll
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
