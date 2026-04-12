@@ -557,6 +557,65 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				}
 			}
 
+			// Fast-path: give/award [name] [amount] (ram) bucks
+			// Handles mishearings: "books", "box", "bugs", "bus", "bux" all treated as "bucks"
+			const WORD_TO_NUM: Record<string, number> = {
+				one: 1,
+				two: 2,
+				three: 3,
+				four: 4,
+				five: 5,
+				six: 6,
+				seven: 7,
+				eight: 8,
+				nine: 9,
+				ten: 10,
+				eleven: 11,
+				twelve: 12,
+				fifteen: 15,
+				twenty: 20,
+				thirty: 30,
+				forty: 40,
+				fifty: 50,
+				hundred: 100,
+			};
+			const ramAwardMatch = transcript
+				.trim()
+				.match(
+					/\b(?:give|award|add)\s+(\w+)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred)\s+(?:\w+\s+)?(?:bucks?|books?|box|bugs?|bux|bus)\b/i,
+				);
+			if (ramAwardMatch) {
+				const rawAmt = ramAwardMatch[2].toLowerCase();
+				const amount = Number.parseInt(rawAmt, 10) || WORD_TO_NUM[rawAmt] || 0;
+				if (amount > 0) {
+					handleCommand({ type: "ram_bucks", studentName: ramAwardMatch[1], amount }, transcript);
+					return;
+				}
+			}
+
+			// Fast-path: take/deduct/remove [amount] (ram) bucks from [name]
+			const ramDeductMatch = transcript
+				.trim()
+				.match(
+					/\b(?:take|deduct|remove|subtract|fine)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred)\s+(?:ram\s+)?(?:bucks?|books?)\s+(?:from\s+)?(\w+)\b/i,
+				);
+			if (ramDeductMatch) {
+				const rawAmt = ramDeductMatch[1].toLowerCase();
+				const amount = Number.parseInt(rawAmt, 10) || WORD_TO_NUM[rawAmt] || 0;
+				if (amount > 0) {
+					handleCommand(
+						{
+							type: "ram_bucks_deduct",
+							studentName: ramDeductMatch[2],
+							amount,
+							reason: "Voice command",
+						},
+						transcript,
+					);
+					return;
+				}
+			}
+
 			setAgentThinking(true);
 			try {
 				// Refresh context cache (no-op if still fresh — prevents rate limit hammering)

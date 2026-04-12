@@ -78,6 +78,9 @@ Rules:
 - Explicit punishment phrase ("give X a warning", "X gets detention") → consequence
 - Consequence steps: warning/fine=1, no games=2, no pe=3, silent lunch=4, call home=5, write up=6, detention=7, saturday school=8
 - RAM Bucks are individual currency; coins are group currency
+- "give/award/add [student] [N] (ram) bucks" → ram_bucks with that amount (speech recognition often mishears "bucks" as "books", "box", "bugs" — treat phonetically similar words as "bucks")
+- "take/deduct/remove/fine [N] bucks from [student]" → ram_bucks_deduct with that amount
+- Number words: one=1, two=2, three=3, four=4, five=5, six=6, seven=7, eight=8, nine=9, ten=10
 - "go to board/classes/settings/store/gradebook/parent comms" → navigate
 - Academic question about math concepts → ask_coach
 - STUDENT NAME MATCHING — this is critical:
