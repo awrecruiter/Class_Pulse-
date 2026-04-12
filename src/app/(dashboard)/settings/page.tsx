@@ -16,6 +16,7 @@ import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
 import { Button } from "@/components/ui/button";
 import type { ServiceSurface } from "@/lib/subscription";
 import {
+	GLOBAL_VOICE_ONLY_MODE_KEY,
 	PRODUCTION_HANDOFF_MODE_KEY,
 	readBooleanPreference,
 	TOASTS_ENABLED_KEY,
@@ -41,6 +42,7 @@ type Settings = {
 	voiceAppOpenMode: "immediate" | "confirm";
 	toastsEnabled?: boolean;
 	productionHandoffMode?: boolean;
+	globalVoiceOnlyMode?: boolean;
 };
 
 type FeeEntry = {
@@ -393,13 +395,20 @@ export default function SettingsPage() {
 			if (json.settings) {
 				let toastsEnabled = true;
 				let productionHandoffMode = false;
+				let globalVoiceOnlyMode = false;
 				try {
 					toastsEnabled = readBooleanPreference(TOASTS_ENABLED_KEY, true);
 					productionHandoffMode = readBooleanPreference(PRODUCTION_HANDOFF_MODE_KEY, false);
+					globalVoiceOnlyMode = readBooleanPreference(GLOBAL_VOICE_ONLY_MODE_KEY, false);
 				} catch {
 					/* noop */
 				}
-				setSettings({ ...json.settings, toastsEnabled, productionHandoffMode });
+				setSettings({
+					...json.settings,
+					toastsEnabled,
+					productionHandoffMode,
+					globalVoiceOnlyMode,
+				});
 			} else {
 				setLoadError(true);
 			}
@@ -493,7 +502,11 @@ export default function SettingsPage() {
 		if (!settings) return;
 		setSaving(true);
 		try {
-			const { toastsEnabled: _toastsEnabled, ...persistedSettings } = settings;
+			const {
+				toastsEnabled: _toastsEnabled,
+				globalVoiceOnlyMode: _globalVoiceOnlyMode,
+				...persistedSettings
+			} = settings;
 			const res = await fetch("/api/teacher-settings", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
@@ -518,6 +531,11 @@ export default function SettingsPage() {
 				VOICE_DEBUG_FEEDBACK_ENABLED_KEY,
 				settings.productionHandoffMode ? "false" : "true",
 			);
+			localStorage.setItem(
+				GLOBAL_VOICE_ONLY_MODE_KEY,
+				settings.globalVoiceOnlyMode ? "true" : "false",
+			);
+			window.dispatchEvent(new Event("voice-global-only-mode-changed"));
 			window.dispatchEvent(new Event("toast-visibility-changed"));
 			toast.success("Settings saved");
 		} catch {
@@ -1309,6 +1327,31 @@ export default function SettingsPage() {
 						>
 							<option value="immediate">Open immediately (same tab)</option>
 							<option value="confirm">Tap to open (new tab)</option>
+						</select>
+					</div>
+				</div>
+
+				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<p className="text-sm font-medium text-slate-200">Global voice only</p>
+							<p className="text-xs text-slate-500 mt-0.5">
+								Keeps lecture recording, dictation, and orb capture off so only background global
+								voice commands can use the mic
+							</p>
+						</div>
+						<select
+							value={settings.globalVoiceOnlyMode ? "on" : "off"}
+							onChange={(e) => {
+								const enabled = e.target.value === "on";
+								setSettings((s) => (s ? { ...s, globalVoiceOnlyMode: enabled } : s));
+								localStorage.setItem(GLOBAL_VOICE_ONLY_MODE_KEY, enabled ? "true" : "false");
+								window.dispatchEvent(new Event("voice-global-only-mode-changed"));
+							}}
+							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+						>
+							<option value="off">Off</option>
+							<option value="on">On</option>
 						</select>
 					</div>
 				</div>

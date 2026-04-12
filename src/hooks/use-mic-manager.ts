@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { isMicConsumerEnabled } from "@/lib/ui-prefs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ function getWinner(): MicConsumer | null {
 	let winner: MicConsumer | null = null;
 	let best = -1;
 	for (const [id, slot] of slots) {
+		if (!isMicConsumerEnabled(id)) continue;
 		if (slot.wantsActive && PRIORITY[id] > best) {
 			winner = id;
 			best = PRIORITY[id];
@@ -232,6 +234,11 @@ export function useMicSlot(consumer: MicConsumer, config: MicConfig) {
 	const start = useCallback(() => {
 		const s = slots.get(consumer);
 		if (!s) return;
+		if (!isMicConsumerEnabled(consumer)) {
+			s.wantsActive = false;
+			notifyAll();
+			return;
+		}
 		if (s.wantsActive) return; // already requested
 		s.wantsActive = true;
 		applyState();
@@ -255,6 +262,23 @@ export function useMicSlot(consumer: MicConsumer, config: MicConfig) {
 				slots.delete(consumer);
 				applyState();
 			}
+		};
+	}, [consumer]);
+
+	useEffect(() => {
+		function handleGlobalVoiceOnlyModeChange() {
+			const s = slots.get(consumer);
+			if (!s) return;
+			if (!isMicConsumerEnabled(consumer)) {
+				s.wantsActive = false;
+			}
+			applyState();
+			notifyAll();
+		}
+
+		window.addEventListener("voice-global-only-mode-changed", handleGlobalVoiceOnlyModeChange);
+		return () => {
+			window.removeEventListener("voice-global-only-mode-changed", handleGlobalVoiceOnlyModeChange);
 		};
 	}, [consumer]);
 
