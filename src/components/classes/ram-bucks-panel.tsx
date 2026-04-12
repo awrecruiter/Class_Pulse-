@@ -88,6 +88,11 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 		fetchAccounts();
 	}, [fetchAccounts]);
 
+	useEffect(() => {
+		window.addEventListener("ram-bucks-updated", fetchAccounts);
+		return () => window.removeEventListener("ram-bucks-updated", fetchAccounts);
+	}, [fetchAccounts]);
+
 	async function loadTransactions() {
 		setTxLoading(true);
 		try {
