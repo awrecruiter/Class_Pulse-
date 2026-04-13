@@ -242,6 +242,15 @@ export function useCoachClassroom({
 		return () => window.removeEventListener("group-assignment-changed", fetchGroups);
 	}, [fetchGroups]);
 
+	// Re-fetch students (including balances) when a voice command awards/deducts RAM bucks
+	useEffect(() => {
+		function handleRamBucksUpdated() {
+			if (selectedClassIdRef.current) fetchStudents(selectedClassIdRef.current);
+		}
+		window.addEventListener("ram-bucks-updated", handleRamBucksUpdated);
+		return () => window.removeEventListener("ram-bucks-updated", handleRamBucksUpdated);
+	}, [fetchStudents]);
+
 	return {
 		classes,
 		selectedClassId,
