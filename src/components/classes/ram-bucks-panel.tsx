@@ -100,6 +100,17 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 		return () => window.removeEventListener("ram-bucks-updated", handle);
 	}, []);
 
+	// Poll every 10 s so the panel stays live after voice commands regardless of
+	// whether the event was caught (e.g. user on a different tab when it fired).
+	useEffect(() => {
+		const id = setInterval(() => {
+			if (document.visibilityState === "visible") {
+				fetchAccountsRef.current();
+			}
+		}, 10_000);
+		return () => clearInterval(id);
+	}, []);
+
 	async function loadTransactions() {
 		setTxLoading(true);
 		try {
