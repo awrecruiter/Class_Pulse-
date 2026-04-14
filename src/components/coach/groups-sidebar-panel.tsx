@@ -417,7 +417,9 @@ export function GroupsSidebarPanel({ classId, initialStudents, initialGroups }: 
 	}, [initialStudents]);
 
 	useEffect(() => {
-		if (!initialGroups) return;
+		// Ignore empty prop — a transient fetch error in the parent can pass [] which
+		// would blank the panel. The panel's own fetchData will restore real data.
+		if (!initialGroups || initialGroups.length === 0) return;
 		setGroups((prev) => {
 			const balances = new Map(prev.map((g) => [g.id, g.balance]));
 			const colors = new Map(prev.map((g) => [g.id, g.color]));
@@ -430,7 +432,7 @@ export function GroupsSidebarPanel({ classId, initialStudents, initialGroups }: 
 				memberRosterIds: g.memberRosterIds,
 			}));
 		});
-		if (initialGroups.length > 0) setLoading(false);
+		setLoading(false);
 	}, [initialGroups]);
 
 	const fetchData = (id: string, silent = false) => {

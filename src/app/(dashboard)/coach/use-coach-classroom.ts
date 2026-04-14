@@ -210,8 +210,9 @@ export function useCoachClassroom({
 		setSelectedGroupId(null);
 		const reqId = ++groupsReqRef.current;
 		fetch(`/api/classes/${selectedClassIdRef.current}/groups`)
-			.then((r) => r.json())
+			.then((r) => (r.ok ? r.json() : null))
 			.then((j) => {
+				if (!j) return; // error response — keep current groups, don't wipe
 				if (groupsReqRef.current !== reqId) return;
 				setGroups(
 					(j.groups ?? []).map(
@@ -224,7 +225,7 @@ export function useCoachClassroom({
 					),
 				);
 			})
-			.catch(() => setGroups([]));
+			.catch(() => {}); // network error — keep current groups, don't wipe
 	}, []);
 
 	useEffect(() => {
