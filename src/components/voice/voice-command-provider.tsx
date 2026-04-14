@@ -597,7 +597,23 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				transcript
 					.trim()
 					.match(new RegExp(`^(\\w+)\\s+(${NUM_WORDS})\\s+(?:ram\\s+)?(?:${BUCKS_WORDS})\\b`, "i"));
-			const ramAwardResult = ramAwardMatch ?? ramAwardMatchAlt;
+			// Pattern 3: "[trigger] [amount] (ram) bucks to [name]" (e.g. "give five Rand bucks to Kamari")
+			const ramAwardMatchTo =
+				!ramAwardMatch &&
+				!ramAwardMatchAlt &&
+				transcript
+					.trim()
+					.match(
+						new RegExp(
+							`\\b(?:give|award|add)\\s+(${NUM_WORDS})\\s+(?:\\w+\\s+)?(?:${BUCKS_WORDS})\\s+to\\s+(\\w+)\\b`,
+							"i",
+						),
+					);
+			// For pattern 3 the capture groups are swapped: [1]=amount [2]=name — normalise below
+			const ramAwardResult =
+				ramAwardMatch ??
+				ramAwardMatchAlt ??
+				(ramAwardMatchTo ? [ramAwardMatchTo[0], ramAwardMatchTo[2], ramAwardMatchTo[1]] : null);
 			if (ramAwardResult) {
 				const rawAmt = ramAwardResult[2].toLowerCase();
 				const amount = Number.parseInt(rawAmt, 10) || WORD_TO_NUM[rawAmt] || 0;
