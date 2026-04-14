@@ -446,11 +446,12 @@ export function GroupsSidebarPanel({ classId, initialStudents, initialGroups }: 
 		const safeMilestones = fetch(`/api/classes/${id}/group-milestones`)
 			.then((r) => (r.ok ? r.json() : { milestones: [] }))
 			.catch(() => ({ milestones: [] }));
-		const safeRoster = initialStudents
-			? Promise.resolve({ students: initialStudents })
-			: fetch(`/api/classes/${id}/roster-overview`)
-					.then((r) => (r.ok ? r.json() : { students: [] }))
-					.catch(() => ({ students: [] }));
+		const safeRoster =
+			initialStudents && initialStudents.length > 0
+				? Promise.resolve({ students: initialStudents })
+				: fetch(`/api/classes/${id}/roster-overview`)
+						.then((r) => (r.ok ? r.json() : { students: [] }))
+						.catch(() => ({ students: [] }));
 		Promise.all([safeGroups, safeAccounts, safeMilestones, safeRoster])
 			.then(([groupsJson, accountsJson, milestonesJson, rosterJson]) => {
 				type RawGroup = {
