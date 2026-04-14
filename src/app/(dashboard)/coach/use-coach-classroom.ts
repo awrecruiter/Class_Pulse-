@@ -13,6 +13,7 @@ export type ParentCommsPreselect = {
 	rosterId: string;
 	text: string;
 	nonce: number;
+	autoSend?: boolean;
 } | null;
 
 interface UseCoachClassroomOptions {
@@ -142,9 +143,22 @@ export function useCoachClassroom({
 	}, [selectedClassId]);
 
 	useEffect(() => {
-		const item = queue.find((q) => q.data.type === "parent_message");
-		if (!item || item.data.type !== "parent_message") return;
-		const { studentName, messageText } = item.data;
+		const item = queue.find(
+			(q) =>
+				q.data.type === "parent_message" ||
+				q.data.type === "draft_parent_message" ||
+				q.data.type === "send_parent_message",
+		);
+		if (!item) return;
+		const d = item.data;
+		if (
+			d.type !== "parent_message" &&
+			d.type !== "draft_parent_message" &&
+			d.type !== "send_parent_message"
+		)
+			return;
+		const { studentName, messageText } = d;
+		const autoSend = d.type === "send_parent_message";
 		const needle = studentName.toLowerCase();
 		const match = students.find(
 			(s) => s.firstName?.toLowerCase() === needle || s.firstInitial.toLowerCase() === needle[0],
@@ -153,7 +167,12 @@ export function useCoachClassroom({
 		confirm(item.id);
 		setRightOpen(true);
 		setGroupsOpen(false);
-		setParentCommsPreselect({ rosterId: match.rosterId, text: messageText, nonce: Date.now() });
+		setParentCommsPreselect({
+			rosterId: match.rosterId,
+			text: messageText,
+			nonce: Date.now(),
+			autoSend,
+		});
 		playActivationChime();
 		setTimeout(() => {
 			const utt = new SpeechSynthesisUtterance("Go ahead");

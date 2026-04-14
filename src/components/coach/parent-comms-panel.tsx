@@ -221,7 +221,7 @@ export function ParentCommsPanel({
 }: {
 	classId: string;
 	students?: RosterStudent[];
-	externalPreselect?: { rosterId: string; text: string; nonce: number } | null;
+	externalPreselect?: { rosterId: string; text: string; nonce: number; autoSend?: boolean } | null;
 	onCollapse?: () => void;
 }) {
 	const [contacts, setContacts] = useState<Contact[]>([]);
@@ -309,6 +309,10 @@ export function ParentCommsPanel({
 
 	addToQueueRef.current = addToQueue;
 
+	// Stable ref so the preselect effect can call sendQueued without it as a dep.
+	// Initialized with a no-op; updated to the real function once sendQueued is declared below.
+	const sendQueuedRef = useRef<(item: QueuedMessage) => Promise<void>>(async () => {});
+
 	// React to voice-command preselect (nonce changes = new trigger)
 	const preselectNonce = externalPreselect?.nonce ?? 0;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: nonce is the intentional trigger
@@ -316,11 +320,24 @@ export function ParentCommsPanel({
 		if (!externalPreselect) return;
 		selectStudent(externalPreselect.rosterId);
 		if (externalPreselect.text) setText(externalPreselect.text);
-		// Auto-start dictation after a short delay so the panel renders first
-		setTimeout(() => {
-			committedRef.current = externalPreselect?.text ?? "";
-			dictStartRef.current?.();
-		}, 600);
+		if (externalPreselect.autoSend && externalPreselect.text) {
+			// send_parent_message: build item directly (don't depend on state) and fire immediately
+			const item: QueuedMessage = {
+				id: crypto.randomUUID(),
+				rosterId: externalPreselect.rosterId,
+				studentName: externalPreselect.rosterId,
+				body: externalPreselect.text,
+				errored: false,
+			};
+			setQueue((prev) => [...prev, item]);
+			void sendQueuedRef.current(item);
+		} else {
+			// draft_parent_message / parent_message: pre-fill and start dictation for review
+			setTimeout(() => {
+				committedRef.current = externalPreselect?.text ?? "";
+				dictStartRef.current?.();
+			}, 600);
+		}
 	}, [preselectNonce]);
 
 	function addToQueue() {
@@ -458,6 +475,11 @@ export function ParentCommsPanel({
 		},
 		[classId, fetchSent, selectedRosterId, sendingId, setCommsDictating],
 	);
+
+	sendQueuedRef.current = sendQueued;
+	useEffect(() => {
+		sendQueuedRef.current = sendQueued;
+	}, [sendQueued]);
 
 	useEffect(() => {
 		function handleVoiceDraftParentMessage(e: Event) {

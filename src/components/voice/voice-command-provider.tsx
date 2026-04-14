@@ -398,11 +398,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		}
 
 		if (data.type === "draft_parent_message" || data.type === "send_parent_message") {
-			window.dispatchEvent(
-				new CustomEvent(`voice-${data.type}`, {
-					detail: { studentName: data.studentName, messageText: data.messageText },
-				}),
-			);
+			enqueue(data, transcript);
 			return;
 		}
 
