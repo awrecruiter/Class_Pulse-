@@ -579,16 +579,30 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				fifty: 50,
 				hundred: 100,
 			};
+			const NUM_WORDS =
+				"\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred";
+			const BUCKS_WORDS = "bucks?|books?|box|bugs?|bux|bus";
+			// Pattern 1: "give/award/add [name] [amount] (ram) bucks"
 			const ramAwardMatch = transcript
 				.trim()
 				.match(
-					/\b(?:give|award|add)\s+(\w+)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred)\s+(?:\w+\s+)?(?:bucks?|books?|box|bugs?|bux|bus)\b/i,
+					new RegExp(
+						`\\b(?:give|award|add)\\s+(\\w+)\\s+(${NUM_WORDS})\\s+(?:\\w+\\s+)?(?:${BUCKS_WORDS})\\b`,
+						"i",
+					),
 				);
-			if (ramAwardMatch) {
-				const rawAmt = ramAwardMatch[2].toLowerCase();
+			// Pattern 2: "[name] [amount] (ram) bucks" — no trigger word (e.g. "Darius five Ram books")
+			const ramAwardMatchAlt =
+				!ramAwardMatch &&
+				transcript
+					.trim()
+					.match(new RegExp(`^(\\w+)\\s+(${NUM_WORDS})\\s+(?:ram\\s+)?(?:${BUCKS_WORDS})\\b`, "i"));
+			const ramAwardResult = ramAwardMatch ?? ramAwardMatchAlt;
+			if (ramAwardResult) {
+				const rawAmt = ramAwardResult[2].toLowerCase();
 				const amount = Number.parseInt(rawAmt, 10) || WORD_TO_NUM[rawAmt] || 0;
 				if (amount > 0) {
-					handleCommand({ type: "ram_bucks", studentName: ramAwardMatch[1], amount }, transcript);
+					handleCommand({ type: "ram_bucks", studentName: ramAwardResult[1], amount }, transcript);
 					return;
 				}
 			}
