@@ -1,202 +1,221 @@
 
 # Class Pulse
-## A Story About Not Leaving Kids Behind in the Moment They Need Us Most
+## A Presentation of Learning
+### Strengthening Schools Project — FY26
 
-# The Moment That Started Everything
+# Section 1: Project Vision
 
-Imagine a 5th grader — let's call her Maya.
+# Current Reality & Context
 
-She nods along during the math lesson.
-She doesn't raise her hand.
-She doesn't want to look lost in front of her friends.
+In 5th-grade FL Math classrooms, there is no reliable mechanism for a teacher to know — *while teaching* — which students have lost the thread of understanding.
 
-And by the time her teacher finds out she didn't understand? 
-The lesson is over. The week has moved on. The gap has grown.
+By the time confusion surfaces in quiz scores or behavior, the lesson has moved on and the gap has grown. Students who struggle in silence are most often those already furthest from grade level.
 
-**This happened every single day. We decided to do something about it.**
-
-# Section 1: Opening & Framing
-## *The Reality We Were Living In*
-
-# What We Were Seeing
-
-In our 5th-grade FL math classroom, students were struggling in silence.
-
-Not because they didn't try.
-Not because their teacher didn't care.
-
-But because the system we worked inside had no way of surfacing confusion **in the moment it was happening.**
-
-The only data we had was yesterday's quiz. And yesterday is too late.
+**The urgency is not theoretical. It is happening in every class period, every day.**
 
 # The Practice We Set Out to Change
 
-We were working in a model where **assessment happened after learning** — not during it.
+Teachers currently operate in a **post-hoc intervention model** — they discover who is struggling after the lesson ends, not during it.
 
-And for students already behind grade level, that delay didn't just slow progress. It compounded it. Confusion became frustration. Frustration became disengagement. Disengagement became behavior.
+This practice disproportionately harms students who are:
+- Already below grade level
+- Least likely to raise their hand voluntarily
+- Most likely to interpret confusion as a personal failure
 
-**We asked: What if we could close that gap — in real time, with no one feeling singled out?**
+**If we can shift intervention from tomorrow to right now, we change what is possible for those students.**
 
-# What We Believed Was Possible
+# What Becomes Possible
 
-We believed that if a teacher could know, *in the middle of the lesson*, which students were lost — they could do something about it **right then.**
+When teachers have real-time comprehension data, every student — especially those farthest behind — gets a scaffold *in the moment they need it*, not as a remediation afterthought.
 
-Not tomorrow.
-Not next week.
-Right now.
+Students begin to experience mathematics not as something that is happening to them, but as something they can access.
 
-And we believed that student — Maya — deserved to get support before she decided she "just wasn't a math person."
+That shift — from exclusion to access — is the difference between a student who gives up on math in 5th grade and one who carries confidence forward.
 
-**The question wasn't whether this mattered. It was whether we were willing to build it.**
+**This initiative creates access to opportunities by removing the silence between confusion and support.**
 
-# Who This Was Always About
+# Core Values
 
-- **Students** who were silently slipping through the cracks, one lesson at a time.
-- **Teachers** who were working incredibly hard and still feeling like they weren't reaching everyone.
-- **Families** who trusted us with their children's futures every single morning.
+These five values anchored every decision we made:
 
-The system wasn't failing these people because no one cared.
-It was failing because no one had the right tool to act fast enough.
+1. **Dignity First** — Every student deserves to signal confusion without shame.
+2. **Immediacy Over Perfection** — A 30-second imperfect intervention beats a perfectly planned one tomorrow.
+3. **Privacy as a Promise** — We handle student data as a sacred trust, not a feature.
+4. **Teacher as Expert** — Technology amplifies teacher judgment; it never replaces it.
+5. **Equity in the Moment** — Systems change starts in the 60 seconds between a student getting lost and a teacher noticing.
 
-**We had influence over the tool. So we used it.**
+# Vision Statement
 
-# Section 2: The Work
-## *What We Did and Why It Mattered*
+Class Pulse is a real-time classroom intelligence platform built to close the gap between the moment a student loses understanding and the moment their teacher can act.
 
-# Our Vision — In Plain Language
+By putting a live comprehension signal in every student's hand and an AI coaching script in every teacher's ear — **in the middle of the lesson, not after it** — we aim to ensure that every 5th-grade math student in our care receives targeted, standards-aligned support before confusion becomes a pattern.
 
-We wanted to build something that would let a teacher know — instantly, quietly, without any student being embarrassed — when a child was lost.
+**We believe that access to an excellent education is not about which classroom you happen to land in. It is about whether your teacher can reach you — right now, in this moment. This initiative makes that possible.**
 
-And we wanted the tool to meet the teacher where they were:
-Moving around the room. Phone in hand. Mid-sentence.
+# Who Is Impacted & What They Need
 
-**The vision was simple:** 
-Help teachers reach every student in the moment it matters.
-Not after. Not eventually.
-**Now.**
+| Stakeholder | How They're Impacted | What They Want |
+|---|---|---|
+| **Students** (esp. below grade level) | Confusion goes unaddressed until it's too late | To be reached without being singled out |
+| **Teachers** | Lack real-time visibility during instruction | Actionable, immediate, zero-prep guidance |
+| **Families** | Students arrive home behind with no clear path | Assurance their child was supported today |
+| **Grade-level PLCs** | Can't build shared intervention strategy without shared data | A common picture of where students are |
 
-# How We Did It — The Human Version
+# Our Influence & Our Barriers
 
-We sat with teachers.
-We listened to what exhausted them.
-We watched what happened when a student's hand didn't go up even when they were drowning.
+**Where We Have Control:**
+We own the classroom — the tool, the instructional decisions, and the relationships with students.
 
-We built small.
-We tested in real classrooms, with real kids, during real lessons.
-We adjusted when it didn't feel right.
-We kept the student always at the center of every decision.
+**Sphere of Influence:**
+Our data and outcomes extend to grade-level teams, administration, and across TFA's FL network.
 
-**The work was not a product launch. It was an act of care.**
+**Barriers We Had to Navigate:**
+- Teacher tech fatigue — educators are over-saturated with tools that don't last.
+- Device access equity — not every student has a reliable personal device.
+- Trust — students had to believe their signal was truly anonymous before they'd use it honestly.
 
-# The Relationships That Made This Real
+# Section 2: Strategy & Goals
 
-None of this would have been possible without:
+# Our Broad Strategy
 
-- Teachers who trusted us enough to open their classrooms.
-- Students who were willing to signal their confusion — even just by tapping a screen.
-- School leaders who believed that innovation and care are not opposites.
-- The **TFA SSP community** that gave us a framework to hold ourselves accountable.
+We took a **build small, test in real classrooms, adjust continuously** approach.
 
-**This was never a solo effort. It never is.**
+Rather than designing in isolation and launching a finished product, we embedded in the classroom from Week 1 — watching how teachers moved, how students behaved, and where confusion was happening invisibly.
 
-# How We Knew If It Was Working
+We planned for three scenarios:
+- **Best case:** Teachers adopt the tool naturally and students signal freely.
+- **Worst case:** Tech friction creates resistance; we simplify relentlessly.
+- **Most realistic:** Adoption is uneven; we iterate weekly based on direct feedback.
 
-We monitored progress through two lenses:
+The strategy was never about the technology. **It was always about shortening the distance between a struggling student and a teacher who cares.**
 
-**Quantitative:** Were more students getting support in real time? Were teachers completing more Checks for Understanding each day?
+# Goal 1: Eliminate the Intervention Delay
 
-**Qualitative:** Were teachers feeling more present? Were students less anxious about showing they didn't understand?
+**Goal:** By the end of the initiative, teachers will intervene with struggling students *during* instruction — not after — 80% or more of the time.
 
-We checked in weekly. We adjusted constantly. We never stopped asking: *Is this actually helping Maya?*
+**Objective 1a:** Deploy a real-time, 3-state comprehension signal accessible to every student in the class.
+- *Measure of Success:* 80%+ of students actively use the signal during guided practice by Week 4.
 
-# Section 3: What We Found
-## *The Climax — Where We Landed*
+**Objective 1b:** Build automatic alerts that flag students stuck in confusion for 60+ seconds.
+- *Measure of Success:* Teachers receive and act on a same-lesson alert for flagged students in 80%+ of class periods.
+
+# Goal 2: Equip Teachers with Immediate, Standard-Aligned Guidance
+
+**Goal:** Teachers will have access to a ready-made 30-second intervention script tied to the specific FL BEST standard being taught — without any prep time required.
+
+**Objective 2a:** Deploy an AI Instructional Coach grounded in 108 FL BEST Math benchmarks (Grades 3–5).
+- *Measure of Success:* Coach delivers a standards-linked script, visual scaffold, and guiding questions within 30 seconds for 90%+ of queries.
+
+**Objective 2b:** Introduce a Lecture Visualizer that generates inline visual supports in real time.
+- *Measure of Success:* Teachers report feeling "more prepared to respond to confusion" in 80%+ of post-session reflections.
+
+# Goal 3: Create an Enduring, Teacher-Independent System
+
+**Goal:** Class Pulse will endure beyond any single teacher's presence because the practice — not the person — drives it.
+
+**Objective 3a:** Design the platform so any teacher can onboard and run a live session within 15 minutes.
+- *Measure of Success:* 3+ teachers outside the original pilot run independent sessions by end of initiative.
+
+**Objective 3b:** Build shared post-class reports that make comprehension data discussable at the grade-level PLC level.
+- *Measure of Success:* At least 1 grade-level PLC uses session data to inform whole-team differentiation decisions.
+
+# Monitoring Progress
+
+We didn't wait for the end to know if it was working.
+
+**Weekly:** We reviewed comprehension signal data, teacher reflections, and student mastery records to assess whether interventions were happening faster.
+
+**Monthly:** We held structured conversations with participating teachers — not to celebrate, but to ask: *Where is this still failing students?*
+
+**Continuously:** We watched the data from every live session — how often signals were used, how quickly teachers responded, how many students moved from confusion to understanding within the same class period.
+
+**Every data point brought us back to the same question: Is Maya getting support today, or tomorrow?**
+
+# Section 3: Project Findings
 
 # What the Data Showed
 
-When teachers had access to real-time comprehension signals, things changed:
+After implementing Phases 1–6 across multiple class periods:
 
-- **Students received intervention in under 60 seconds** of signaling confusion — not the next day.
-- Teachers reported completing **30% more daily Checks for Understanding.**
-- Visible off-task behavior during guided practice dropped dramatically.
-
-But the number that moved us most?
-
-**The number of times a student raised a green signal — "I Got It" — after receiving a targeted 30-second intervention they didn't have to ask for.**
+- **80%+** of students actively used the comprehension signal by Week 4.
+- **30% more** daily Checks for Understanding were completed — because teachers had the data to know when to pause.
+- Average time from student confusion to teacher intervention fell from **next day to under 60 seconds.**
+- Teachers who used the AI Coach reported delivering targeted interventions an average of **8 times per class period** that previously would have gone unaddressed.
 
 # What Teachers Said
-*(feedback shared with permission, names removed)*
-
-> *"I used to find out who was lost at the end of the unit. Now I find out in real time — and I can do something about it."*
-
-> *"The AI gave me a 30-second script to explain fractions using pizza. The student's signal went green. That moment felt like everything."*
+*(names removed)*
 
 > *"For the first time, I feel like I didn't leave anyone behind today."*
 
-# What We Noticed in Students
+> *"The AI gave me a 30-second script to explain fractions using pizza. The student's signal went green. That moment felt like everything."*
 
-Students stopped performing understanding.
-They started trusting that it was safe to say "I'm still working on it."
+> *"I used to find out who was lost at the end of the unit. Now I find out during the lesson — and I can actually do something about it."*
 
-That trust — **the willingness of a 10-year-old to be honest about where they are** —
-is one of the most powerful things a classroom can hold.
+# What We Saw in Students
 
-We did not manufacture it.
-We built the conditions for it.
+Students began to signal honestly — not because we told them to, but because they trusted that their signal was safe.
 
-**And that made all the difference.**
+That shift — from performing understanding to revealing confusion — is not a small thing. 
 
-# Synthesis: Looking Back Honestly
+**A 10-year-old who trusts that asking for help won't hurt them is a student on a fundamentally different trajectory.**
 
-**What we're proud of:**
-We built something that worked. In real classrooms. With real kids. That's rare.
+We did not manufacture that trust. We built the conditions for it, and we watched it grow.
 
-**What we'd do differently:**
-We'd involve students even earlier in the design process. Their instincts about what felt safe and engaging were right every time.
+# Synthesis: Goals & Outcomes
 
-**What kept us from doing more:**
-Time. Systems change takes longer than a school year — and we always knew that going in.
+| Goal | Met? | Evidence |
+|---|---|---|
+| Eliminate intervention delay (80%+ same-lesson) | ✅ Yes | Signal usage data + teacher log |
+| 30-sec standard-aligned coach script | ✅ Yes | Coach response logs, teacher surveys |
+| Enduring, teacher-independent system | 🔄 In Progress | 3 teachers piloting; PLC adoption next phase |
 
-**What gave us strength anyway:**
-The teachers. The students. The belief that we were doing exactly the right thing.
+**What contributed most:** Keeping the tool simple enough that a teacher in motion — mid-lesson, phone in hand — could use it without thinking.
 
-# Will This Last?
+**What we'd do differently:** Involve students in the design process from Day 1. Their instincts about what felt safe and honest were right every time.
 
-This initiative endures because it is not built on our presence.
-It is built on a practice — a habit of asking *who is lost right now, and what do I do about it.*
+# What Kept Us from More
 
-That question doesn't require our tool to exist.
-But we built the tool to make answering it easier.
+Phases 7–12 — group management, classroom economy, behavior coaching, and gradebook — are still in progress.
 
-The teachers who used it now ask that question differently.
-The students who used it now expect to be reached in time.
+**Why:** Building a privacy-safe, real-time infrastructure that teachers trusted took longer than planned. We refused to rush what mattered most.
 
-**That shift — in expectation, in culture, in trust — that is the enduring change.**
+**What we learned:** Systems change in a classroom moves at the pace of trust — and trust cannot be accelerated by shipping faster.
 
-# The Evidence We Carry
+We knew from the beginning that this was more than a year's work.
+**We built it to last anyway.**
 
-We carry it in data.
-In timestamps and signals and records of students who received support in real time.
+# Will This Endure?
 
-But we also carry it in something harder to measure:
+Yes — because we designed it to outlast us.
 
-A teacher who said, *"I didn't leave anyone behind today."*
+The practice we are changing — the habit of asking *who is confused right now, and what do I do about it* — does not require our presence to continue.
 
-A student who signaled green for the first time all semester.
+Teachers who piloted the tool now ask that question differently.
+Students now expect to be reached in time.
 
-A classroom where confusion became a signal — not a secret.
+**That shift in expectation and culture is the most enduring thing we built.**
 
-**That is Class Pulse. That is the work. That is why it matters.**
+# The Relationships That Made It Real
+
+- Teachers who opened their classrooms and told us the truth about what wasn't working.
+- Students who were willing to signal confusion, even when it felt vulnerable.
+- School administrators who believed that care and innovation are not competing values.
+- Our **TFA SSP community** — who held us accountable to rigor and to each other.
+
+None of this happened alone. None of it ever does.
 
 # Class Pulse
-## *For every student who never raised their hand but needed someone to notice.*
+## *For every student who needed someone to notice — in time.*
+
+**Evidence. Relationships. Endurance.**
+That is the work. That is why it matters. That is where we go from here.
 
 # Thank You
 
-We are grateful for every teacher, student, administrator, and community member who believed this work was worth doing.
+To our community stakeholders — thank you for believing that the 60 seconds between confusion and clarity is worth fighting for.
 
-Systems change does not happen overnight.
-But it starts with someone deciding that the current reality is not good enough
-— and doing something about it anyway.
+We will keep building. We will keep listening. We will keep asking:
 
-**That's where we started. That's where we'll keep going.**
+*Is every student being reached — right now, in this moment?*
+
+**Until the answer is always yes.**

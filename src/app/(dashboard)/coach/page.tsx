@@ -387,6 +387,8 @@ export default function CoachPage() {
 		setSelectedClassId,
 		activeSessionId,
 		setActiveSessionId,
+		activeJoinCode: _activeJoinCode,
+		setActiveJoinCode,
 		activeSessionIdRef,
 		selectedClassIdRef,
 		students,
@@ -777,6 +779,7 @@ export default function CoachPage() {
 		sendAcademic,
 		setInputMode,
 		setActiveSessionId,
+		setActiveJoinCode,
 	});
 
 	useEffect(() => {
@@ -785,9 +788,17 @@ export default function CoachPage() {
 			setGroupsOpen(true);
 			setShowGroups(true);
 		}
+		function handleVoiceOpenParentComms() {
+			setRightOpen(true);
+			setGroupsOpen(false);
+		}
 
 		window.addEventListener("voice-show_groups", handleVoiceShowGroups);
-		return () => window.removeEventListener("voice-show_groups", handleVoiceShowGroups);
+		window.addEventListener("voice-open_parent_comms", handleVoiceOpenParentComms);
+		return () => {
+			window.removeEventListener("voice-show_groups", handleVoiceShowGroups);
+			window.removeEventListener("voice-open_parent_comms", handleVoiceOpenParentComms);
+		};
 	}, [setShowGroups]);
 
 	const lectureMinutes = wordCount > 0 ? Math.max(1, Math.round(wordCount / 130)) : 0;

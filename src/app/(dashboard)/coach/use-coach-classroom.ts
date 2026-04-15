@@ -42,6 +42,7 @@ export function useCoachClassroom({
 		}
 	});
 	const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
+	const [activeJoinCode, setActiveJoinCode] = useState<string | undefined>();
 	const [students, setStudents] = useState<StudentOverview[]>([]);
 	const [studentsLoading, setStudentsLoading] = useState(false);
 	const [activeStudent, setActiveStudent] = useState<StudentOverview | null>(null);
@@ -94,6 +95,7 @@ export function useCoachClassroom({
 	useEffect(() => {
 		if (!selectedClassId) {
 			setActiveSessionId(undefined);
+			setActiveJoinCode(undefined);
 			return;
 		}
 		const reqId = ++activeSessionReqRef.current;
@@ -102,6 +104,7 @@ export function useCoachClassroom({
 			.then((j) => {
 				if (activeSessionReqRef.current !== reqId) return;
 				setActiveSessionId(j.activeSession?.id);
+				setActiveJoinCode(j.activeSession?.joinCode);
 			})
 			.catch(() => {});
 	}, [selectedClassId]);
@@ -277,6 +280,8 @@ export function useCoachClassroom({
 		setSelectedClassId,
 		activeSessionId,
 		setActiveSessionId,
+		activeJoinCode,
+		setActiveJoinCode,
 		activeSessionIdRef,
 		selectedClassIdRef,
 		students,

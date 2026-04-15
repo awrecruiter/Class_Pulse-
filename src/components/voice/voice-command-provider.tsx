@@ -324,6 +324,8 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: setScheduleOverlayOpen, scheduleDocOpenMode, and voiceNavMode are stable state values; including them would cause rebuilds on every render
 	const handleCommand = useCallback((data: Parameters<typeof enqueue>[0], transcript: string) => {
+		// Signal the lecture transcript to suppress this command phrase
+		window.dispatchEvent(new CustomEvent("voice-command-text", { detail: { text: transcript } }));
 		// move_to_group: execute immediately
 		if (data.type === "move_to_group") {
 			executeMoveToGroupRef.current(data.studentName, data.groupName);
@@ -397,7 +399,17 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			return;
 		}
 
-		if (data.type === "draft_parent_message" || data.type === "send_parent_message") {
+		if (data.type === "draft_parent_message") {
+			// Open the parent comms panel and pre-fill immediately — no queue step
+			window.dispatchEvent(new CustomEvent("voice-open_parent_comms"));
+			window.dispatchEvent(
+				new CustomEvent("voice-draft_parent_message", {
+					detail: { studentName: data.studentName, messageText: data.messageText },
+				}),
+			);
+			return;
+		}
+		if (data.type === "send_parent_message") {
 			enqueue(data, transcript);
 			return;
 		}
@@ -820,7 +832,8 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 						body: JSON.stringify({ groupId: group.id, amount: d.amount }),
 					});
 					if (!res.ok) throw new Error("Failed");
-					toast.success(`+${d.amount} 🐏 → ${d.group} group`);
+					toast.success(`+${d.amount} 🪙 → ${d.group} group`);
+					window.dispatchEvent(new CustomEvent("group-assignment-changed"));
 					confirm(item.id);
 				} else if (d.type === "parent_message") {
 					confirm(item.id);

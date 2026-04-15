@@ -92,6 +92,26 @@ export function useLectureTranscript(
 		setTranscript("");
 	}, []);
 
+	// Suppress voice command phrases from the lecture transcript
+	useEffect(() => {
+		function handleCommandText(e: Event) {
+			const text = ((e as CustomEvent<{ text: string }>).detail.text ?? "").trim().toLowerCase();
+			if (!text) return;
+			const lower = accumulatedRef.current.toLowerCase();
+			const idx = lower.lastIndexOf(text);
+			if (idx !== -1) {
+				accumulatedRef.current = (
+					accumulatedRef.current.slice(0, idx) + accumulatedRef.current.slice(idx + text.length)
+				)
+					.replace(/\s+/g, " ")
+					.trim();
+				setTranscript(trimToWordLimit(accumulatedRef.current, MAX_WORDS));
+			}
+		}
+		window.addEventListener("voice-command-text", handleCommandText);
+		return () => window.removeEventListener("voice-command-text", handleCommandText);
+	}, []);
+
 	// If we wanted listening but lost the mic (e.g. another consumer took over),
 	// reacquire when it becomes available again — manager handles this via applyState.
 	// We just need to make sure wantsActive stays true.

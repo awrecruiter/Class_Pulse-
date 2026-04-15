@@ -216,11 +216,14 @@ function SuggestedResources({
 
 	// Strip verbose FL BEST opener phrases so search queries are short and findable
 	const shortTerms = conceptDescription
+		.replace(/^given\s+a\s+mathematical\s+or\s+real-?world\s+context[,.]?\s*/i, "")
+		.replace(/^in\s+a\s+mathematical\s+or\s+real-?world\s+context[,.]?\s*/i, "")
 		.replace(/^extend\s+(previous\s+)?understanding\s+of\s+/i, "")
 		.replace(/^apply\s+(previous\s+)?understanding\s+of\s+/i, "")
 		.replace(/^use\s+understanding\s+of\s+/i, "")
 		.replace(/^identify\s+and\s+/i, "")
 		.replace(/^represent\s+and\s+/i, "")
+		.replace(/^solve\s+real-?world\s+and\s+mathematical\s+problems\s*/i, "")
 		.split(/\s+/)
 		.slice(0, 6)
 		.join(" ");

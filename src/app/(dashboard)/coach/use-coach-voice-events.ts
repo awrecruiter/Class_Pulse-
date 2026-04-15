@@ -17,6 +17,7 @@ interface UseCoachVoiceEventsOptions {
 	sendAcademic: (question: string) => void | Promise<void>;
 	setInputMode: (mode: "behavior" | "ask" | "di") => void;
 	setActiveSessionId: (sessionId: string | undefined) => void;
+	setActiveJoinCode: (joinCode: string | undefined) => void;
 }
 
 export function useCoachVoiceEvents({
@@ -32,6 +33,7 @@ export function useCoachVoiceEvents({
 	sendAcademic,
 	setInputMode,
 	setActiveSessionId,
+	setActiveJoinCode,
 }: UseCoachVoiceEventsOptions) {
 	useEffect(() => {
 		async function handleVoiceStartSession() {
@@ -50,7 +52,9 @@ export function useCoachVoiceEvents({
 				const data = await res.json().catch(() => ({}));
 				if (!res.ok)
 					throw new Error((data as { error?: string }).error ?? "Failed to start session");
-				setActiveSessionId((data as { session?: { id?: string } }).session?.id);
+				const s = (data as { session?: { id?: string; joinCode?: string } }).session;
+				setActiveSessionId(s?.id);
+				setActiveJoinCode(s?.joinCode);
 			} catch (err) {
 				toast.error(err instanceof Error ? err.message : "Failed to start session");
 			}
@@ -64,6 +68,7 @@ export function useCoachVoiceEvents({
 				const data = await res.json().catch(() => ({}));
 				if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to end session");
 				setActiveSessionId(undefined);
+				setActiveJoinCode(undefined);
 			} catch (err) {
 				toast.error(err instanceof Error ? err.message : "Failed to end session");
 			}
@@ -109,6 +114,7 @@ export function useCoachVoiceEvents({
 		isListening,
 		selectedClassIdRef,
 		sendAcademic,
+		setActiveJoinCode,
 		setActiveSessionId,
 		setInputMode,
 		setIsOrbRecording,
