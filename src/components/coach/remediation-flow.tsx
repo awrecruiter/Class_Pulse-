@@ -223,13 +223,15 @@ function SuggestedResources({
 
 	// IXL: search by FL BEST standard code — returns the exact aligned skill
 	const ixlQ = encodeURIComponent(standardCode ?? `${shortTerms} ${gradeLabel} florida`);
-	const ixlUrl = `https://www.ixl.com/search#q=${ixlQ}`;
+	const ixlUrl = `https://www.ixl.com/search?q=${ixlQ}`;
 
 	// Khan: Google site-search is far more reliable than Khan's own search for FL BEST terms
 	const khanQ = encodeURIComponent(`site:khanacademy.org ${shortTerms} ${gradeLabel} math`);
 	const khanUrl = `https://www.google.com/search?q=${khanQ}`;
 	const ytUrl = `https://www.youtube.com/results?search_query=${ytQ}`;
-	const ireadyUrl = "https://login.i-ready.com/";
+	// iReady: link directly to the teacher lesson library (works after Clever SSO)
+	const ireadySearchQ = encodeURIComponent(shortTerms);
+	const ireadyUrl = `https://learning.i-ready.com/teacher/dashboard/lessons?search=${ireadySearchQ}`;
 
 	const resources: ResourceLink[] = [
 		{
@@ -248,9 +250,9 @@ function SuggestedResources({
 		},
 		{
 			platform: "iready",
-			title: `iReady — Grade ${gradeDisplay}`,
+			title: `iReady Lesson Library — "${shortTerms}"`,
 			url: ireadyUrl,
-			description: `Log in, go to Instruction → Lesson Library, and search: "${shortTerms}"`,
+			description: "Opens the iReady lesson library search directly (requires Clever SSO session)",
 		},
 		{
 			platform: "youtube",

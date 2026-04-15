@@ -7,8 +7,11 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	ClipboardIcon,
+	CopyIcon,
 	MicIcon,
+	RadioIcon,
 	SendIcon,
+	SquareIcon,
 	Volume2Icon,
 	XIcon,
 } from "lucide-react";
@@ -393,7 +396,7 @@ export default function CoachPage() {
 		setSelectedClassId,
 		activeSessionId,
 		setActiveSessionId,
-		activeJoinCode: _activeJoinCode,
+		activeJoinCode,
 		setActiveJoinCode,
 		activeSessionIdRef,
 		selectedClassIdRef,
@@ -463,6 +466,40 @@ export default function CoachPage() {
 	function handleStudentTap(s: StudentOverview) {
 		pendingStudentRef.current = s;
 		setActiveStudent(s);
+	}
+
+	async function handleSessionToggle() {
+		if (activeSessionId) {
+			// End session
+			try {
+				const res = await fetch(`/api/sessions/${activeSessionId}/end`, { method: "PUT" });
+				if (res.ok) {
+					setActiveSessionId(undefined);
+					setActiveJoinCode(undefined);
+				}
+			} catch {
+				// ignore
+			}
+		} else {
+			// Start session
+			const classId = selectedClassId;
+			if (!classId) return;
+			try {
+				const res = await fetch("/api/sessions", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ classId }),
+				});
+				const data = await res.json().catch(() => ({}));
+				if (res.ok) {
+					const s = (data as { session?: { id?: string; joinCode?: string } }).session;
+					setActiveSessionId(s?.id);
+					setActiveJoinCode(s?.joinCode);
+				}
+			} catch {
+				// ignore
+			}
+		}
 	}
 
 	function findStudentInText(text: string) {
@@ -1123,36 +1160,61 @@ export default function CoachPage() {
 						</div>
 					)}
 
-					{/* Reserved space — mic button at rest, waveform when capturing */}
+					{/* Session start/stop + waveform zone */}
 					{classes.length > 0 &&
 						showOrbArea &&
 						inputMode !== "di" &&
 						!(inputMode === "ask" && scaffoldResponse) && (
 							<div
-								className="shrink-0 flex items-center justify-center px-6"
+								className="shrink-0 flex flex-col items-center justify-center px-6 gap-3"
 								style={{ height: 160 }}
 							>
-								{isListening || isOrbRecording ? (
+								{(isListening || isOrbRecording) && (
 									<WaveformMeter
 										active={isListening || isOrbRecording}
-										height={136}
+										height={72}
 										className="w-full"
 									/>
-								) : (
-									<div className="relative flex items-center justify-center">
-										<span className="absolute h-20 w-20 rounded-full border border-slate-600/40 [animation:mic-center-pulse_2.8s_ease-in-out_infinite]" />
-										<span className="absolute h-24 w-24 rounded-full border border-slate-700/25 [animation:mic-center-pulse_2.8s_ease-in-out_infinite_0.4s]" />
-										<button
-											type="button"
-											onClick={toggleOrb}
-											disabled={isLoading}
-											title="Voice input"
-											className="relative z-10 h-16 w-16 rounded-full flex items-center justify-center border-2 border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:border-slate-500 hover:text-slate-200 transition-all active:scale-95 disabled:opacity-40"
-										>
-											<MicIcon className="h-7 w-7" />
-										</button>
-									</div>
 								)}
+								{/* Session toggle */}
+								<div className="flex flex-col items-center gap-2">
+									<button
+										type="button"
+										onClick={handleSessionToggle}
+										disabled={!selectedClassId}
+										className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40 ${
+											activeSessionId
+												? "bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
+												: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
+										}`}
+									>
+										{activeSessionId ? (
+											<>
+												<SquareIcon className="h-4 w-4 fill-current" /> Stop Session
+											</>
+										) : (
+											<>
+												<RadioIcon className="h-4 w-4" /> Go Live
+											</>
+										)}
+									</button>
+									{activeSessionId && activeJoinCode && (
+										<div className="flex items-center gap-2">
+											<span className="text-xs text-slate-500">Code:</span>
+											<span className="font-mono font-black tracking-widest text-amber-400 text-base">
+												{activeJoinCode}
+											</span>
+											<button
+												type="button"
+												onClick={() => navigator.clipboard.writeText(activeJoinCode)}
+												title="Copy join code"
+												className="text-slate-600 hover:text-amber-400 transition-colors"
+											>
+												<CopyIcon className="h-3.5 w-3.5" />
+											</button>
+										</div>
+									)}
+								</div>
 							</div>
 						)}
 

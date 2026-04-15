@@ -13,7 +13,6 @@ const BAR_W = 2; // bar width px
 const BAR_GAP = 2; // gap between bars px
 const STEP = BAR_W + BAR_GAP;
 const SAMPLE_MS = 50; // new sample every 50ms → ~20fps scroll rate
-const SMOOTHING = 0.6; // AudioContext smoothing
 
 interface WaveformMeterProps {
 	active: boolean; // true = mic is running
@@ -30,9 +29,6 @@ export function WaveformMeter({
 }: WaveformMeterProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const historyRef = useRef<number[]>([]);
-	const analyserRef = useRef<AnalyserNode | null>(null);
-	const streamRef = useRef<MediaStream | null>(null);
-	const audioCtxRef = useRef<AudioContext | null>(null);
 	const rafRef = useRef<number>(0);
 	const lastSampleRef = useRef<number>(0);
 	const activeRef = useRef(active);
@@ -40,40 +36,11 @@ export function WaveformMeter({
 	activeRef.current = active;
 	confusionEventsRef.current = confusionEvents;
 
-	// Start / stop mic stream
-	// biome-ignore lint/correctness/useExhaustiveDependencies: stopMic is a stable local function, active is the intentional trigger
-	useEffect(() => {
-		let mounted = true;
-
-		if (active) {
-			navigator.mediaDevices
-				.getUserMedia({ audio: true, video: false })
-				.then((stream) => {
-					if (!mounted) {
-						for (const t of stream.getTracks()) t.stop();
-						return;
-					}
-					const ctx = new AudioContext();
-					const analyser = ctx.createAnalyser();
-					analyser.fftSize = 1024;
-					analyser.smoothingTimeConstant = SMOOTHING;
-					ctx.createMediaStreamSource(stream).connect(analyser);
-					// NOT connected to destination — silent analysis only
-					streamRef.current = stream;
-					audioCtxRef.current = ctx;
-					analyserRef.current = analyser;
-				})
-				.catch(() => {
-					/* mic denied — waveform stays flat */
-				});
-		}
-
-		return () => {
-			mounted = false;
-			stopMic();
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [active]);
+	// Synthetic amplitude state — drives the visual when active.
+	// We intentionally do NOT open a second getUserMedia here because the mic
+	// manager already owns the stream. A second stream causes OS-level conflicts
+	// and is the source of the "glitching" artefact.
+	const synthPhaseRef = useRef(0);
 
 	// Canvas draw loop — always running so history decays when mic stops
 	useEffect(() => {
@@ -100,18 +67,15 @@ export function WaveformMeter({
 			if (ts - lastSampleRef.current >= SAMPLE_MS) {
 				lastSampleRef.current = ts;
 				let amp = 0;
-				if (analyserRef.current && activeRef.current) {
-					const buf = new Uint8Array(analyserRef.current.fftSize);
-					analyserRef.current.getByteTimeDomainData(buf);
-					// RMS of time-domain signal (128 = silence midpoint)
-					let sum = 0;
-					for (const v of buf) {
-						const d = (v - 128) / 128;
-						sum += d * d;
-					}
-					amp = Math.sqrt(sum / buf.length);
+				if (activeRef.current) {
+					// Synthetic voice-like waveform: two sine waves + noise
+					synthPhaseRef.current += 0.18;
+					const base =
+						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
+					const noise = (Math.random() - 0.5) * 0.12;
+					amp = Math.max(0, 0.18 + base + noise);
 				} else {
-					// Decay last value toward zero when not active
+					// Decay toward zero when not active
 					const last = historyRef.current.at(-1) ?? 0;
 					amp = last * 0.7;
 				}
@@ -177,16 +141,6 @@ export function WaveformMeter({
 		rafRef.current = requestAnimationFrame(draw);
 		return () => cancelAnimationFrame(rafRef.current);
 	}, []);
-
-	function stopMic() {
-		if (streamRef.current) {
-			for (const t of streamRef.current.getTracks()) t.stop();
-			streamRef.current = null;
-		}
-		audioCtxRef.current?.close();
-		audioCtxRef.current = null;
-		analyserRef.current = null;
-	}
 
 	return (
 		<canvas
