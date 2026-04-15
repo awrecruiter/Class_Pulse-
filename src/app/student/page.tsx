@@ -109,8 +109,13 @@ export default function StudentJoinPage() {
 		try {
 			const res = await fetch(`/api/sessions/join?code=${trimmed}`);
 			if (!res.ok) {
-				const json = await res.json();
-				throw new Error(json.error ?? "Code not found");
+				let msg = "Code not found";
+				try {
+					msg = (await res.json()).error ?? msg;
+				} catch {
+					/* empty body */
+				}
+				throw new Error(msg);
 			}
 			const json = await res.json();
 			setSessionId(json.sessionId);
@@ -139,8 +144,13 @@ export default function StudentJoinPage() {
 				body: JSON.stringify({ joinCode: code.trim().toUpperCase(), studentId: trimmedId }),
 			});
 			if (!res.ok) {
-				const json = await res.json();
-				throw new Error(json.error ?? "Failed to join");
+				let msg = "Failed to join";
+				try {
+					msg = (await res.json()).error ?? msg;
+				} catch {
+					/* empty body */
+				}
+				throw new Error(msg);
 			}
 			router.push(`/student/${sessionId}`);
 		} catch (err) {

@@ -16,64 +16,74 @@ export async function POST(request: NextRequest) {
 	const { success } = joinRateLimiter.check(ip);
 	if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
-	const body = await request.json();
+	let body: unknown;
+	try {
+		body = await request.json();
+	} catch {
+		return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+	}
 	const result = joinSchema.safeParse(body);
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
-	// Look up the session by join code
-	const [session] = await db
-		.select()
-		.from(classSessions)
-		.where(
-			and(eq(classSessions.joinCode, result.data.joinCode), eq(classSessions.status, "active")),
-		);
+	try {
+		// Look up the session by join code
+		const [session] = await db
+			.select()
+			.from(classSessions)
+			.where(
+				and(eq(classSessions.joinCode, result.data.joinCode), eq(classSessions.status, "active")),
+			);
 
-	if (!session) {
-		return NextResponse.json({ error: "Session not found or already ended" }, { status: 404 });
+		if (!session) {
+			return NextResponse.json({ error: "Session not found or already ended" }, { status: 404 });
+		}
+
+		// Look up roster entry by studentId within this class
+		const [rosterEntry] = await db
+			.select()
+			.from(rosterEntries)
+			.where(
+				and(
+					eq(rosterEntries.studentId, result.data.studentId),
+					eq(rosterEntries.classId, session.classId),
+					eq(rosterEntries.isActive, true),
+				),
+			);
+
+		if (!rosterEntry) {
+			return NextResponse.json({ error: "Student not on roster" }, { status: 403 });
+		}
+
+		// Get class info for display
+		const [cls] = await db.select().from(classes).where(eq(classes.id, session.classId));
+
+		// Sign the student token
+		const token = signStudentToken({
+			sessionId: session.id,
+			rosterId: rosterEntry.id,
+		});
+
+		const response = NextResponse.json({
+			sessionId: session.id,
+			sessionLabel: cls?.label ?? "",
+			date: session.date,
+		});
+
+		// Set signed cookie — HttpOnly, SameSite=Lax
+		response.cookies.set(STUDENT_COOKIE, token, {
+			httpOnly: true,
+			sameSite: "lax",
+			path: "/",
+			// Expire when session ends (30 days max)
+			maxAge: 30 * 24 * 60 * 60,
+		});
+
+		return response;
+	} catch (err) {
+		console.error("[join POST]", err);
+		return NextResponse.json({ error: "Server error — please try again" }, { status: 500 });
 	}
-
-	// Look up roster entry by studentId within this class
-	const [rosterEntry] = await db
-		.select()
-		.from(rosterEntries)
-		.where(
-			and(
-				eq(rosterEntries.studentId, result.data.studentId),
-				eq(rosterEntries.classId, session.classId),
-				eq(rosterEntries.isActive, true),
-			),
-		);
-
-	if (!rosterEntry) {
-		return NextResponse.json({ error: "Student not on roster" }, { status: 403 });
-	}
-
-	// Get class info for display
-	const [cls] = await db.select().from(classes).where(eq(classes.id, session.classId));
-
-	// Sign the student token
-	const token = signStudentToken({
-		sessionId: session.id,
-		rosterId: rosterEntry.id,
-	});
-
-	const response = NextResponse.json({
-		sessionId: session.id,
-		sessionLabel: cls?.label ?? "",
-		date: session.date,
-	});
-
-	// Set signed cookie — HttpOnly, SameSite=Lax
-	response.cookies.set(STUDENT_COOKIE, token, {
-		httpOnly: true,
-		sameSite: "lax",
-		path: "/",
-		// Expire when session ends (30 days max)
-		maxAge: 30 * 24 * 60 * 60,
-	});
-
-	return response;
 }
 
 // Separate GET endpoint for looking up a session by code (before picking a name)
@@ -87,31 +97,36 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ error: "Invalid code" }, { status: 400 });
 	}
 
-	const [session] = await db
-		.select()
-		.from(classSessions)
-		.where(and(eq(classSessions.joinCode, code), eq(classSessions.status, "active")));
+	try {
+		const [session] = await db
+			.select()
+			.from(classSessions)
+			.where(and(eq(classSessions.joinCode, code), eq(classSessions.status, "active")));
 
-	if (!session) {
-		return NextResponse.json({ error: "Session not found or already ended" }, { status: 404 });
+		if (!session) {
+			return NextResponse.json({ error: "Session not found or already ended" }, { status: 404 });
+		}
+
+		// Return roster for this class (so student can pick their name)
+		const roster = await db
+			.select()
+			.from(rosterEntries)
+			.where(and(eq(rosterEntries.classId, session.classId), eq(rosterEntries.isActive, true)));
+
+		const [cls] = await db.select().from(classes).where(eq(classes.id, session.classId));
+
+		return NextResponse.json({
+			sessionId: session.id,
+			sessionLabel: cls?.label ?? "",
+			date: session.date,
+			roster: roster.map((r) => ({
+				id: r.id,
+				display: `${r.firstInitial}.${r.lastInitial}.`,
+				studentId: r.studentId,
+			})),
+		});
+	} catch (err) {
+		console.error("[join GET]", err);
+		return NextResponse.json({ error: "Server error — please try again" }, { status: 500 });
 	}
-
-	// Return roster for this class (so student can pick their name)
-	const roster = await db
-		.select()
-		.from(rosterEntries)
-		.where(and(eq(rosterEntries.classId, session.classId), eq(rosterEntries.isActive, true)));
-
-	const [cls] = await db.select().from(classes).where(eq(classes.id, session.classId));
-
-	return NextResponse.json({
-		sessionId: session.id,
-		sessionLabel: cls?.label ?? "",
-		date: session.date,
-		roster: roster.map((r) => ({
-			id: r.id,
-			display: `${r.firstInitial}.${r.lastInitial}.`,
-			studentId: r.studentId,
-		})),
-	});
 }
