@@ -205,44 +205,63 @@ const PLATFORM_STYLES: Record<
 function SuggestedResources({
 	grade,
 	conceptDescription,
+	standardCode,
 }: {
 	grade: GradeLevel;
 	conceptDescription: string;
+	standardCode?: string;
 }) {
 	const gradeLabel = grade === 0 ? "kindergarten" : `grade ${grade}`;
 	const gradeDisplay = grade === 0 ? "K" : String(grade);
-	const q = encodeURIComponent(`${conceptDescription} ${gradeLabel} math`);
 
+	// Strip verbose FL BEST opener phrases so search queries are short and findable
+	const shortTerms = conceptDescription
+		.replace(/^extend\s+(previous\s+)?understanding\s+of\s+/i, "")
+		.replace(/^apply\s+(previous\s+)?understanding\s+of\s+/i, "")
+		.replace(/^use\s+understanding\s+of\s+/i, "")
+		.replace(/^identify\s+and\s+/i, "")
+		.replace(/^represent\s+and\s+/i, "")
+		.split(/\s+/)
+		.slice(0, 6)
+		.join(" ");
+
+	const khanQ = encodeURIComponent(`${shortTerms} ${gradeLabel} math`);
+	const ytQ = encodeURIComponent(`${shortTerms} ${gradeLabel} math`);
+
+	// IXL: anchor to the specific FL BEST standard so it jumps right to the skill
 	const ixlSlug = IXL_GRADE_SLUGS[grade] ?? "grade-5";
-	const ixlUrl = `https://www.ixl.com/standards/florida/math/${ixlSlug}`;
-	const khanUrl = `https://www.khanacademy.org/search?page_search_query=${q}`;
-	const ytUrl = `https://www.youtube.com/results?search_query=${q}`;
+	const ixlAnchor = standardCode ? `#${standardCode}` : "";
+	const ixlUrl = `https://www.ixl.com/standards/florida/math/${ixlSlug}${ixlAnchor}`;
+
+	const khanUrl = `https://www.khanacademy.org/search?page_search_query=${khanQ}`;
+	const ytUrl = `https://www.youtube.com/results?search_query=${ytQ}`;
+	const ireadyUrl = "https://login.i-ready.com/";
 
 	const resources: ResourceLink[] = [
 		{
 			platform: "ixl",
-			title: `IXL — FL Standards Grade ${gradeDisplay}`,
+			title: standardCode ? `IXL — ${standardCode}` : `IXL — FL Standards Grade ${gradeDisplay}`,
 			url: ixlUrl,
 			description:
-				"FL BEST-aligned skills — find the exact standard and click the linked IXL skill",
+				"FL BEST-aligned skills — click to jump to this exact standard and find the linked IXL skill",
 		},
 		{
 			platform: "khan",
-			title: `Search: "${conceptDescription}"`,
+			title: `Search: "${shortTerms}"`,
 			url: khanUrl,
-			description: `Khan Academy search for ${gradeLabel} lessons on this concept`,
+			description: `Khan Academy lessons on this concept at the ${gradeLabel} level`,
 		},
 		{
 			platform: "iready",
 			title: `iReady — Grade ${gradeDisplay}`,
-			url: "",
-			description: `Search for "${conceptDescription}" in the iReady teacher dashboard to assign targeted lessons`,
+			url: ireadyUrl,
+			description: `Log in, go to Instruction → Lesson Library, and search: "${shortTerms}"`,
 		},
 		{
 			platform: "youtube",
-			title: `Search: "${conceptDescription}"`,
+			title: `Search: "${shortTerms}"`,
 			url: ytUrl,
-			description: `YouTube search for ${gradeLabel} videos on this concept`,
+			description: `YouTube math videos for ${gradeLabel} on this concept`,
 		},
 	];
 
@@ -320,6 +339,11 @@ function IntroStage({
 						<span className="text-[11px] text-amber-400/80 font-medium">
 							Grade {response.missingConcept.grade} gap
 						</span>
+						{scaffoldGrade !== aiDetectedGrade && (
+							<span className="rounded-md bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 text-[11px] font-semibold border border-indigo-500/20">
+								Scaffolded to Grade {scaffoldGrade === 0 ? "K" : scaffoldGrade}
+							</span>
+						)}
 					</div>
 					<p className="text-xs text-amber-200/80 leading-relaxed">
 						{response.missingConcept.explanation}
@@ -376,6 +400,7 @@ function IntroStage({
 			<SuggestedResources
 				grade={scaffoldGrade}
 				conceptDescription={response.missingConcept.description}
+				standardCode={response.missingConcept.code}
 			/>
 
 			{/* Action buttons — hidden until RAG remediation is ready
