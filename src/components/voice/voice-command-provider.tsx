@@ -642,6 +642,41 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				}
 			}
 
+			// Fast-path: give/award/add [the] [group] [N] coins
+			// e.g. "give the dogs two coins", "award cats five coins"
+			const groupCoinsMatch = transcript
+				.trim()
+				.match(
+					new RegExp(
+						`\\b(?:give|award|add)\\s+(?:the\\s+)?(\\w+)\\s+(${NUM_WORDS})\\s+coins?\\b`,
+						"i",
+					),
+				);
+			// Also handle: "give [N] coins to [the] [group]"
+			const groupCoinsToMatch =
+				!groupCoinsMatch &&
+				transcript
+					.trim()
+					.match(
+						new RegExp(
+							`\\b(?:give|award|add)\\s+(${NUM_WORDS})\\s+coins?\\s+to\\s+(?:the\\s+)?(\\w+)\\b`,
+							"i",
+						),
+					);
+			const gcRaw = groupCoinsMatch
+				? { group: groupCoinsMatch[1], amtStr: groupCoinsMatch[2] }
+				: groupCoinsToMatch
+					? { group: groupCoinsToMatch[2], amtStr: groupCoinsToMatch[1] }
+					: null;
+			if (gcRaw) {
+				const amount =
+					Number.parseInt(gcRaw.amtStr, 10) || WORD_TO_NUM[gcRaw.amtStr.toLowerCase()] || 0;
+				if (amount > 0) {
+					handleCommand({ type: "group_coins", group: gcRaw.group, amount }, transcript);
+					return;
+				}
+			}
+
 			setAgentThinking(true);
 			try {
 				// Refresh context cache (no-op if still fresh — prevents rate limit hammering)

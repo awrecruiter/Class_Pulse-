@@ -157,7 +157,7 @@ export default function StudentJoinPage() {
 					<RamLogo size={52} />
 				</div>
 				<div className="text-center">
-					<p className="text-2xl font-black tracking-tight text-white">RAM Class</p>
+					<p className="text-2xl font-black tracking-tight text-white">Ms. White's Class</p>
 					<p className="text-xs text-slate-500 mt-0.5 font-medium tracking-widest uppercase">
 						Student Portal
 					</p>
@@ -265,7 +265,7 @@ export default function StudentJoinPage() {
 				)}
 			</div>
 
-			<p className="text-xs text-slate-700">RAM Class Student Portal</p>
+			<p className="text-xs text-slate-700">Ms. White's Class Student Portal</p>
 		</div>
 	);
 }
