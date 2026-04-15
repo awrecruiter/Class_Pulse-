@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, between, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
@@ -49,6 +49,39 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 	const url = new URL(request.url);
 	const date = url.searchParams.get("date");
+	const from = url.searchParams.get("from");
+	const to = url.searchParams.get("to");
+
+	// Range mode: ?from=YYYY-MM-DD&to=YYYY-MM-DD — returns class average per day
+	if (from && to) {
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+			return NextResponse.json({ error: "from/to must be YYYY-MM-DD" }, { status: 400 });
+		}
+		const rows = await db
+			.select({ date: cfuEntries.date, score: cfuEntries.score })
+			.from(cfuEntries)
+			.where(and(eq(cfuEntries.classId, classId), between(cfuEntries.date, from, to)))
+			.orderBy(cfuEntries.date);
+		// Aggregate: average score per date (exclude absent=0 from average)
+		const byDate: Record<string, { sum: number; count: number; dist: number[] }> = {};
+		for (const r of rows) {
+			if (!byDate[r.date]) byDate[r.date] = { sum: 0, count: 0, dist: [0, 0, 0, 0, 0] };
+			byDate[r.date].dist[r.score] = (byDate[r.date].dist[r.score] ?? 0) + 1;
+			if (r.score > 0) {
+				byDate[r.date].sum += r.score;
+				byDate[r.date].count += 1;
+			}
+		}
+		const trend = Object.entries(byDate)
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([d, { sum, count, dist }]) => ({
+				date: d,
+				average: count > 0 ? Math.round((sum / count) * 100) / 100 : 0,
+				count,
+				dist,
+			}));
+		return NextResponse.json({ trend, from, to });
+	}
 
 	if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
 		return NextResponse.json({ error: "date query param required (YYYY-MM-DD)" }, { status: 400 });

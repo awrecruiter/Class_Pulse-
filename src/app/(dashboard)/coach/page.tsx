@@ -141,6 +141,12 @@ function StudentChip({
 				<BanknoteIcon className="h-2.5 w-2.5 shrink-0 text-emerald-400" />
 				{student.balance}
 			</span>
+			{/* Student ID popup — shows when chip is active */}
+			{active && (
+				<span className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap rounded bg-slate-900 border border-slate-700 px-1.5 py-0.5 text-[9px] font-mono text-slate-300 shadow-lg pointer-events-none">
+					ID: {student.studentId}
+				</span>
+			)}
 		</button>
 	);
 }
@@ -457,8 +463,6 @@ export default function CoachPage() {
 	function handleStudentTap(s: StudentOverview) {
 		pendingStudentRef.current = s;
 		setActiveStudent(s);
-		const name = s.displayName;
-		setTextInput((prev) => (prev.includes(name) ? prev : prev ? `${name} ${prev}` : `${name} `));
 	}
 
 	function findStudentInText(text: string) {

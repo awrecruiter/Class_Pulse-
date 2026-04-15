@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenIcon, ClockIcon, PlusIcon, UsersIcon } from "lucide-react";
+import { BookOpenIcon, ClockIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +23,8 @@ export default function ClassesPage() {
 	const [loading, setLoading] = useState(true);
 	const [showForm, setShowForm] = useState(false);
 	const [creating, setCreating] = useState(false);
+	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+	const [deleting, setDeleting] = useState(false);
 	const [form, setForm] = useState({
 		label: "",
 		periodTime: "",
@@ -126,6 +128,28 @@ export default function ClassesPage() {
 			toast.error(err instanceof Error ? err.message : "Failed to create class");
 		} finally {
 			setCreating(false);
+		}
+	}
+
+	async function handleDelete(classId: string) {
+		if (confirmDeleteId !== classId) {
+			setConfirmDeleteId(classId);
+			return;
+		}
+		setDeleting(true);
+		try {
+			const res = await fetch(`/api/classes/${classId}`, { method: "DELETE" });
+			if (!res.ok) {
+				const json = await res.json().catch(() => ({}));
+				throw new Error((json as { error?: string }).error ?? "Failed to delete class");
+			}
+			toast.success("Class deleted");
+			setConfirmDeleteId(null);
+			fetchClasses();
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Failed to delete class");
+		} finally {
+			setDeleting(false);
 		}
 	}
 
@@ -245,34 +269,63 @@ export default function ClassesPage() {
 				) : (
 					<div className="flex flex-col gap-2">
 						{classes.map((cls) => (
-							<button
+							<div
 								key={cls.id}
-								type="button"
-								onClick={() => router.push(`/classes/${cls.id}`)}
-								className="rounded-xl border border-slate-800 bg-slate-800/40 p-4 text-left hover:bg-slate-800 hover:border-slate-700 transition-colors group"
+								className="rounded-xl border border-slate-800 bg-slate-800/40 hover:bg-slate-800 hover:border-slate-700 transition-colors group flex items-center"
 							>
-								<div className="flex items-center justify-between gap-2">
-									<div>
-										<p className="text-sm font-semibold text-slate-100">{cls.label}</p>
-										<div className="flex items-center gap-3 mt-1">
-											{cls.periodTime && (
+								<button
+									type="button"
+									onClick={() => {
+										setConfirmDeleteId(null);
+										router.push(`/classes/${cls.id}`);
+									}}
+									className="flex-1 p-4 text-left"
+								>
+									<div className="flex items-center justify-between gap-2">
+										<div>
+											<p className="text-sm font-semibold text-slate-100">{cls.label}</p>
+											<div className="flex items-center gap-3 mt-1">
+												{cls.periodTime && (
+													<span className="flex items-center gap-1 text-xs text-slate-500">
+														<ClockIcon className="h-3 w-3" />
+														{cls.periodTime}
+													</span>
+												)}
 												<span className="flex items-center gap-1 text-xs text-slate-500">
-													<ClockIcon className="h-3 w-3" />
-													{cls.periodTime}
+													<UsersIcon className="h-3 w-3" />
+													{cls.studentCount} student{cls.studentCount !== 1 ? "s" : ""}
 												</span>
-											)}
-											<span className="flex items-center gap-1 text-xs text-slate-500">
-												<UsersIcon className="h-3 w-3" />
-												{cls.studentCount} student{cls.studentCount !== 1 ? "s" : ""}
-											</span>
-											<span className="text-xs text-slate-600">Grade {cls.gradeLevel}</span>
+												<span className="text-xs text-slate-600">Grade {cls.gradeLevel}</span>
+											</div>
 										</div>
+										<span className="text-xs text-indigo-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+											Manage →
+										</span>
 									</div>
-									<span className="text-xs text-indigo-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-										Manage →
-									</span>
-								</div>
-							</button>
+								</button>
+								<button
+									type="button"
+									onClick={(e) => {
+										e.stopPropagation();
+										handleDelete(cls.id);
+									}}
+									disabled={deleting && confirmDeleteId === cls.id}
+									className={`shrink-0 mr-3 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+										confirmDeleteId === cls.id
+											? "bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
+											: "opacity-0 group-hover:opacity-100 bg-transparent text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent"
+									}`}
+									title={
+										confirmDeleteId === cls.id ? "Click again to confirm deletion" : "Delete class"
+									}
+								>
+									{confirmDeleteId === cls.id ? (
+										<span>{deleting ? "Deleting…" : "Delete?"}</span>
+									) : (
+										<Trash2Icon className="h-3.5 w-3.5" />
+									)}
+								</button>
+							</div>
 						))}
 					</div>
 				)}

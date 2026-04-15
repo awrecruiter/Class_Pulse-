@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, RefreshCwIcon } from "lucide-react";
+import { BarChart2Icon, DownloadIcon, LineChartIcon, RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,188 @@ function today(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
+// ─── SVG Trend Chart ──────────────────────────────────────────────────────────
+const SCORE_LINE_COLORS = ["#64748b", "#ef4444", "#f97316", "#3b82f6", "#10b981"];
+const SCORE_BAR_COLORS = [
+	"bg-slate-600",
+	"bg-red-500",
+	"bg-orange-500",
+	"bg-blue-500",
+	"bg-emerald-500",
+];
+const DIST_LABELS = ["Absent", "Below", "Approaching", "Meeting", "Exceeding"];
+
+function TrendChart({
+	data,
+	mode,
+}: {
+	data: { date: string; average: number; count: number; dist: number[] }[];
+	mode: "line" | "bar";
+}) {
+	if (data.length === 0) {
+		return (
+			<div className="h-32 flex items-center justify-center text-xs text-slate-500">
+				No data for the last 30 days
+			</div>
+		);
+	}
+
+	const W = 480;
+	const H = 120;
+	const PAD = { top: 12, right: 12, bottom: 28, left: 28 };
+	const chartW = W - PAD.left - PAD.right;
+	const chartH = H - PAD.top - PAD.bottom;
+
+	const maxAvg = 4;
+	const minAvg = 0;
+
+	function xPos(i: number) {
+		return PAD.left + (data.length <= 1 ? chartW / 2 : (i / (data.length - 1)) * chartW);
+	}
+	function yPos(v: number) {
+		return PAD.top + chartH - ((v - minAvg) / (maxAvg - minAvg)) * chartH;
+	}
+
+	const linePath = data
+		.map((d, i) => `${i === 0 ? "M" : "L"} ${xPos(i)} ${yPos(d.average)}`)
+		.join(" ");
+	const areaPath = `${linePath} L ${xPos(data.length - 1)} ${PAD.top + chartH} L ${xPos(0)} ${PAD.top + chartH} Z`;
+
+	const barW = Math.max(4, Math.min(24, chartW / data.length - 4));
+
+	if (mode === "line") {
+		return (
+			<div className="flex flex-col gap-2">
+				<svg
+					viewBox={`0 0 ${W} ${H}`}
+					className="w-full"
+					style={{ height: H }}
+					aria-label="Score trend line chart"
+				>
+					<title>Score trend line chart</title>
+					{/* Grid lines */}
+					{[0, 1, 2, 3, 4].map((v) => (
+						<line
+							key={v}
+							x1={PAD.left}
+							y1={yPos(v)}
+							x2={W - PAD.right}
+							y2={yPos(v)}
+							stroke="#1e293b"
+							strokeWidth={1}
+						/>
+					))}
+					{/* Y-axis labels */}
+					{[0, 1, 2, 3, 4].map((v) => (
+						<text
+							key={v}
+							x={PAD.left - 4}
+							y={yPos(v) + 4}
+							textAnchor="end"
+							fontSize={8}
+							fill="#475569"
+						>
+							{v}
+						</text>
+					))}
+					{/* Area fill */}
+					<path d={areaPath} fill="#6366f1" fillOpacity={0.08} />
+					{/* Line */}
+					<path
+						d={linePath}
+						fill="none"
+						stroke="#6366f1"
+						strokeWidth={1.5}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+					{/* Data points */}
+					{data.map((d, i) => (
+						<g key={d.date}>
+							<circle cx={xPos(i)} cy={yPos(d.average)} r={3} fill="#6366f1" />
+							{/* Date label — show every Nth label to avoid crowding */}
+							{(i === 0 ||
+								i === data.length - 1 ||
+								data.length <= 7 ||
+								i % Math.ceil(data.length / 6) === 0) && (
+								<text x={xPos(i)} y={H - 4} textAnchor="middle" fontSize={7} fill="#475569">
+									{d.date.slice(5)}
+								</text>
+							)}
+						</g>
+					))}
+				</svg>
+				{/* Score legend */}
+				<div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+					<span className="text-[10px] text-slate-500">Avg score (1–4, excludes absent)</span>
+					<span className="text-[10px] text-indigo-400 font-medium">
+						Latest: {data[data.length - 1]?.average.toFixed(2)} / 4.00
+					</span>
+				</div>
+			</div>
+		);
+	}
+
+	// Bar chart — stacked distribution per day
+	return (
+		<div className="flex flex-col gap-2">
+			<svg
+				viewBox={`0 0 ${W} ${H}`}
+				className="w-full"
+				style={{ height: H }}
+				aria-label="Score distribution bar chart"
+			>
+				<title>Score distribution bar chart</title>
+				{data.map((d, i) => {
+					const total = d.dist.reduce((a, b) => a + b, 0);
+					if (total === 0) return null;
+					const x = xPos(i) - barW / 2;
+					let cumY = PAD.top + chartH;
+					return (
+						<g key={d.date}>
+							{d.dist.map((cnt, scoreIdx) => {
+								if (cnt === 0) return null;
+								const barH = (cnt / total) * chartH;
+								cumY -= barH;
+								const fill = SCORE_LINE_COLORS[scoreIdx] ?? "#64748b";
+								const scoreLabel = DIST_LABELS[scoreIdx] ?? String(scoreIdx);
+								return (
+									<rect
+										key={`${d.date}-${scoreLabel}`}
+										x={x}
+										y={cumY}
+										width={barW}
+										height={barH}
+										fill={fill}
+										fillOpacity={0.8}
+									/>
+								);
+							})}
+							{(i === 0 ||
+								i === data.length - 1 ||
+								data.length <= 7 ||
+								i % Math.ceil(data.length / 6) === 0) && (
+								<text x={xPos(i)} y={H - 4} textAnchor="middle" fontSize={7} fill="#475569">
+									{d.date.slice(5)}
+								</text>
+							)}
+						</g>
+					);
+				})}
+			</svg>
+			{/* Legend */}
+			<div className="flex flex-wrap gap-x-3 gap-y-0.5">
+				{DIST_LABELS.map((label, idx) => (
+					<span key={label} className="flex items-center gap-1 text-[10px] text-slate-400">
+						<span className={`inline-block h-2 w-2 rounded-sm ${SCORE_BAR_COLORS[idx]}`} />
+						{label}
+					</span>
+				))}
+			</div>
+		</div>
+	);
+}
+
 export default function GradebookPage() {
 	const [classes, setClasses] = useState<ClassOption[]>([]);
 	const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -56,6 +238,12 @@ export default function GradebookPage() {
 	const [submitting, setSubmitting] = useState(false);
 	const [exportFrom, setExportFrom] = useState<string>(today());
 	const [exportTo, setExportTo] = useState<string>(today());
+	// Chart state
+	const [chartMode, setChartMode] = useState<"line" | "bar">("line");
+	const [trend, setTrend] = useState<
+		{ date: string; average: number; count: number; dist: number[] }[]
+	>([]);
+	const [trendLoading, setTrendLoading] = useState(false);
 
 	// Fetch class list
 	useEffect(() => {
@@ -106,6 +294,33 @@ export default function GradebookPage() {
 			})
 			.catch(() => toast.error("Failed to load roster"));
 	}, [selectedClassId]);
+
+	// Fetch trend data for charts (last 30 days)
+	const fetchTrend = useCallback(async () => {
+		if (!selectedClassId) {
+			setTrend([]);
+			return;
+		}
+		setTrendLoading(true);
+		try {
+			const toDate = today();
+			const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+			const res = await fetch(
+				`/api/classes/${selectedClassId}/gradebook?from=${fromDate}&to=${toDate}`,
+			);
+			if (!res.ok) return;
+			const json = await res.json();
+			setTrend(json.trend ?? []);
+		} catch {
+			// Silently fail
+		} finally {
+			setTrendLoading(false);
+		}
+	}, [selectedClassId]);
+
+	useEffect(() => {
+		fetchTrend();
+	}, [fetchTrend]);
 
 	// Fetch existing entries when class + date change
 	const fetchExisting = useCallback(async () => {
@@ -385,6 +600,44 @@ export default function GradebookPage() {
 						{submitting ? "Saving..." : `Save ${roster.length} Entries`}
 					</Button>
 				</form>
+			)}
+
+			{/* Class Trend Charts */}
+			{selectedClassId && (trend.length > 0 || trendLoading) && (
+				<section className="flex flex-col gap-3">
+					<div className="flex items-center justify-between">
+						<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+							Class Trend — Last 30 Days
+						</h2>
+						<div className="flex items-center gap-1">
+							<button
+								type="button"
+								onClick={() => setChartMode("line")}
+								className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${chartMode === "line" ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30" : "text-slate-500 hover:text-slate-300"}`}
+							>
+								<LineChartIcon className="h-3.5 w-3.5" />
+								Line
+							</button>
+							<button
+								type="button"
+								onClick={() => setChartMode("bar")}
+								className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${chartMode === "bar" ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30" : "text-slate-500 hover:text-slate-300"}`}
+							>
+								<BarChart2Icon className="h-3.5 w-3.5" />
+								Bar
+							</button>
+						</div>
+					</div>
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+						{trendLoading ? (
+							<div className="h-32 flex items-center justify-center text-xs text-slate-500">
+								Loading trend data…
+							</div>
+						) : (
+							<TrendChart data={trend} mode={chartMode} />
+						)}
+					</div>
+				</section>
 			)}
 
 			{/* Export section */}
