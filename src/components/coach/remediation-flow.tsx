@@ -167,15 +167,6 @@ type ResourceLink = {
 	description: string;
 };
 
-const IXL_GRADE_SLUGS: Record<number, string> = {
-	0: "kindergarten",
-	1: "grade-1",
-	2: "grade-2",
-	3: "grade-3",
-	4: "grade-4",
-	5: "grade-5",
-};
-
 const PLATFORM_STYLES: Record<
 	ResourceLink["platform"],
 	{ label: string; badge: string; link: string }
@@ -228,31 +219,32 @@ function SuggestedResources({
 		.slice(0, 6)
 		.join(" ");
 
-	const khanQ = encodeURIComponent(`${shortTerms} ${gradeLabel} math`);
 	const ytQ = encodeURIComponent(`${shortTerms} ${gradeLabel} math`);
 
-	// IXL: anchor to the specific FL BEST standard so it jumps right to the skill
-	const ixlSlug = IXL_GRADE_SLUGS[grade] ?? "grade-5";
-	const ixlAnchor = standardCode ? `#${standardCode}` : "";
-	const ixlUrl = `https://www.ixl.com/standards/florida/math/${ixlSlug}${ixlAnchor}`;
+	// IXL: search by FL BEST standard code — returns the exact aligned skill
+	const ixlQ = encodeURIComponent(standardCode ?? `${shortTerms} ${gradeLabel} florida`);
+	const ixlUrl = `https://www.ixl.com/search#q=${ixlQ}`;
 
-	const khanUrl = `https://www.khanacademy.org/search?page_search_query=${khanQ}`;
+	// Khan: Google site-search is far more reliable than Khan's own search for FL BEST terms
+	const khanQ = encodeURIComponent(`site:khanacademy.org ${shortTerms} ${gradeLabel} math`);
+	const khanUrl = `https://www.google.com/search?q=${khanQ}`;
 	const ytUrl = `https://www.youtube.com/results?search_query=${ytQ}`;
 	const ireadyUrl = "https://login.i-ready.com/";
 
 	const resources: ResourceLink[] = [
 		{
 			platform: "ixl",
-			title: standardCode ? `IXL — ${standardCode}` : `IXL — FL Standards Grade ${gradeDisplay}`,
+			title: standardCode ? `IXL — Search: ${standardCode}` : `IXL — Search Grade ${gradeDisplay}`,
 			url: ixlUrl,
-			description:
-				"FL BEST-aligned skills — click to jump to this exact standard and find the linked IXL skill",
+			description: standardCode
+				? `Searches IXL for skills aligned to ${standardCode}`
+				: `Searches IXL for ${gradeLabel} skills matching this concept`,
 		},
 		{
 			platform: "khan",
-			title: `Search: "${shortTerms}"`,
+			title: `Khan: "${shortTerms}"`,
 			url: khanUrl,
-			description: `Khan Academy lessons on this concept at the ${gradeLabel} level`,
+			description: `Google search on khanacademy.org for this concept at the ${gradeLabel} level`,
 		},
 		{
 			platform: "iready",
