@@ -1,7 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-export function middleware(_request: NextRequest) {
+const STUDENT_APP = process.env.STUDENT_APP === "true";
+
+export function middleware(request: NextRequest) {
+	// Student deployment: block all teacher routes
+	if (STUDENT_APP) {
+		return NextResponse.redirect(new URL("/student", request.url));
+	}
 	// Auth temporarily disabled for local dev
 	return NextResponse.next();
 }

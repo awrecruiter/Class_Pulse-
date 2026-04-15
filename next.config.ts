@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isStudentApp = process.env.STUDENT_APP === "true";
+
 const nextConfig: NextConfig = {
 	experimental: {
 		optimizePackageImports: [
@@ -12,6 +14,11 @@ const nextConfig: NextConfig = {
 			"@radix-ui/react-toast",
 		],
 	},
+	// When deployed as the student-facing app, redirect root → /student
+	// and block all teacher routes.
+	...(isStudentApp && {
+		redirects: async () => [{ source: "/", destination: "/student", permanent: false }],
+	}),
 };
 
 export default nextConfig;
