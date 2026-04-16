@@ -103,13 +103,25 @@ export function useCoachClassroom({
 			.then((r) => r.json())
 			.then(async (j) => {
 				if (activeSessionReqRef.current !== reqId) return;
-				// Auto-end any session left open from a previous visit so the page
-				// always starts fresh — teacher must explicitly click Go Live.
-				if (j.activeSession?.id) {
-					await fetch(`/api/sessions/${j.activeSession.id}/end`, { method: "PUT" }).catch(() => {});
+				const dbSessionId: string | undefined = j.activeSession?.id;
+				// sessionStorage tracks sessions started in THIS tab. If the DB has an
+				// active session that matches the tab's sessionStorage entry, it's a
+				// mid-lecture reload — restore it. Otherwise it's a zombie from a
+				// previous tab/day — end it and start fresh.
+				const tabSessionId =
+					typeof sessionStorage !== "undefined"
+						? (sessionStorage.getItem("activeSessionId") ?? undefined)
+						: undefined;
+				if (dbSessionId && dbSessionId === tabSessionId) {
+					setActiveSessionId(dbSessionId);
+					setActiveJoinCode(j.activeSession?.joinCode);
+				} else {
+					if (dbSessionId) {
+						await fetch(`/api/sessions/${dbSessionId}/end`, { method: "PUT" }).catch(() => {});
+					}
+					setActiveSessionId(undefined);
+					setActiveJoinCode(undefined);
 				}
-				setActiveSessionId(undefined);
-				setActiveJoinCode(undefined);
 			})
 			.catch(() => {});
 	}, [selectedClassId]);

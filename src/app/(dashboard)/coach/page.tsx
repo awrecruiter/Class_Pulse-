@@ -476,6 +476,7 @@ export default function CoachPage() {
 				if (res.ok) {
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
+					sessionStorage.removeItem("activeSessionId");
 				}
 			} catch {
 				// ignore
@@ -495,6 +496,7 @@ export default function CoachPage() {
 					const s = (data as { session?: { id?: string; joinCode?: string } }).session;
 					setActiveSessionId(s?.id);
 					setActiveJoinCode(s?.joinCode);
+					if (s?.id) sessionStorage.setItem("activeSessionId", s.id);
 				}
 			} catch {
 				// ignore
