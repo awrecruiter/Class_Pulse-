@@ -101,10 +101,15 @@ export function useCoachClassroom({
 		const reqId = ++activeSessionReqRef.current;
 		fetch(`/api/classes/${selectedClassId}`)
 			.then((r) => r.json())
-			.then((j) => {
+			.then(async (j) => {
 				if (activeSessionReqRef.current !== reqId) return;
-				setActiveSessionId(j.activeSession?.id);
-				setActiveJoinCode(j.activeSession?.joinCode);
+				// Auto-end any session left open from a previous visit so the page
+				// always starts fresh — teacher must explicitly click Go Live.
+				if (j.activeSession?.id) {
+					await fetch(`/api/sessions/${j.activeSession.id}/end`, { method: "PUT" }).catch(() => {});
+				}
+				setActiveSessionId(undefined);
+				setActiveJoinCode(undefined);
 			})
 			.catch(() => {});
 	}, [selectedClassId]);
