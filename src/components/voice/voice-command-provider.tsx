@@ -59,7 +59,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	const voiceNavModeRef = useRef<"immediate" | "toast">(
 		((typeof window !== "undefined" ? localStorage.getItem("voiceSettings.voiceNavMode") : null) as
 			| "immediate"
-			| "toast") ?? "toast",
+			| "toast") ?? "immediate",
 	);
 	const voiceAppOpenModeRef = useRef<"immediate" | "confirm">(
 		((typeof window !== "undefined"
@@ -152,16 +152,26 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	}
 
 	async function resolveStudent(classId: string, name: string) {
-		const res = await fetch(`/api/classes/${classId}/roster-overview`);
-		const json = await res.json();
-		const needle = name.toLowerCase();
-		const students: Array<{
+		// Use warm cache when available — avoids a redundant API round-trip for every
+		// fast-path voice command (RAM Bucks, behavior, etc.) and prevents silent failures
+		// when the roster endpoint is rate-limited or returns an error body.
+		let students: Array<{
 			firstName?: string | null;
 			firstInitial: string;
 			lastInitial: string;
 			displayName: string;
 			rosterId: string;
-		}> = json.students ?? [];
+		}> = agentContextRef.current.students;
+
+		if (students.length === 0) {
+			// Cache is cold — fetch once and fall through to matching
+			const res = await fetch(`/api/classes/${classId}/roster-overview`);
+			if (!res.ok) return undefined;
+			const json = await res.json();
+			students = json.students ?? [];
+		}
+
+		const needle = name.toLowerCase();
 
 		// Exact and prefix matches first
 		const exact =
@@ -476,7 +486,13 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	// ── Voice agent context cache (refreshed every 30s, not per-utterance) ─────────
 
 	type AgentContext = {
-		students: Array<{ rosterId: string; displayName: string; firstName: string | null }>;
+		students: Array<{
+			rosterId: string;
+			displayName: string;
+			firstName: string | null;
+			firstInitial: string;
+			lastInitial: string;
+		}>;
 		groups: Array<{ id: string; name: string }>;
 		storeIsOpen: boolean;
 		scheduleBlocks: Array<{ title: string; docs: Array<{ label: string; url: string }> }>;
