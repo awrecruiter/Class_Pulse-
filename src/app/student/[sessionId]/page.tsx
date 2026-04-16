@@ -44,7 +44,12 @@ export default async function StudentSessionPage({
 	const [signalRow] = await db
 		.select({ signal: comprehensionSignals.signal })
 		.from(comprehensionSignals)
-		.where(eq(comprehensionSignals.rosterId, payload.rosterId));
+		.where(
+			and(
+				eq(comprehensionSignals.sessionId, sessionId),
+				eq(comprehensionSignals.rosterId, payload.rosterId),
+			),
+		);
 
 	// Load RAM Buck balance
 	const [ramAccount] = await db

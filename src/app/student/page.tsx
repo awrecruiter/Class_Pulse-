@@ -117,7 +117,12 @@ export default function StudentJoinPage() {
 				}
 				throw new Error(msg);
 			}
-			const json = await res.json();
+			let json: { sessionId: string; sessionLabel: string };
+			try {
+				json = await res.json();
+			} catch {
+				throw new Error("Invalid response from server");
+			}
 			setSessionId(json.sessionId);
 			setSessionLabel(json.sessionLabel);
 			animateCardFlip(() => setPhase("enter-id"));

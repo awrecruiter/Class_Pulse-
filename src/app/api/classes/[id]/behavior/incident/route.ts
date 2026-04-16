@@ -94,6 +94,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 	const { rosterId, sessionId, notes } = result.data;
 
+	// Verify rosterId belongs to this class
+	const [rosterEntry] = await db
+		.select({ id: rosterEntries.id })
+		.from(rosterEntries)
+		.where(and(eq(rosterEntries.id, rosterId), eq(rosterEntries.classId, classId)));
+	if (!rosterEntry)
+		return NextResponse.json({ error: "Student not found in class" }, { status: 404 });
+
 	// Get or create behavior profile
 	let [profile] = await db
 		.insert(behaviorProfiles)

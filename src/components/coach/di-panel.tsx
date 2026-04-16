@@ -1027,9 +1027,9 @@ export function DiPanel({
 					return remaining;
 				});
 			}, 2500);
-			for (const id of ids) {
-				setBurstGroupId(id);
-			}
+			ids.forEach((id, idx) => {
+				setTimeout(() => setBurstGroupId(id), idx * 800);
+			});
 			toast.success(
 				`Session ended! ${ids.length === 1 ? "Winner" : "Winners"} awarded ${json.bucksAwarded} RAM Bucks each!`,
 			);

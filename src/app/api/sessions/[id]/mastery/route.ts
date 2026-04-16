@@ -1,11 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { auth } from "@/lib/auth/server";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import { classSessions, masteryRecords, teacherSettings } from "@/lib/db/schema";
 import { awardRamBucks } from "@/lib/ram-bucks";
-import { joinRateLimiter } from "@/lib/rate-limit";
+import { joinRateLimiter, sessionRateLimiter } from "@/lib/rate-limit";
 
 const MASTERY_DEFAULT_THRESHOLD = 3;
 const AWARD_CORRECT = 5;
@@ -146,8 +147,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 // GET — teacher can query mastery count for the session
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
+	const { success } = sessionRateLimiter.check(ip);
+	if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+
+	const { data } = await auth.getSession();
+	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
 	const { id: sessionId } = await params;
+
+	const [session] = await db
+		.select({ teacherId: classSessions.teacherId })
+		.from(classSessions)
+		.where(eq(classSessions.id, sessionId));
+	if (!session || session.teacherId !== data.user.id)
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 
 	const records = await db
 		.select({
