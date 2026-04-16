@@ -320,6 +320,8 @@ Interpret the student's actual misconception, identify the FL BEST prerequisite 
 		typeof parsed.studentInterpretation !== "string" ||
 		typeof parsed.script !== "string" ||
 		typeof parsed.missingConcept?.code !== "string" ||
+		typeof parsed.missingConcept?.description !== "string" ||
+		typeof parsed.missingConcept?.grade !== "number" ||
 		typeof parsed.visual !== "string" ||
 		typeof parsed.microIntervention !== "string" ||
 		!Array.isArray(parsed.guidingQuestions)

@@ -172,7 +172,7 @@ const PLATFORM_STYLES: Record<
 	{ label: string; badge: string; link: string }
 > = {
 	khan: {
-		label: "Khan Academy",
+		label: "Khan via Google",
 		badge: "bg-green-500/20 text-green-300 border-green-500/30",
 		link: "text-green-400 hover:text-green-300",
 	},
@@ -203,7 +203,7 @@ function SuggestedResources({
 	standardCode?: string;
 }) {
 	const gradeLabel = grade === 0 ? "kindergarten" : `grade ${grade}`;
-	const gradeDisplay = grade === 0 ? "K" : String(grade);
+	const _gradeDisplay = grade === 0 ? "K" : String(grade);
 
 	// Strip verbose FL BEST opener phrases so search queries are short and findable
 	const shortTerms = conceptDescription
@@ -221,38 +221,44 @@ function SuggestedResources({
 
 	const ytQ = encodeURIComponent(`${shortTerms} ${gradeLabel} math`);
 
-	// IXL: search by FL BEST standard code — returns the exact aligned skill
-	const ixlQ = encodeURIComponent(standardCode ?? `${shortTerms} ${gradeLabel} florida`);
+	// IXL: use standard code only when it matches the current grade; otherwise fall back to grade-aware terms
+	const codeGrade = standardCode ? parseInt(standardCode.split(".")[1] ?? "0", 10) : null;
+	const ixlSearchTerm =
+		standardCode && codeGrade === grade
+			? standardCode
+			: `${shortTerms} grade ${grade === 0 ? "K" : grade} florida math`;
+	const ixlQ = encodeURIComponent(ixlSearchTerm);
 	const ixlUrl = `https://www.ixl.com/search?q=${ixlQ}`;
 
 	// Khan: Google site-search is far more reliable than Khan's own search for FL BEST terms
 	const khanQ = encodeURIComponent(`site:khanacademy.org ${shortTerms} ${gradeLabel} math`);
 	const khanUrl = `https://www.google.com/search?q=${khanQ}`;
 	const ytUrl = `https://www.youtube.com/results?search_query=${ytQ}`;
-	// iReady: link directly to the teacher lesson library (works after Clever SSO)
-	const ireadySearchQ = encodeURIComponent(shortTerms);
-	const ireadyUrl = `https://learning.i-ready.com/teacher/dashboard/lessons?search=${ireadySearchQ}`;
+	// iReady: link directly to the teacher lesson library (SPA does not read query params — no filtering promised)
+	const ireadyUrl = `https://teacher.i-ready.com/resources/lesson-library`;
 
 	const resources: ResourceLink[] = [
 		{
 			platform: "ixl",
-			title: standardCode ? `IXL — Search: ${standardCode}` : `IXL — Search Grade ${gradeDisplay}`,
+			title: `IXL — Search: ${ixlSearchTerm}`,
 			url: ixlUrl,
-			description: standardCode
-				? `Searches IXL for skills aligned to ${standardCode}`
-				: `Searches IXL for ${gradeLabel} skills matching this concept`,
+			description:
+				standardCode && codeGrade === grade
+					? `Searches IXL for skills aligned to ${standardCode}`
+					: `Searches IXL for ${gradeLabel} skills matching this concept`,
 		},
 		{
 			platform: "khan",
 			title: `Khan: "${shortTerms}"`,
 			url: khanUrl,
-			description: `Google search on khanacademy.org for this concept at the ${gradeLabel} level`,
+			description: `Opens a Google search filtered to Khan Academy for this concept`,
 		},
 		{
 			platform: "iready",
-			title: `iReady Lesson Library — "${shortTerms}"`,
+			title: `iReady Lesson Library`,
 			url: ireadyUrl,
-			description: "Opens the iReady lesson library search directly (requires Clever SSO session)",
+			description:
+				"Opens the iReady lesson library (requires Clever SSO session — browse manually)",
 		},
 		{
 			platform: "youtube",
