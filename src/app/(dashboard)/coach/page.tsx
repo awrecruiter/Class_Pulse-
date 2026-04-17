@@ -376,6 +376,9 @@ export default function CoachPage() {
 	// Track whether DiPanel has a live session (so we keep it visible when user switches modes)
 	const [diSessionActive, setDiSessionActive] = useState(false);
 
+	// Ref to cancel the deferred startListening timer if Stop Session fires first
+	const startMicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 	// Orb + input state
 	const [inputMode, setInputMode] = useState<"behavior" | "ask" | "di">("ask");
 	const [isOrbRecording, setIsOrbRecording] = useState(false);
@@ -477,6 +480,10 @@ export default function CoachPage() {
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
 					sessionStorage.removeItem("activeSessionId");
+					if (startMicTimerRef.current) {
+						clearTimeout(startMicTimerRef.current);
+						startMicTimerRef.current = null;
+					}
 					stopListening();
 				}
 			} catch {
@@ -502,7 +509,7 @@ export default function CoachPage() {
 						// Auto-start lecture mic so the waveform meter is live immediately
 						stopCommandsNow();
 						setIsOrbRecording(false);
-						setTimeout(startListening, 350);
+						startMicTimerRef.current = setTimeout(startListening, 350);
 					}
 				}
 			} catch {
