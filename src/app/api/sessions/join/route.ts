@@ -26,39 +26,58 @@ export async function POST(request: NextRequest) {
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
+	// ── Step 1: Look up the session by join code ──────────────────────────────
+	let session: typeof classSessions.$inferSelect | undefined;
 	try {
-		// Look up the session by join code
-		const [session] = await db
+		const rows = await db
 			.select()
 			.from(classSessions)
 			.where(
 				and(eq(classSessions.joinCode, result.data.joinCode), eq(classSessions.status, "active")),
 			);
+		session = rows[0];
+	} catch (err) {
+		console.error("[join POST] session lookup failed", err);
+		return NextResponse.json(
+			{ error: "Session lookup failed — please try again" },
+			{ status: 503 },
+		);
+	}
 
-		if (!session) {
-			return NextResponse.json({ error: "Session not found or already ended" }, { status: 404 });
-		}
+	if (!session) {
+		return NextResponse.json({ error: "Session not found or already ended" }, { status: 404 });
+	}
 
-		// Look up roster entry by studentId within this class
-		const [rosterEntry] = await db
+	// ── Step 2: Look up roster entry ─────────────────────────────────────────
+	let rosterEntry: typeof rosterEntries.$inferSelect | undefined;
+	try {
+		const rows = await db
 			.select()
 			.from(rosterEntries)
 			.where(
 				and(
-					eq(rosterEntries.studentId, result.data.studentId),
 					eq(rosterEntries.classId, session.classId),
-					eq(rosterEntries.isActive, true),
+					eq(rosterEntries.studentId, result.data.studentId),
 				),
 			);
+		// Filter isActive in JS to avoid potential boolean param issues
+		rosterEntry = rows.find((r) => r.isActive);
+	} catch (err) {
+		console.error("[join POST] roster lookup failed", err);
+		return NextResponse.json({ error: "Roster lookup failed — please try again" }, { status: 503 });
+	}
 
-		if (!rosterEntry) {
-			return NextResponse.json({ error: "Student not on roster" }, { status: 403 });
-		}
+	if (!rosterEntry) {
+		return NextResponse.json(
+			{ error: "Student ID not found in this class. Check your ID and try again." },
+			{ status: 404 },
+		);
+	}
 
-		// Get class info for display
+	// ── Step 3: Sign token + respond ─────────────────────────────────────────
+	try {
 		const [cls] = await db.select().from(classes).where(eq(classes.id, session.classId));
 
-		// Sign the student token
 		const token = signStudentToken({
 			sessionId: session.id,
 			rosterId: rosterEntry.id,
@@ -75,14 +94,16 @@ export async function POST(request: NextRequest) {
 			httpOnly: true,
 			sameSite: "lax",
 			path: "/",
-			// Expire when session ends (30 days max)
-			maxAge: 30 * 24 * 60 * 60,
+			maxAge: 30 * 24 * 60 * 60, // 30 days max
 		});
 
 		return response;
 	} catch (err) {
-		console.error("[join POST]", err);
-		return NextResponse.json({ error: "Server error — please try again" }, { status: 500 });
+		console.error("[join POST] token/cookie step failed", err);
+		return NextResponse.json(
+			{ error: "Could not create session token — please try again" },
+			{ status: 500 },
+		);
 	}
 }
 
