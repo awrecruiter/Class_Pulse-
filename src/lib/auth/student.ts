@@ -2,6 +2,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { getRequiredEnv } from "@/lib/env";
 
 function getStudentCookieSecret(): string {
+	// In development, fall back to a local-only secret when NEON_AUTH_COOKIE_SECRET
+	// is not set (e.g. when using ALLOW_DEV_AUTH_BYPASS=true without full Neon creds).
+	if (process.env.NODE_ENV === "development") {
+		return process.env.NEON_AUTH_COOKIE_SECRET ?? "dev-student-secret-local-only";
+	}
 	return getRequiredEnv("NEON_AUTH_COOKIE_SECRET");
 }
 
