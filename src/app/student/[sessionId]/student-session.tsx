@@ -10,179 +10,6 @@ import type { CoachResponse } from "@/lib/ai/coach";
 
 gsap.registerPlugin(useGSAP);
 
-// ─── SoundCloud-style scrolling waveform ─────────────────────────────────────
-
-function buildWaveData(n: number): number[] {
-	return Array.from({ length: n }, (_, i) => {
-		const v = Math.abs(
-			0.4 * Math.sin(i * 0.053) +
-				0.35 * Math.sin(i * 0.119 + 1.3) +
-				0.16 * Math.sin(i * 0.29 + 0.7) +
-				0.09 * Math.sin(i * 0.61 + 2.1),
-		);
-		return Math.min(1, Math.max(0.05, v / 0.9));
-	});
-}
-
-const WAVE_DATA = buildWaveData(900);
-const BAR_W = 2;
-const BAR_PITCH = 3; // bar + gap
-const SCROLL_SPEED = 0.7; // px per frame
-
-type WaveMarker = { frame: number; signal: Signal };
-
-function SoundcloudWave({
-	active,
-	markTrigger,
-	latestSignal,
-}: {
-	active: boolean;
-	markTrigger: number;
-	latestSignal: Signal | null;
-}) {
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const frameRef = useRef(0);
-	const markersRef = useRef<WaveMarker[]>([]);
-	const prevTriggerRef = useRef(0);
-	const rafRef = useRef<number>(0);
-	const activeRef = useRef(active);
-
-	useEffect(() => {
-		activeRef.current = active;
-	}, [active]);
-
-	// Stamp marker at current playhead frame
-	useEffect(() => {
-		if (markTrigger > prevTriggerRef.current && latestSignal) {
-			markersRef.current = [
-				...markersRef.current,
-				{ frame: frameRef.current, signal: latestSignal },
-			].slice(-30);
-			prevTriggerRef.current = markTrigger;
-		}
-	}, [markTrigger, latestSignal]);
-
-	useEffect(() => {
-		const canvas = canvasRef.current;
-		if (!canvas) return;
-		const ctx = canvas.getContext("2d");
-		if (!ctx) return;
-
-		function resize() {
-			if (!canvas || !ctx) return;
-			const dpr = window.devicePixelRatio || 1;
-			const r = canvas.getBoundingClientRect();
-			canvas.width = r.width * dpr;
-			canvas.height = r.height * dpr;
-			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-		}
-		resize();
-		const ro = new ResizeObserver(resize);
-		ro.observe(canvas);
-
-		function draw() {
-			if (!canvas || !ctx) return;
-			const cssW = canvas.getBoundingClientRect().width;
-			const cssH = canvas.getBoundingClientRect().height;
-			if (cssW === 0) {
-				rafRef.current = requestAnimationFrame(draw);
-				return;
-			}
-
-			ctx.clearRect(0, 0, cssW, cssH);
-			const cy = cssH / 2;
-			const maxH = cssH - 6;
-			const playheadX = cssW * 0.4;
-			const totalScroll = frameRef.current * SCROLL_SPEED;
-			const scrollOffset = totalScroll % BAR_PITCH;
-			const numBars = Math.ceil(cssW / BAR_PITCH) + 2;
-
-			// Bars
-			for (let i = 0; i < numBars; i++) {
-				const x = i * BAR_PITCH - scrollOffset;
-				const globalIdx = Math.floor(totalScroll / BAR_PITCH) + i;
-				const dataIdx = ((globalIdx % WAVE_DATA.length) + WAVE_DATA.length) % WAVE_DATA.length;
-				const amp = WAVE_DATA[dataIdx] ?? 0.3;
-				const h = Math.max(2, amp * maxH);
-				const played = x <= playheadX;
-				if (activeRef.current) {
-					ctx.fillStyle = played ? "rgba(129,140,248,0.88)" : "rgba(99,102,241,0.22)";
-				} else {
-					ctx.fillStyle = "rgba(71,85,105,0.38)";
-				}
-				ctx.beginPath();
-				ctx.roundRect(x, cy - h / 2, BAR_W, h, 1);
-				ctx.fill();
-			}
-
-			// Signal markers (fingerprints)
-			for (const { frame, signal } of markersRef.current) {
-				const mx = playheadX - (frameRef.current - frame) * SCROLL_SPEED;
-				if (mx < -20 || mx > cssW + 20) continue;
-				const color = signal === "got-it" ? "#34d399" : signal === "almost" ? "#fbbf24" : "#a78bfa";
-				// Vertical line
-				ctx.fillStyle = `${color}99`;
-				ctx.fillRect(mx - 0.5, 3, 1.5, cssH - 6);
-				// Ripple (fades over ~90 frames)
-				const age = frameRef.current - frame;
-				const fade = Math.max(0, 1 - age / 90);
-				if (fade > 0) {
-					ctx.beginPath();
-					ctx.arc(mx, cy, 8 + (1 - fade) * 8, 0, Math.PI * 2);
-					ctx.strokeStyle =
-						color +
-						Math.round(fade * 100)
-							.toString(16)
-							.padStart(2, "0");
-					ctx.lineWidth = 1;
-					ctx.stroke();
-				}
-				// Core dot
-				ctx.beginPath();
-				ctx.arc(mx, cy, 3.5, 0, Math.PI * 2);
-				ctx.fillStyle = color;
-				ctx.fill();
-			}
-
-			// Playhead
-			if (activeRef.current) {
-				const g = ctx.createLinearGradient(playheadX - 10, 0, playheadX + 10, 0);
-				g.addColorStop(0, "rgba(255,255,255,0)");
-				g.addColorStop(0.5, "rgba(255,255,255,0.18)");
-				g.addColorStop(1, "rgba(255,255,255,0)");
-				ctx.fillStyle = g;
-				ctx.fillRect(playheadX - 10, 0, 20, cssH);
-				ctx.fillStyle = "rgba(255,255,255,0.6)";
-				ctx.fillRect(playheadX, 0, 1, cssH);
-			}
-
-			if (activeRef.current) frameRef.current++;
-			rafRef.current = requestAnimationFrame(draw);
-		}
-
-		rafRef.current = requestAnimationFrame(draw);
-		return () => {
-			cancelAnimationFrame(rafRef.current);
-			ro.disconnect();
-		};
-	}, []);
-
-	return (
-		<div className="relative w-full overflow-hidden rounded-lg" style={{ height: 52 }}>
-			<canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
-			{/* Edge fade */}
-			<div
-				className="absolute inset-y-0 left-0 w-8 pointer-events-none"
-				style={{ background: "linear-gradient(to right, #0f1117, transparent)" }}
-			/>
-			<div
-				className="absolute inset-y-0 right-0 w-8 pointer-events-none"
-				style={{ background: "linear-gradient(to left, #0f1117, transparent)" }}
-			/>
-		</div>
-	);
-}
-
 type Signal = "got-it" | "almost" | "lost";
 type ManipSpec = CoachResponse["manipulative"];
 type PushPayload = {
@@ -225,6 +52,142 @@ const SIGNALS: {
 		glow: "shadow-violet-500/20",
 	},
 ];
+
+// ─── STUDENT WAVEFORM (matches WaveformMeter aesthetic + signal markers) ─────
+type SignalMarker = { timestamp: number; signal: Signal };
+
+const SIGNAL_COLORS: Record<Signal, { line: string; dot: string }> = {
+	"got-it": { line: "rgba(16,185,129,0.9)", dot: "rgba(110,231,183,1)" },
+	almost: { line: "rgba(245,158,11,0.9)", dot: "rgba(252,211,77,1)" },
+	lost: { line: "rgba(139,92,246,0.9)", dot: "rgba(196,181,253,1)" },
+};
+
+const S_BAR_W = 2;
+const S_BAR_GAP = 2;
+const S_STEP = S_BAR_W + S_BAR_GAP;
+const S_SAMPLE_MS = 50;
+
+function SoundcloudWave({
+	active,
+	markTrigger,
+	latestSignal,
+}: {
+	active: boolean;
+	markTrigger: number;
+	latestSignal: Signal | null;
+}) {
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const historyRef = useRef<number[]>([]);
+	const rafRef = useRef<number>(0);
+	const lastSampleRef = useRef<number>(0);
+	const synthPhaseRef = useRef(0);
+	const activeRef = useRef(active);
+	activeRef.current = active;
+	const markersRef = useRef<SignalMarker[]>([]);
+	const latestSignalRef = useRef(latestSignal);
+	latestSignalRef.current = latestSignal;
+
+	// Stamp a marker each time the student submits a signal
+	useEffect(() => {
+		if (markTrigger === 0 || !latestSignalRef.current) return;
+		markersRef.current = [
+			...markersRef.current,
+			{ timestamp: Date.now(), signal: latestSignalRef.current },
+		];
+	}, [markTrigger]);
+
+	// Draw loop — same synthetic amplitude + blue gradient as WaveformMeter
+	useEffect(() => {
+		function draw(ts: number) {
+			rafRef.current = requestAnimationFrame(draw);
+			const canvas = canvasRef.current;
+			if (!canvas) return;
+			const c = canvas.getContext("2d");
+			if (!c) return;
+
+			const dpr = window.devicePixelRatio || 1;
+			const W = canvas.clientWidth;
+			const H = canvas.clientHeight;
+			if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+				canvas.width = W * dpr;
+				canvas.height = H * dpr;
+				c.scale(dpr, dpr);
+			}
+
+			const barCount = Math.floor(W / S_STEP) + 1;
+
+			if (ts - lastSampleRef.current >= S_SAMPLE_MS) {
+				lastSampleRef.current = ts;
+				let amp = 0;
+				if (activeRef.current) {
+					synthPhaseRef.current += 0.18;
+					const base =
+						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
+					const noise = (Math.random() - 0.5) * 0.12;
+					amp = Math.max(0, 0.18 + base + noise);
+				} else {
+					const last = historyRef.current.at(-1) ?? 0;
+					amp = last * 0.7;
+				}
+				historyRef.current.push(amp);
+				if (historyRef.current.length > barCount) {
+					historyRef.current = historyRef.current.slice(-barCount);
+				}
+			}
+
+			c.clearRect(0, 0, W, H);
+			const history = historyRef.current;
+			const centerY = H / 2;
+			const now = Date.now();
+			const alpha = activeRef.current ? 0.85 : 0.35;
+
+			// Map each marker to the bar index it lands on
+			const markerMap = new Map<number, Signal>();
+			for (const m of markersRef.current) {
+				const barsBack = Math.round((now - m.timestamp) / S_SAMPLE_MS);
+				const idx = history.length - 1 - barsBack;
+				if (idx >= 0 && idx < history.length) markerMap.set(idx, m.signal);
+			}
+
+			for (let i = 0; i < history.length; i++) {
+				const x = W - (history.length - i) * S_STEP;
+				const amp = history[i];
+				const halfH = Math.max(1, Math.min(centerY - 2, amp * centerY * 4.5));
+				const markerSignal = markerMap.get(i);
+
+				if (markerSignal) {
+					const col = SIGNAL_COLORS[markerSignal];
+					c.fillStyle = col.line;
+					c.fillRect(x, 2, S_BAR_W, H - 4);
+					c.beginPath();
+					c.arc(x + S_BAR_W / 2, 4, 3, 0, Math.PI * 2);
+					c.fillStyle = col.dot;
+					c.fill();
+				} else {
+					const grad = c.createLinearGradient(x, centerY - halfH, x, centerY + halfH);
+					if (activeRef.current) {
+						grad.addColorStop(0, `rgba(147,197,253,${alpha * 0.6})`);
+						grad.addColorStop(0.5, `rgba(96,165,250,${alpha})`);
+						grad.addColorStop(1, `rgba(147,197,253,${alpha * 0.6})`);
+					} else {
+						grad.addColorStop(0, `rgba(100,116,139,${alpha * 0.5})`);
+						grad.addColorStop(0.5, `rgba(100,116,139,${alpha})`);
+						grad.addColorStop(1, `rgba(100,116,139,${alpha * 0.5})`);
+					}
+					c.fillStyle = grad;
+					c.beginPath();
+					c.roundRect(x, centerY - halfH, S_BAR_W, halfH * 2, 1);
+					c.fill();
+				}
+			}
+		}
+
+		rafRef.current = requestAnimationFrame(draw);
+		return () => cancelAnimationFrame(rafRef.current);
+	}, []);
+
+	return <canvas ref={canvasRef} className="w-full block" style={{ height: 56 }} />;
+}
 
 // ─── RAM SVG ──────────────────────────────────────────────────────────────────
 function RamLogo({ size = 40 }: { size?: number }) {
