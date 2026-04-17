@@ -477,7 +477,7 @@ export default function CoachPage() {
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
 					sessionStorage.removeItem("activeSessionId");
-					if (isListening) stopListening();
+					stopListening();
 				}
 			} catch {
 				// ignore
