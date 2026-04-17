@@ -74,37 +74,42 @@ export async function POST(request: NextRequest) {
 		);
 	}
 
-	// ── Step 3: Sign token + respond ─────────────────────────────────────────
+	// ── Step 3a: Load class label ────────────────────────────────────────────
+	let cls: typeof classes.$inferSelect | undefined;
 	try {
-		const [cls] = await db.select().from(classes).where(eq(classes.id, session.classId));
+		const rows = await db.select().from(classes).where(eq(classes.id, session.classId));
+		cls = rows[0];
+	} catch (err) {
+		console.error("[join POST] class lookup failed", err);
+		return NextResponse.json({ error: "Class lookup failed — please try again" }, { status: 503 });
+	}
 
-		const token = signStudentToken({
+	// ── Step 3b: Sign token + set cookie ─────────────────────────────────────
+	let token: string;
+	try {
+		token = signStudentToken({
 			sessionId: session.id,
 			rosterId: rosterEntry.id,
 		});
-
-		const response = NextResponse.json({
-			sessionId: session.id,
-			sessionLabel: cls?.label ?? "",
-			date: session.date,
-		});
-
-		// Set signed cookie — HttpOnly, SameSite=Lax
-		response.cookies.set(STUDENT_COOKIE, token, {
-			httpOnly: true,
-			sameSite: "lax",
-			path: "/",
-			maxAge: 30 * 24 * 60 * 60, // 30 days max
-		});
-
-		return response;
 	} catch (err) {
-		console.error("[join POST] token/cookie step failed", err);
-		return NextResponse.json(
-			{ error: "Could not create session token — please try again" },
-			{ status: 500 },
-		);
+		console.error("[join POST] signStudentToken failed", err);
+		return NextResponse.json({ error: "Token signing failed — please try again" }, { status: 500 });
 	}
+
+	const response = NextResponse.json({
+		sessionId: session.id,
+		sessionLabel: cls?.label ?? "",
+		date: session.date,
+	});
+
+	response.cookies.set(STUDENT_COOKIE, token, {
+		httpOnly: true,
+		sameSite: "lax",
+		path: "/",
+		maxAge: 30 * 24 * 60 * 60,
+	});
+
+	return response;
 }
 
 // Separate GET endpoint for looking up a session by code (before picking a name)
