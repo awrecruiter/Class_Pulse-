@@ -477,6 +477,7 @@ export default function CoachPage() {
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
 					sessionStorage.removeItem("activeSessionId");
+					if (isListening) stopListening();
 				}
 			} catch {
 				// ignore
@@ -496,7 +497,13 @@ export default function CoachPage() {
 					const s = (data as { session?: { id?: string; joinCode?: string } }).session;
 					setActiveSessionId(s?.id);
 					setActiveJoinCode(s?.joinCode);
-					if (s?.id) sessionStorage.setItem("activeSessionId", s.id);
+					if (s?.id) {
+						sessionStorage.setItem("activeSessionId", s.id);
+						// Auto-start lecture mic so the waveform meter is live immediately
+						stopCommandsNow();
+						setIsOrbRecording(false);
+						setTimeout(startListening, 350);
+					}
 				}
 			} catch {
 				// ignore
