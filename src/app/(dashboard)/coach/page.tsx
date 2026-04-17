@@ -484,6 +484,9 @@ export default function CoachPage() {
 						clearTimeout(startMicTimerRef.current);
 						startMicTimerRef.current = null;
 					}
+					// Suppress auto-command orb restart that fires 700ms after mic stops
+					autoCommandRef.current = false;
+					hasEverListenedRef.current = false;
 					stopListening();
 				}
 			} catch {
