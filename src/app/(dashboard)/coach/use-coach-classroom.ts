@@ -41,7 +41,14 @@ export function useCoachClassroom({
 			return "";
 		}
 	});
-	const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
+	const [activeSessionId, setActiveSessionId] = useState<string | undefined>(() => {
+		// Restore from sessionStorage immediately so the waveform meter stays
+		// mounted on mid-session page reloads (before the async DB fetch resolves).
+		if (typeof sessionStorage !== "undefined") {
+			return sessionStorage.getItem("activeSessionId") ?? undefined;
+		}
+		return undefined;
+	});
 	const [activeJoinCode, setActiveJoinCode] = useState<string | undefined>();
 	const [students, setStudents] = useState<StudentOverview[]>([]);
 	const [studentsLoading, setStudentsLoading] = useState(false);

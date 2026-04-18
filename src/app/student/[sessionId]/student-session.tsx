@@ -116,6 +116,18 @@ function SoundcloudWave({
 
 			const barCount = Math.floor(W / S_STEP) + 1;
 
+			// Pre-populate on first draw so canvas isn't blank after a page reload
+			if (historyRef.current.length === 0 && activeRef.current && W > 0) {
+				let phase = Math.random() * Math.PI * 2;
+				const warmup: number[] = [];
+				for (let i = 0; i < barCount; i++) {
+					phase += 0.18;
+					const b = Math.sin(phase) * 0.14 + Math.sin(phase * 2.3) * 0.07;
+					warmup.push(Math.max(0, 0.18 + b + (Math.random() - 0.5) * 0.12));
+				}
+				historyRef.current = warmup;
+			}
+
 			if (ts - lastSampleRef.current >= S_SAMPLE_MS) {
 				lastSampleRef.current = ts;
 				let amp = 0;
