@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { QueueItem } from "@/contexts/voice-queue";
@@ -41,14 +41,15 @@ export function useCoachClassroom({
 			return "";
 		}
 	});
-	const [activeSessionId, setActiveSessionId] = useState<string | undefined>(() => {
-		// Restore from sessionStorage immediately so the waveform meter stays
-		// mounted on mid-session page reloads (before the async DB fetch resolves).
-		if (typeof sessionStorage !== "undefined") {
-			return sessionStorage.getItem("activeSessionId") ?? undefined;
-		}
-		return undefined;
-	});
+	const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
+
+	// Restore from sessionStorage before the first paint so the waveform meter
+	// stays mounted on mid-session page reloads (useState initializer runs on the
+	// server where sessionStorage is unavailable, so we use useLayoutEffect instead).
+	useLayoutEffect(() => {
+		const stored = sessionStorage.getItem("activeSessionId");
+		if (stored) setActiveSessionId(stored);
+	}, []);
 	const [activeJoinCode, setActiveJoinCode] = useState<string | undefined>();
 	const [students, setStudents] = useState<StudentOverview[]>([]);
 	const [studentsLoading, setStudentsLoading] = useState(false);
