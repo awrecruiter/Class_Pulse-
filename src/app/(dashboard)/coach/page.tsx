@@ -1188,9 +1188,10 @@ export default function CoachPage() {
 								className="shrink-0 flex flex-col items-center justify-center px-6 gap-3"
 								style={{ height: 160 }}
 							>
-								{(isListening || isOrbRecording) && (
+								{/* Keep mounted for entire session so mic backoff gaps don't blink */}
+								{(isListening || isOrbRecording || !!activeSessionId) && (
 									<WaveformMeter
-										active={isListening || isOrbRecording}
+										active={isListening || isOrbRecording || !!activeSessionId}
 										height={72}
 										className="w-full"
 									/>
