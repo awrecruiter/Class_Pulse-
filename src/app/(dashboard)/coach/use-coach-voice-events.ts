@@ -14,7 +14,7 @@ interface UseCoachVoiceEventsOptions {
 	setIsOrbRecording: (value: boolean) => void;
 	clearOrbRestartTimer: () => void;
 	disableAutoCommand: () => void;
-	sendAcademic: (question: string) => void | Promise<void>;
+	sendAcademic: RefObject<(question: string) => void | Promise<void>>;
 	setInputMode: (mode: "behavior" | "ask" | "di") => void;
 	setActiveSessionId: (sessionId: string | undefined) => void;
 	setActiveJoinCode: (joinCode: string | undefined) => void;
@@ -35,6 +35,7 @@ export function useCoachVoiceEvents({
 	setActiveSessionId,
 	setActiveJoinCode,
 }: UseCoachVoiceEventsOptions) {
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sendAcademic is a stable ref — .current must never be a dep
 	useEffect(() => {
 		async function handleVoiceStartSession() {
 			const classId = selectedClassIdRef.current;
@@ -55,6 +56,12 @@ export function useCoachVoiceEvents({
 				const s = (data as { session?: { id?: string; joinCode?: string } }).session;
 				setActiveSessionId(s?.id);
 				setActiveJoinCode(s?.joinCode);
+				// Write to sessionStorage so page reloads don't treat this as a zombie session
+				if (s?.id) sessionStorage.setItem("activeSessionId", s.id);
+				// Auto-start lecture mic — mirrors the manual Go Live button behavior
+				stopCommandsNow();
+				setIsOrbRecording(false);
+				setTimeout(startListening, 350);
 			} catch (err) {
 				toast.error(err instanceof Error ? err.message : "Failed to start session");
 			}
@@ -69,6 +76,11 @@ export function useCoachVoiceEvents({
 				if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to end session");
 				setActiveSessionId(undefined);
 				setActiveJoinCode(undefined);
+				sessionStorage.removeItem("activeSessionId");
+				// Stop lecture mic and reset auto-command state — mirrors the manual Stop Session button
+				stopListening();
+				clearOrbRestartTimer();
+				disableAutoCommand();
 			} catch (err) {
 				toast.error(err instanceof Error ? err.message : "Failed to end session");
 			}
@@ -90,7 +102,7 @@ export function useCoachVoiceEvents({
 
 		function handleVoiceAskCoach(e: Event) {
 			const question = (e as CustomEvent<{ question: string }>).detail.question;
-			sendAcademic(question);
+			sendAcademic.current?.(question);
 			setInputMode("ask");
 		}
 
@@ -113,7 +125,6 @@ export function useCoachVoiceEvents({
 		disableAutoCommand,
 		isListening,
 		selectedClassIdRef,
-		sendAcademic,
 		setActiveJoinCode,
 		setActiveSessionId,
 		setInputMode,

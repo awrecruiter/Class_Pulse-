@@ -836,7 +836,7 @@ export default function CoachPage() {
 		disableAutoCommand: () => {
 			autoCommandRef.current = false;
 		},
-		sendAcademic,
+		sendAcademic: sendAcademicRef,
 		setInputMode,
 		setActiveSessionId,
 		setActiveJoinCode,

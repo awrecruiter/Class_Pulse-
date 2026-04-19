@@ -29,6 +29,8 @@ export function useAmbientMonitor({ active, onLevel }: Props): Result {
 	const contextRef = useRef<AudioContext | null>(null);
 	const analyserRef = useRef<AnalyserNode | null>(null);
 	const rafRef = useRef<number | null>(null);
+	const onLevelRef = useRef(onLevel);
+	onLevelRef.current = onLevel;
 
 	const stop = useCallback(() => {
 		if (rafRef.current !== null) {
@@ -84,7 +86,7 @@ export function useAmbientMonitor({ active, onLevel }: Props): Result {
 					const avg = data.reduce((s, v) => s + v, 0) / data.length;
 					const normalized = Math.min(100, Math.round((avg / 128) * 100));
 					setLevel(normalized);
-					onLevel?.(normalized);
+					onLevelRef.current?.(normalized);
 					rafRef.current = requestAnimationFrame(tick);
 				}
 
@@ -100,7 +102,7 @@ export function useAmbientMonitor({ active, onLevel }: Props): Result {
 			cancelled = true;
 			stop();
 		};
-	}, [active, onLevel, stop]);
+	}, [active, stop]);
 
 	return {
 		level,
