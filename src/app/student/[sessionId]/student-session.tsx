@@ -65,7 +65,7 @@ const SIGNAL_COLORS: Record<Signal, { line: string; dot: string }> = {
 const S_BAR_W = 2;
 const S_BAR_GAP = 2;
 const S_STEP = S_BAR_W + S_BAR_GAP;
-const S_SAMPLE_MS = 16;
+const S_SAMPLE_MS = 50;
 
 function SoundcloudWave({
 	active,
