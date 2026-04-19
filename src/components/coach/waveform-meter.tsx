@@ -4,7 +4,10 @@
  * Horizontal scrolling waveform visualizer — Voice Memos style.
  * Amplitude-over-time: new bars enter from the right, scroll left.
  * Bars are symmetric (extend above and below center line).
- * Uses its own getUserMedia + AnalyserNode for time-domain RMS amplitude.
+ *
+ * Opens its own AudioContext + getUserMedia when active so bars respond
+ * to real vocal inflections (walkie-talkie feel). Falls back to synthetic
+ * waveform if mic access is unavailable.
  */
 
 import { useEffect, useRef } from "react";
@@ -16,15 +19,13 @@ const SAMPLE_MS = 50; // new sample every 50ms → ~20fps scroll rate
 
 interface WaveformMeterProps {
 	active: boolean; // true = mic is running
-	level?: number; // real-time mic amplitude 0–1 from useMicAnalyser; drives bar height when provided
-	height?: number; // if omitted, uses CSS height (e.g. h-full from className)
+	height?: number;
 	className?: string;
 	confusionEvents?: number[]; // array of Date.now() timestamps when confusion spiked
 }
 
 export function WaveformMeter({
 	active,
-	level,
 	height = 56,
 	className = "",
 	confusionEvents = [],
@@ -34,16 +35,97 @@ export function WaveformMeter({
 	const rafRef = useRef<number>(0);
 	const lastSampleRef = useRef<number>(0);
 	const activeRef = useRef(active);
-	const levelRef = useRef(level);
 	const confusionEventsRef = useRef<number[]>(confusionEvents);
 	activeRef.current = active;
-	levelRef.current = level;
 	confusionEventsRef.current = confusionEvents;
 
-	// Synthetic phase — used as fallback when no real level is provided
+	// Real mic amplitude (0–1) — updated by the analyser effect below
+	const micAmpRef = useRef(0);
+	// True once getUserMedia succeeds; drives draw-loop branch selection
+	const micReadyRef = useRef(false);
+	// Synthetic phase — used only when mic is unavailable
 	const synthPhaseRef = useRef(0);
 
-	// Canvas draw loop — always running so history decays when mic stops
+	// ── Mic analyser effect ────────────────────────────────────────────────────
+	useEffect(() => {
+		if (!active) {
+			micAmpRef.current = 0;
+			micReadyRef.current = false;
+			return;
+		}
+
+		let disposed = false;
+		let stream: MediaStream | null = null;
+		let ctx: AudioContext | null = null;
+		let analyserRafId = 0;
+
+		async function start() {
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+				if (disposed) {
+					for (const t of stream.getTracks()) t.stop();
+					return;
+				}
+
+				ctx = new AudioContext();
+				await ctx.resume(); // ensure context isn't auto-suspended
+
+				const source = ctx.createMediaStreamSource(stream);
+				const analyser = ctx.createAnalyser();
+				analyser.fftSize = 512;
+				analyser.smoothingTimeConstant = 0; // manual smoothing below
+
+				// Silent gain → ctx.destination forces Chrome to process the graph.
+				// Without a destination connection some Chrome versions return all-zero data.
+				const gain = ctx.createGain();
+				gain.gain.value = 0;
+				source.connect(analyser);
+				source.connect(gain);
+				gain.connect(ctx.destination);
+
+				const td = new Uint8Array(analyser.fftSize);
+				micReadyRef.current = true;
+
+				function tick() {
+					if (disposed) return;
+					analyser.getByteTimeDomainData(td);
+
+					// Time-domain RMS: values 0–255 where 128 = silence
+					let sum = 0;
+					for (let i = 0; i < td.length; i++) {
+						const v = (td[i] - 128) / 128;
+						sum += v * v;
+					}
+					const rms = Math.sqrt(sum / td.length);
+					const target = Math.min(1, rms * 6); // boost so normal speech is clearly visible
+
+					// Fast attack, slow decay — walkie-talkie feel
+					const prev = micAmpRef.current;
+					micAmpRef.current =
+						target > prev ? prev + (target - prev) * 0.5 : prev + (target - prev) * 0.1;
+
+					analyserRafId = requestAnimationFrame(tick);
+				}
+
+				analyserRafId = requestAnimationFrame(tick);
+			} catch {
+				// Mic unavailable — draw loop will use synthetic fallback
+			}
+		}
+
+		start();
+
+		return () => {
+			disposed = true;
+			cancelAnimationFrame(analyserRafId);
+			if (stream) for (const t of stream.getTracks()) t.stop();
+			ctx?.close();
+			micAmpRef.current = 0;
+			micReadyRef.current = false;
+		};
+	}, [active]);
+
+	// ── Draw loop ─────────────────────────────────────────────────────────────
 	useEffect(() => {
 		function draw(ts: number) {
 			rafRef.current = requestAnimationFrame(draw);
@@ -55,7 +137,6 @@ export function WaveformMeter({
 			const dpr = window.devicePixelRatio || 1;
 			const W = canvas.clientWidth;
 			const H = canvas.clientHeight;
-			// Keep canvas pixel size in sync with CSS size
 			if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
 				canvas.width = W * dpr;
 				canvas.height = H * dpr;
@@ -64,16 +145,14 @@ export function WaveformMeter({
 
 			const barCount = Math.floor(W / STEP) + 1;
 
-			// Sample amplitude at SAMPLE_MS intervals
 			if (ts - lastSampleRef.current >= SAMPLE_MS) {
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					const realLevel = levelRef.current;
-					if (realLevel !== undefined) {
-						// Real mic amplitude — add slight noise so static signals still animate
-						const noise = (Math.random() - 0.5) * 0.03;
-						amp = Math.max(0, Math.min(1, realLevel + noise));
+					if (micReadyRef.current) {
+						// Real mic — tiny noise keeps static amplitude from looking frozen
+						const noise = (Math.random() - 0.5) * 0.02;
+						amp = Math.max(0, Math.min(1, micAmpRef.current + noise));
 					} else {
 						// Synthetic fallback: two sine waves + noise
 						synthPhaseRef.current += 0.18;
@@ -93,16 +172,14 @@ export function WaveformMeter({
 				}
 			}
 
-			// Draw
 			c.clearRect(0, 0, W, H);
 			const history = historyRef.current;
 			const centerY = H / 2;
 			const now = Date.now();
 
-			// Build a set of bar indices that have confusion markers
 			const confusionSet = new Set<number>();
-			for (const ts of confusionEventsRef.current) {
-				const ageMs = now - ts;
+			for (const evTs of confusionEventsRef.current) {
+				const ageMs = now - evTs;
 				const barsBack = Math.round(ageMs / SAMPLE_MS);
 				const idx = history.length - 1 - barsBack;
 				if (idx >= 0 && idx < history.length) confusionSet.add(idx);
@@ -111,27 +188,22 @@ export function WaveformMeter({
 			for (let i = 0; i < history.length; i++) {
 				const x = W - (history.length - i) * STEP;
 				const amp = history[i];
-				// Scale: at max RMS ~0.35 we want bars ~90% of half-height
 				const halfH = Math.max(1, Math.min(centerY - 2, amp * centerY * 4.5));
-
 				const isConfusion = confusionSet.has(i);
 				const alpha = activeRef.current ? 0.85 : 0.35;
 
 				if (isConfusion) {
-					// Red confusion marker — full-height vertical line with dot above
-					c.fillStyle = "rgba(239,68,68,0.9)"; // red-500
+					c.fillStyle = "rgba(239,68,68,0.9)";
 					c.fillRect(x, 2, BAR_W, H - 4);
-					// Bright cap dot at top
 					c.beginPath();
 					c.arc(x + BAR_W / 2, 4, 3, 0, Math.PI * 2);
-					c.fillStyle = "rgba(252,165,165,1)"; // red-300
+					c.fillStyle = "rgba(252,165,165,1)";
 					c.fill();
 				} else {
-					// Gradient: brighter in center, dimmer at tips
 					const grad = c.createLinearGradient(x, centerY - halfH, x, centerY + halfH);
 					if (activeRef.current) {
-						grad.addColorStop(0, `rgba(147,197,253,${alpha * 0.6})`); // blue-300
-						grad.addColorStop(0.5, `rgba(96,165,250,${alpha})`); // blue-400
+						grad.addColorStop(0, `rgba(147,197,253,${alpha * 0.6})`);
+						grad.addColorStop(0.5, `rgba(96,165,250,${alpha})`);
 						grad.addColorStop(1, `rgba(147,197,253,${alpha * 0.6})`);
 					} else {
 						grad.addColorStop(0, `rgba(100,116,139,${alpha * 0.5})`);

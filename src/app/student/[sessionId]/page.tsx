@@ -107,6 +107,7 @@ export default async function StudentSessionPage({
 			ramBalance={ramAccount?.balance ?? 0}
 			groupBalance={groupBalance}
 			groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
+			joinCode={session.joinCode}
 		/>
 	);
 }

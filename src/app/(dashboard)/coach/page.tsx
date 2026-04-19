@@ -34,7 +34,6 @@ import { WaveformMeter } from "@/components/coach/waveform-meter";
 import { ScheduleSidebarPanel } from "@/components/schedule/schedule-sidebar-panel";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import { useLectureTranscript } from "@/hooks/use-lecture-transcript";
-import { useMicAnalyser } from "@/hooks/use-mic-analyser";
 import { useMicSlot } from "@/hooks/use-mic-manager";
 import type { CoachResponse } from "@/lib/ai/coach";
 import { playActivationChime } from "@/lib/chime";
@@ -448,8 +447,6 @@ export default function CoachPage() {
 
 	// Derive mic button state
 	const micState: MicState = isOrbRecording ? "listening" : isLoading ? "processing" : "idle";
-	const micLevels = useMicAnalyser(isListening || isOrbRecording);
-	const micLevel = micLevels.length ? Math.max(...micLevels) : 0;
 
 	// Sync AI state to <html data-ai-state> so the AiPresenceBorder CSS reacts
 	// Only set when active — idle on mount should not illuminate the border
@@ -1213,7 +1210,6 @@ export default function CoachPage() {
 								{(isListening || isOrbRecording || !!activeSessionId) && (
 									<WaveformMeter
 										active={isListening || isOrbRecording || !!activeSessionId}
-										level={isListening || isOrbRecording ? micLevel : undefined}
 										height={72}
 										className="w-full"
 									/>

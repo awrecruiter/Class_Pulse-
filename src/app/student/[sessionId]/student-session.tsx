@@ -86,6 +86,69 @@ function SoundcloudWave({
 	const markersRef = useRef<SignalMarker[]>([]);
 	const latestSignalRef = useRef(latestSignal);
 	latestSignalRef.current = latestSignal;
+	const micAmpRef = useRef(0);
+	const micReadyRef = useRef(false);
+
+	useEffect(() => {
+		if (!active) {
+			micAmpRef.current = 0;
+			micReadyRef.current = false;
+			return;
+		}
+		let disposed = false;
+		let stream: MediaStream | null = null;
+		let ctx: AudioContext | null = null;
+		let analyserRafId = 0;
+		async function start() {
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+				if (disposed) {
+					for (const t of stream.getTracks()) t.stop();
+					return;
+				}
+				ctx = new AudioContext();
+				await ctx.resume();
+				const source = ctx.createMediaStreamSource(stream);
+				const analyser = ctx.createAnalyser();
+				analyser.fftSize = 512;
+				analyser.smoothingTimeConstant = 0;
+				const gain = ctx.createGain();
+				gain.gain.value = 0;
+				source.connect(analyser);
+				source.connect(gain);
+				gain.connect(ctx.destination);
+				const td = new Uint8Array(analyser.fftSize);
+				micReadyRef.current = true;
+				function tick() {
+					if (disposed) return;
+					analyser.getByteTimeDomainData(td);
+					let sum = 0;
+					for (let i = 0; i < td.length; i++) {
+						const v = (td[i] - 128) / 128;
+						sum += v * v;
+					}
+					const rms = Math.sqrt(sum / td.length);
+					const target = Math.min(1, rms * 6);
+					const prev = micAmpRef.current;
+					micAmpRef.current =
+						target > prev ? prev + (target - prev) * 0.5 : prev + (target - prev) * 0.1;
+					analyserRafId = requestAnimationFrame(tick);
+				}
+				analyserRafId = requestAnimationFrame(tick);
+			} catch {
+				/* mic unavailable */
+			}
+		}
+		start();
+		return () => {
+			disposed = true;
+			cancelAnimationFrame(analyserRafId);
+			if (stream) for (const t of stream.getTracks()) t.stop();
+			ctx?.close();
+			micAmpRef.current = 0;
+			micReadyRef.current = false;
+		};
+	}, [active]);
 
 	// Stamp a marker each time the student submits a signal
 	useEffect(() => {
@@ -132,11 +195,14 @@ function SoundcloudWave({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					synthPhaseRef.current += 0.18;
-					const base =
-						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
-					const noise = (Math.random() - 0.5) * 0.12;
-					amp = Math.max(0, 0.18 + base + noise);
+					if (micReadyRef.current) {
+						amp = Math.max(0, Math.min(1, micAmpRef.current + (Math.random() - 0.5) * 0.02));
+					} else {
+						synthPhaseRef.current += 0.18;
+						const base =
+							Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
+						amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
+					}
 				} else {
 					const last = historyRef.current.at(-1) ?? 0;
 					amp = last * 0.7;
@@ -249,6 +315,7 @@ type Props = {
 	ramBalance: number;
 	groupBalance: number | null;
 	groupName: string | null;
+	joinCode: string;
 };
 
 export function StudentSession({
@@ -261,6 +328,7 @@ export function StudentSession({
 	ramBalance,
 	groupBalance,
 	groupName,
+	joinCode,
 }: Props) {
 	const router = useRouter();
 	const [currentSignal, setCurrentSignal] = useState<Signal | null>(initialSignal);
@@ -373,6 +441,9 @@ export function StudentSession({
 					<div>
 						<p className="text-lg font-black text-white leading-tight">{displayName}</p>
 						<p className="text-xs text-slate-500 font-medium">{classLabel}</p>
+						<p className="text-[10px] font-mono text-slate-600 tracking-widest">
+							JOIN: <span className="text-slate-500">{joinCode}</span>
+						</p>
 					</div>
 				</div>
 
