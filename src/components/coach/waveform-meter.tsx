@@ -16,6 +16,7 @@ const SAMPLE_MS = 50; // new sample every 50ms → ~20fps scroll rate
 
 interface WaveformMeterProps {
 	active: boolean; // true = mic is running
+	level?: number; // real-time mic amplitude 0–1 from useMicAnalyser; drives bar height when provided
 	height?: number; // if omitted, uses CSS height (e.g. h-full from className)
 	className?: string;
 	confusionEvents?: number[]; // array of Date.now() timestamps when confusion spiked
@@ -23,6 +24,7 @@ interface WaveformMeterProps {
 
 export function WaveformMeter({
 	active,
+	level,
 	height = 56,
 	className = "",
 	confusionEvents = [],
@@ -32,14 +34,13 @@ export function WaveformMeter({
 	const rafRef = useRef<number>(0);
 	const lastSampleRef = useRef<number>(0);
 	const activeRef = useRef(active);
+	const levelRef = useRef(level);
 	const confusionEventsRef = useRef<number[]>(confusionEvents);
 	activeRef.current = active;
+	levelRef.current = level;
 	confusionEventsRef.current = confusionEvents;
 
-	// Synthetic amplitude state — drives the visual when active.
-	// We intentionally do NOT open a second getUserMedia here because the mic
-	// manager already owns the stream. A second stream causes OS-level conflicts
-	// and is the source of the "glitching" artefact.
+	// Synthetic phase — used as fallback when no real level is provided
 	const synthPhaseRef = useRef(0);
 
 	// Canvas draw loop — always running so history decays when mic stops
@@ -68,12 +69,19 @@ export function WaveformMeter({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					// Synthetic voice-like waveform: two sine waves + noise
-					synthPhaseRef.current += 0.18;
-					const base =
-						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
-					const noise = (Math.random() - 0.5) * 0.12;
-					amp = Math.max(0, 0.18 + base + noise);
+					const realLevel = levelRef.current;
+					if (realLevel !== undefined) {
+						// Real mic amplitude — add slight noise so static signals still animate
+						const noise = (Math.random() - 0.5) * 0.03;
+						amp = Math.max(0, Math.min(1, realLevel + noise));
+					} else {
+						// Synthetic fallback: two sine waves + noise
+						synthPhaseRef.current += 0.18;
+						const base =
+							Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
+						const noise = (Math.random() - 0.5) * 0.12;
+						amp = Math.max(0, 0.18 + base + noise);
+					}
 				} else {
 					// Decay toward zero when not active
 					const last = historyRef.current.at(-1) ?? 0;
