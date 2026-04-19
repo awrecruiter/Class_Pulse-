@@ -1342,8 +1342,8 @@ export default function CoachPage() {
 									</div>
 								)}
 
-								{/* Ambient HUD */}
-								{isListening && (
+								{/* Ambient HUD — mount whenever session is live so correction requests show even when mic is off */}
+								{(isListening || !!activeSessionId) && (
 									<div className="px-6 pb-4">
 										<AmbientHud
 											transcript={transcript}

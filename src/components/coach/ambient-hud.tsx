@@ -103,7 +103,7 @@ export function AmbientHud({ sessionId, transcript, isListening }: Props) {
 		}
 
 		fetchCorrections();
-		const interval = setInterval(fetchCorrections, 15_000);
+		const interval = setInterval(fetchCorrections, 5_000);
 		return () => clearInterval(interval);
 	}, [sessionId]);
 
