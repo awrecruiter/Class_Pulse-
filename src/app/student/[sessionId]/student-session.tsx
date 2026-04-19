@@ -513,7 +513,7 @@ export function StudentSession({
 
 						{/* Correction request */}
 						<div className="border-t border-white/6 pt-3">
-							<CorrectionRequest sessionId={sessionId} />
+							<CorrectionRequest sessionId={sessionId} noiseLevel={noiseLevel} />
 						</div>
 					</div>
 				) : (

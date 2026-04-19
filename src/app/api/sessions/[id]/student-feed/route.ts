@@ -39,6 +39,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 	const stream = new ReadableStream({
 		async start(controller) {
+			let closed = false;
+			function safeClose() {
+				if (closed) return;
+				closed = true;
+				clearInterval(interval);
+				clearInterval(noiseInterval);
+				controller.close();
+			}
+
 			// Send initial state immediately
 			await sendLatestPush(controller, encoder, sessionId, lastPushId, (id) => {
 				lastPushId = id;
@@ -51,8 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						lastPushId = id;
 					});
 				} catch {
-					clearInterval(interval);
-					controller.close();
+					safeClose();
 				}
 			}, 5000);
 
@@ -67,16 +75,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						);
 					}
 				} catch {
-					clearInterval(noiseInterval);
-					controller.close();
+					safeClose();
 				}
 			}, 300);
 
-			request.signal.addEventListener("abort", () => {
-				clearInterval(interval);
-				clearInterval(noiseInterval);
-				controller.close();
-			});
+			request.signal.addEventListener("abort", safeClose);
 		},
 	});
 

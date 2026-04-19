@@ -6,7 +6,7 @@ export function setNoiseLevel(sessionId: string, level: number) {
 
 export function getNoiseLevel(sessionId: string): number {
 	const entry = store.get(sessionId);
-	if (!entry || Date.now() - entry.ts > 10_000) return 0;
+	if (!entry || Date.now() - entry.ts > 30_000) return 0;
 	return entry.level;
 }
 
