@@ -65,7 +65,7 @@ const SIGNAL_COLORS: Record<Signal, { line: string; dot: string }> = {
 const S_BAR_W = 2;
 const S_BAR_GAP = 2;
 const S_STEP = S_BAR_W + S_BAR_GAP;
-const S_SAMPLE_MS = 50;
+const S_SAMPLE_MS = 16;
 
 function SoundcloudWave({
 	active,
@@ -89,6 +89,7 @@ function SoundcloudWave({
 	const latestSignalRef = useRef(latestSignal);
 	latestSignalRef.current = latestSignal;
 	const noiseLevelRef = useRef(noiseLevel ?? 0);
+	const smoothedNoiseRef = useRef(0);
 	useEffect(() => {
 		noiseLevelRef.current = noiseLevel ?? 0;
 	}, [noiseLevel]);
@@ -138,9 +139,13 @@ function SoundcloudWave({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					const nl = noiseLevelRef.current;
-					if (nl > 0) {
-						amp = Math.min(1, (nl / 100) * 1.1 + (Math.random() - 0.5) * 0.04);
+					const target = (noiseLevelRef.current / 100) * 1.1;
+					const prev = smoothedNoiseRef.current;
+					smoothedNoiseRef.current =
+						target > prev ? prev + (target - prev) * 0.4 : prev + (target - prev) * 0.35;
+					const nl = smoothedNoiseRef.current;
+					if (nl > 0.01) {
+						amp = Math.min(1, nl + (Math.random() - 0.5) * 0.04);
 					} else {
 						synthPhaseRef.current += 0.18;
 						const base =
