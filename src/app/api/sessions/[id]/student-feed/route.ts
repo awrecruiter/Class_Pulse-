@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import { classSessions, manipulativePushes } from "@/lib/db/schema";
+import { getNoiseLevel } from "@/lib/noise-store";
 
 export const dynamic = "force-dynamic";
 
@@ -55,8 +56,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				}
 			}, 5000);
 
+			let lastNoiseLevel = -1;
+			const noiseInterval = setInterval(() => {
+				try {
+					const level = getNoiseLevel(sessionId);
+					if (Math.abs(level - lastNoiseLevel) >= 3) {
+						lastNoiseLevel = level;
+						controller.enqueue(
+							encoder.encode(`data: ${JSON.stringify({ type: "noise", level })}\n\n`),
+						);
+					}
+				} catch {
+					clearInterval(noiseInterval);
+					controller.close();
+				}
+			}, 300);
+
 			request.signal.addEventListener("abort", () => {
 				clearInterval(interval);
+				clearInterval(noiseInterval);
 				controller.close();
 			});
 		},

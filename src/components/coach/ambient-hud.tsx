@@ -28,6 +28,7 @@ const NOISE_COLORS: Record<string, string> = {
 export function AmbientHud({ sessionId, transcript, isListening }: Props) {
 	const lastScanRef = useRef<string>("");
 	const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const lastPostRef = useRef<number>(0);
 
 	const [anomalies, setAnomalies] = useState<AnomalyScanResult["anomalies"]>([]);
 	const [corrections, setCorrections] = useState<CorrectionRequest[]>([]);
@@ -37,6 +38,8 @@ export function AmbientHud({ sessionId, transcript, isListening }: Props) {
 		async (level: number) => {
 			setCurrentLevel(level);
 			if (sessionId) {
+				if (Date.now() - lastPostRef.current < 250) return;
+				lastPostRef.current = Date.now();
 				void fetch(`/api/sessions/${sessionId}/noise`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },

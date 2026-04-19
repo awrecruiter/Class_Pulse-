@@ -6,6 +6,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { ambientAlerts, classSessions } from "@/lib/db/schema";
+import { setNoiseLevel } from "@/lib/noise-store";
 import { ambientScanLimiter } from "@/lib/rate-limit";
 
 const HIGH_NOISE_THRESHOLD = 75;
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
 	const { level } = result.data;
+	setNoiseLevel(sessionId, level);
 
 	// Log alert only for high-noise events
 	if (level >= HIGH_NOISE_THRESHOLD) {

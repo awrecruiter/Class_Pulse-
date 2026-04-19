@@ -71,10 +71,12 @@ function SoundcloudWave({
 	active,
 	markTrigger,
 	latestSignal,
+	noiseLevel,
 }: {
 	active: boolean;
 	markTrigger: number;
 	latestSignal: Signal | null;
+	noiseLevel?: number;
 }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const historyRef = useRef<number[]>([]);
@@ -86,69 +88,10 @@ function SoundcloudWave({
 	const markersRef = useRef<SignalMarker[]>([]);
 	const latestSignalRef = useRef(latestSignal);
 	latestSignalRef.current = latestSignal;
-	const micAmpRef = useRef(0);
-	const micReadyRef = useRef(false);
-
+	const noiseLevelRef = useRef(noiseLevel ?? 0);
 	useEffect(() => {
-		if (!active) {
-			micAmpRef.current = 0;
-			micReadyRef.current = false;
-			return;
-		}
-		let disposed = false;
-		let stream: MediaStream | null = null;
-		let ctx: AudioContext | null = null;
-		let analyserRafId = 0;
-		async function start() {
-			try {
-				stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-				if (disposed) {
-					for (const t of stream.getTracks()) t.stop();
-					return;
-				}
-				ctx = new AudioContext();
-				await ctx.resume();
-				const source = ctx.createMediaStreamSource(stream);
-				const analyser = ctx.createAnalyser();
-				analyser.fftSize = 512;
-				analyser.smoothingTimeConstant = 0;
-				const gain = ctx.createGain();
-				gain.gain.value = 0;
-				source.connect(analyser);
-				source.connect(gain);
-				gain.connect(ctx.destination);
-				const td = new Uint8Array(analyser.fftSize);
-				micReadyRef.current = true;
-				function tick() {
-					if (disposed) return;
-					analyser.getByteTimeDomainData(td);
-					let sum = 0;
-					for (let i = 0; i < td.length; i++) {
-						const v = (td[i] - 128) / 128;
-						sum += v * v;
-					}
-					const rms = Math.sqrt(sum / td.length);
-					const target = Math.min(1, rms * 6);
-					const prev = micAmpRef.current;
-					micAmpRef.current =
-						target > prev ? prev + (target - prev) * 0.5 : prev + (target - prev) * 0.1;
-					analyserRafId = requestAnimationFrame(tick);
-				}
-				analyserRafId = requestAnimationFrame(tick);
-			} catch {
-				/* mic unavailable */
-			}
-		}
-		start();
-		return () => {
-			disposed = true;
-			cancelAnimationFrame(analyserRafId);
-			if (stream) for (const t of stream.getTracks()) t.stop();
-			ctx?.close();
-			micAmpRef.current = 0;
-			micReadyRef.current = false;
-		};
-	}, [active]);
+		noiseLevelRef.current = noiseLevel ?? 0;
+	}, [noiseLevel]);
 
 	// Stamp a marker each time the student submits a signal
 	useEffect(() => {
@@ -195,8 +138,9 @@ function SoundcloudWave({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					if (micReadyRef.current) {
-						amp = Math.max(0, Math.min(1, micAmpRef.current + (Math.random() - 0.5) * 0.02));
+					const nl = noiseLevelRef.current;
+					if (nl > 0) {
+						amp = Math.min(1, (nl / 100) * 1.1 + (Math.random() - 0.5) * 0.04);
 					} else {
 						synthPhaseRef.current += 0.18;
 						const base =
@@ -355,6 +299,7 @@ export function StudentSession({
 	const [pushedSpec, setPushedSpec] = useState<ManipSpec>(null);
 	const [pushedStandardCode, setPushedStandardCode] = useState<string | undefined>(undefined);
 	const [showManip, setShowManip] = useState(false);
+	const [noiseLevel, setNoiseLevel] = useState(0);
 	const esRef = useRef<EventSource | null>(null);
 
 	const headerRef = useRef<HTMLDivElement>(null);
@@ -388,10 +333,14 @@ export function StudentSession({
 		esRef.current = es;
 		es.onmessage = (e) => {
 			try {
-				const data = JSON.parse(e.data) as PushPayload;
-				if (data.spec) {
-					setPushedSpec(data.spec);
-					setPushedStandardCode(data.standardCode ?? undefined);
+				const parsed = JSON.parse(e.data) as PushPayload & { type?: string; level?: number };
+				if (parsed.type === "noise" && typeof parsed.level === "number") {
+					setNoiseLevel(parsed.level);
+					return;
+				}
+				if (parsed.spec) {
+					setPushedSpec(parsed.spec);
+					setPushedStandardCode(parsed.standardCode ?? undefined);
 					setShowManip(true);
 				}
 			} catch {
@@ -489,6 +438,7 @@ export function StudentSession({
 								active={isActive}
 								markTrigger={markTrigger}
 								latestSignal={currentSignal}
+								noiseLevel={noiseLevel}
 							/>
 							<div className="flex items-center gap-1.5">
 								<span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
