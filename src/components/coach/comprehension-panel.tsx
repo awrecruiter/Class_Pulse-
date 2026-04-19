@@ -9,11 +9,13 @@ type MasteryData = { mastered: number; working: number; total: number };
 type CfuEntry = { rosterId: string; score: number; notes: string };
 type CfuDay = { date: string; standardCode: string; entries: CfuEntry[] };
 type PulseData = { gotIt: number; almost: number; lost: number; total: number };
+export type SignalMap = Record<string, "got-it" | "almost" | "lost">;
 
 interface Props {
 	classId: string;
 	activeSessionId?: string;
 	onConfusionEvent?: (timestamp: number) => void;
+	onSignalUpdate?: (signals: SignalMap) => void;
 }
 
 // ─── Score helpers ──────────────────────────────────────────────────────────────
@@ -141,7 +143,7 @@ function cn(...classes: (string | false | undefined | null)[]) {
 
 // ─── Main component ─────────────────────────────────────────────────────────────
 
-export function ComprehensionPanel({ classId, activeSessionId }: Props) {
+export function ComprehensionPanel({ classId, activeSessionId, onSignalUpdate }: Props) {
 	const [view, setView] = useState<"live" | "past">("live");
 	const [mastery, setMastery] = useState<MasteryData | null>(null);
 	const [pulse, setPulse] = useState<PulseData | null>(null);
@@ -166,53 +168,9 @@ export function ComprehensionPanel({ classId, activeSessionId }: Props) {
 		}
 	}, [activeSessionId]);
 
-	// Poll comprehension pulse via SSE aggregate (fall back to simple fetch)
-	const fetchPulse = useCallback(async () => {
-		if (!activeSessionId) return;
-		try {
-			const res = await fetch(`/api/sessions/${activeSessionId}/pulse`);
-			if (res.ok) {
-				const data = await res.json();
-				if (data && "gotIt" in data) {
-					const newGotIt: number = data.gotIt ?? 0;
-					const newAlmost: number = data.almost ?? 0;
-					const newLost: number = data.lost ?? 0;
-					if (newGotIt > prevGotItRef.current) {
-						const delta = newGotIt - prevGotItRef.current;
-						toast(`✅ ${delta} student${delta > 1 ? "s" : ""} got it`, {
-							duration: 4000,
-							style: { background: "#052e16", border: "1px solid #16a34a", color: "#86efac" },
-						});
-					}
-					if (newAlmost > prevAlmostRef.current) {
-						const delta = newAlmost - prevAlmostRef.current;
-						toast(`🤔 ${delta} student${delta > 1 ? "s" : ""} almost there`, {
-							duration: 4000,
-							style: { background: "#1c1917", border: "1px solid #d97706", color: "#fcd34d" },
-						});
-					}
-					if (newLost > prevLostRef.current) {
-						const delta = newLost - prevLostRef.current;
-						toast(`🙋 ${delta} student${delta > 1 ? "s" : ""} need${delta === 1 ? "s" : ""} help`, {
-							duration: 6000,
-							style: { background: "#1e1b4b", border: "1px solid #6d28d9", color: "#c4b5fd" },
-						});
-					}
-					prevGotItRef.current = newGotIt;
-					prevAlmostRef.current = newAlmost;
-					prevLostRef.current = newLost;
-					setPulse({
-						gotIt: data.gotIt,
-						almost: data.almost,
-						lost: data.lost,
-						total: data.total ?? data.gotIt + data.almost + data.lost,
-					});
-				}
-			}
-		} catch {
-			/* noop */
-		}
-	}, [activeSessionId]);
+	// onSignalUpdate ref — stable reference so the SSE effect doesn't re-run when the callback changes
+	const onSignalUpdateRef = useRef(onSignalUpdate);
+	onSignalUpdateRef.current = onSignalUpdate;
 
 	// Fetch confusion marks for active session
 	const fetchConfusion = useCallback(async () => {
@@ -268,19 +226,71 @@ export function ComprehensionPanel({ classId, activeSessionId }: Props) {
 		}
 	}, [classId]);
 
-	// Live: poll every 30s
+	// Live: SSE for instant comprehension pulse updates
+	useEffect(() => {
+		if (!activeSessionId) return;
+		const es = new EventSource(`/api/sessions/${activeSessionId}/comprehension-feed`);
+		es.onmessage = (e) => {
+			try {
+				const data = JSON.parse(e.data as string) as {
+					gotIt: number;
+					almost: number;
+					lost: number;
+					total: number;
+					signals: { rosterId: string; signal: string }[];
+				};
+				const newGotIt = data.gotIt ?? 0;
+				const newAlmost = data.almost ?? 0;
+				const newLost = data.lost ?? 0;
+				if (newGotIt > prevGotItRef.current) {
+					const delta = newGotIt - prevGotItRef.current;
+					toast(`✅ ${delta} student${delta > 1 ? "s" : ""} got it`, {
+						duration: 4000,
+						style: { background: "#052e16", border: "1px solid #16a34a", color: "#86efac" },
+					});
+				}
+				if (newAlmost > prevAlmostRef.current) {
+					const delta = newAlmost - prevAlmostRef.current;
+					toast(`🤔 ${delta} student${delta > 1 ? "s" : ""} almost there`, {
+						duration: 4000,
+						style: { background: "#1c1917", border: "1px solid #d97706", color: "#fcd34d" },
+					});
+				}
+				if (newLost > prevLostRef.current) {
+					const delta = newLost - prevLostRef.current;
+					toast(`🙋 ${delta} student${delta > 1 ? "s" : ""} need${delta === 1 ? "s" : ""} help`, {
+						duration: 6000,
+						style: { background: "#1e1b4b", border: "1px solid #6d28d9", color: "#c4b5fd" },
+					});
+				}
+				prevGotItRef.current = newGotIt;
+				prevAlmostRef.current = newAlmost;
+				prevLostRef.current = newLost;
+				setPulse({ gotIt: newGotIt, almost: newAlmost, lost: newLost, total: data.total });
+				// Build per-student signal map and propagate up
+				const map: SignalMap = {};
+				for (const s of data.signals) {
+					map[s.rosterId] = s.signal as "got-it" | "almost" | "lost";
+				}
+				onSignalUpdateRef.current?.(map);
+			} catch {
+				/* ignore malformed event */
+			}
+		};
+		return () => es.close();
+	}, [activeSessionId]);
+
+	// Live: poll mastery + confusion every 10s
 	useEffect(() => {
 		if (!activeSessionId) return;
 		fetchMastery();
-		fetchPulse();
 		fetchConfusion();
 		const id = setInterval(() => {
 			fetchMastery();
-			fetchPulse();
 			fetchConfusion();
-		}, 30_000);
+		}, 10_000);
 		return () => clearInterval(id);
-	}, [activeSessionId, fetchMastery, fetchPulse, fetchConfusion]);
+	}, [activeSessionId, fetchMastery, fetchConfusion]);
 
 	useEffect(() => {
 		fetchCfu();

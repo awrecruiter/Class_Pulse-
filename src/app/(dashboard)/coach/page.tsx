@@ -22,7 +22,7 @@ import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/rou
 import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
 import type { VisualResponse } from "@/app/api/coach/visualize/route";
 import { AmbientHud } from "@/components/coach/ambient-hud";
-import { ComprehensionPanel } from "@/components/coach/comprehension-panel";
+import { ComprehensionPanel, type SignalMap } from "@/components/coach/comprehension-panel";
 import { DiPanel } from "@/components/coach/di-panel";
 import { GroupsSidebarPanel } from "@/components/coach/groups-sidebar-panel";
 import { LectureVisualizer } from "@/components/coach/lecture-visualizer";
@@ -101,13 +101,21 @@ function stepDotColor(step: number) {
 
 // ─── Student chip ──────────────────────────────────────────────────────────────
 
+const SIGNAL_DOT: Record<string, string> = {
+	"got-it": "bg-emerald-400",
+	almost: "bg-amber-400",
+	lost: "bg-violet-400 animate-pulse",
+};
+
 function StudentChip({
 	student,
 	active,
+	signal,
 	onTap,
 }: {
 	student: StudentOverview;
 	active: boolean;
+	signal?: string;
 	onTap: (s: StudentOverview) => void;
 }) {
 	return (
@@ -124,6 +132,12 @@ function StudentChip({
 			<span
 				className={`absolute top-1 right-1 w-2 h-2 rounded-full ${stepDotColor(student.behaviorStep)} ${student.behaviorStep >= 5 ? "animate-pulse" : ""}`}
 			/>
+			{/* Signal dot — top left (only during live session) */}
+			{signal && (
+				<span
+					className={`absolute top-1 left-1 w-2 h-2 rounded-full ${SIGNAL_DOT[signal] ?? "bg-slate-500"}`}
+				/>
+			)}
 			{/* Avatar */}
 			<div
 				className={`h-9 w-9 rounded-lg ${avatarColor(student.rosterId)} flex items-center justify-center shrink-0`}
@@ -385,6 +399,9 @@ export default function CoachPage() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [textInput, setTextInput] = useState("");
 	const [, setShowTextInput] = useState(false);
+	// Per-student comprehension signal map — keyed by rosterId, updated via SSE
+	const [signalMap, setSignalMap] = useState<SignalMap>({});
+
 	// Panel collapse state
 	const [leftOpen, setLeftOpen] = useState(true);
 	const [studentsOpen, setStudentsOpen] = useState(false);
@@ -488,6 +505,7 @@ export default function CoachPage() {
 					autoCommandRef.current = false;
 					hasEverListenedRef.current = false;
 					stopListening();
+					setSignalMap({});
 				}
 			} catch {
 				// ignore
@@ -1006,6 +1024,7 @@ export default function CoachPage() {
 										<ComprehensionPanel
 											classId={selectedClassId}
 											activeSessionId={activeSessionId}
+											onSignalUpdate={setSignalMap}
 										/>
 									</div>
 								)}
@@ -1058,6 +1077,7 @@ export default function CoachPage() {
 														key={s.rosterId}
 														student={s}
 														active={activeStudent?.rosterId === s.rosterId}
+														signal={signalMap[s.rosterId]}
 														onTap={handleStudentTap}
 													/>
 												))}
