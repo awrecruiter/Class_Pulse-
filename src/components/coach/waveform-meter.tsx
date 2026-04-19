@@ -72,7 +72,7 @@ export function WaveformMeter({
 
 				const source = ctx.createMediaStreamSource(stream);
 				const analyser = ctx.createAnalyser();
-				analyser.fftSize = 512;
+				analyser.fftSize = 256;
 				analyser.smoothingTimeConstant = 0; // manual smoothing below
 
 				// Silent gain → ctx.destination forces Chrome to process the graph.
@@ -97,12 +97,12 @@ export function WaveformMeter({
 						sum += v * v;
 					}
 					const rms = Math.sqrt(sum / td.length);
-					const target = Math.min(1, rms * 6); // boost so normal speech is clearly visible
+					const target = Math.min(1, rms * 8); // boost so normal speech hits full height
 
-					// Fast attack, slow decay — walkie-talkie feel
+					// Instant attack, fast decay — FaceTime feel
 					const prev = micAmpRef.current;
 					micAmpRef.current =
-						target > prev ? prev + (target - prev) * 0.5 : prev + (target - prev) * 0.1;
+						target > prev ? prev + (target - prev) * 0.85 : prev + (target - prev) * 0.4;
 
 					analyserRafId = requestAnimationFrame(tick);
 				}
