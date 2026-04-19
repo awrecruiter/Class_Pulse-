@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { generateCheckQuestions } from "@/lib/ai/questions";

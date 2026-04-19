@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

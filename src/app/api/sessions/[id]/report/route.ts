@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Anthropic from "@anthropic-ai/sdk";
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";

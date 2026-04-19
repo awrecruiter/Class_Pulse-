@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { type NextRequest, NextResponse } from "next/server";
 import { type CoachRequest, getScaffold } from "@/lib/ai/coach";
 import { auth } from "@/lib/auth/server";

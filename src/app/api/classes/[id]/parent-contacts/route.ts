@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
