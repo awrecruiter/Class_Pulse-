@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
@@ -53,24 +53,25 @@ export async function PUT(
 	const now = new Date();
 
 	if (result.data.action === "approve") {
-		// Deduct RAM bucks
-		const [account] = await db
-			.select()
-			.from(ramBuckAccounts)
+		// Atomic deduction — WHERE balance >= cost ensures no update if insufficient funds
+		const [updatedAccount] = await db
+			.update(ramBuckAccounts)
+			.set({
+				balance: sql`GREATEST(0, balance - ${purchase.cost})`,
+				updatedAt: now,
+			})
 			.where(
-				and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, purchase.rosterId)),
-			);
+				and(
+					eq(ramBuckAccounts.classId, classId),
+					eq(ramBuckAccounts.rosterId, purchase.rosterId),
+					sql`balance >= ${purchase.cost}`,
+				),
+			)
+			.returning({ balance: ramBuckAccounts.balance });
 
-		if (!account || account.balance < purchase.cost) {
+		if (!updatedAccount) {
 			return NextResponse.json({ error: "Insufficient RAM Bucks" }, { status: 400 });
 		}
-
-		await db
-			.update(ramBuckAccounts)
-			.set({ balance: Math.max(0, account.balance - purchase.cost), updatedAt: now })
-			.where(
-				and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, purchase.rosterId)),
-			);
 
 		await db.insert(ramBuckTransactions).values({
 			classId,

@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
-import { classSessions, manipulativePushes } from "@/lib/db/schema";
+import { classSessions, manipulativePushes, teacherSettings } from "@/lib/db/schema";
 import { getNoiseLevel } from "@/lib/noise-store";
 
 const SESSION_POLL_MS = 5000;
@@ -28,7 +28,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 	// Verify session exists and is active
 	const [session] = await db
-		.select({ id: classSessions.id, status: classSessions.status })
+		.select({
+			id: classSessions.id,
+			status: classSessions.status,
+			teacherId: classSessions.teacherId,
+		})
 		.from(classSessions)
 		.where(eq(classSessions.id, sessionId));
 
@@ -45,12 +49,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			// Declare before safeClose so it can reference them without TDZ errors
 			let interval: ReturnType<typeof setInterval> | undefined;
 			let noiseInterval: ReturnType<typeof setInterval> | undefined;
+			let storeInterval: ReturnType<typeof setInterval> | undefined;
 
 			function safeClose() {
 				if (closed) return;
 				closed = true;
 				clearInterval(interval);
 				clearInterval(noiseInterval);
+				clearInterval(storeInterval);
 				controller.close();
 			}
 
@@ -76,6 +82,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			await sendLatestPush(controller, encoder, sessionId, lastPushId, (id) => {
 				lastPushId = id;
 			});
+
+			// Send initial store status
+			let lastStoreOpen: boolean | null = null;
+			try {
+				const [settings] = await db
+					.select({ storeIsOpen: teacherSettings.storeIsOpen })
+					.from(teacherSettings)
+					.where(eq(teacherSettings.userId, session.teacherId));
+				const isOpen = settings?.storeIsOpen ?? false;
+				lastStoreOpen = isOpen;
+				controller.enqueue(
+					encoder.encode(`data: ${JSON.stringify({ type: "store-status", isOpen })}\n\n`),
+				);
+			} catch {
+				// non-fatal — student will get next poll
+			}
 
 			// Poll every 5 seconds for new pushes and session status
 			interval = setInterval(async () => {
@@ -111,6 +133,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					safeClose();
 				}
 			}, 300);
+
+			storeInterval = setInterval(async () => {
+				try {
+					const [settings] = await db
+						.select({ storeIsOpen: teacherSettings.storeIsOpen })
+						.from(teacherSettings)
+						.where(eq(teacherSettings.userId, session.teacherId));
+					const isOpen = settings?.storeIsOpen ?? false;
+					if (isOpen !== lastStoreOpen) {
+						lastStoreOpen = isOpen;
+						controller.enqueue(
+							encoder.encode(`data: ${JSON.stringify({ type: "store-status", isOpen })}\n\n`),
+						);
+					}
+				} catch {
+					safeClose();
+				}
+			}, 3000);
 
 			request.signal.addEventListener("abort", safeClose);
 		},

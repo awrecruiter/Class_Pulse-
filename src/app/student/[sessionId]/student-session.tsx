@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { StudentManipulative } from "@/components/coach/manipulatives/student";
 import { CorrectionRequest } from "@/components/coach/manipulatives/student/correction-request";
+import { StudentStore } from "@/components/coach/manipulatives/student/student-store";
 import type { CoachResponse } from "@/lib/ai/coach";
 
 gsap.registerPlugin(useGSAP);
@@ -309,6 +310,8 @@ export function StudentSession({
 	const [showManip, setShowManip] = useState(false);
 	const [noiseLevel, setNoiseLevel] = useState(0);
 	const [sessionEnded, setSessionEnded] = useState(false);
+	const [storeIsOpen, setStoreIsOpen] = useState(false);
+	const [activeTab, setActiveTab] = useState<"pulse" | "store">("pulse");
 	const esRef = useRef<EventSource | null>(null);
 
 	const headerRef = useRef<HTMLDivElement>(null);
@@ -342,7 +345,11 @@ export function StudentSession({
 		esRef.current = es;
 		es.onmessage = (e) => {
 			try {
-				const parsed = JSON.parse(e.data) as PushPayload & { type?: string; level?: number };
+				const parsed = JSON.parse(e.data) as PushPayload & {
+					type?: string;
+					level?: number;
+					isOpen?: boolean;
+				};
 				if (parsed.type === "session-ended") {
 					setSessionEnded(true);
 					es.close();
@@ -350,6 +357,10 @@ export function StudentSession({
 				}
 				if (parsed.type === "noise" && typeof parsed.level === "number") {
 					setNoiseLevel(parsed.level);
+					return;
+				}
+				if (parsed.type === "store-status") {
+					setStoreIsOpen(parsed.isOpen ?? false);
 					return;
 				}
 				if (parsed.spec) {
@@ -465,85 +476,125 @@ export function StudentSession({
 				className="w-full max-w-sm rounded-2xl bg-[#1a1d27] border border-white/8 shadow-2xl overflow-hidden"
 			>
 				{isActive ? (
-					<div className="flex flex-col gap-4 p-5">
-						{/* Teacher voice waveform */}
-						<div className="flex flex-col items-center gap-2">
-							<SoundcloudWave
-								active={isActive}
-								markTrigger={markTrigger}
-								latestSignal={currentSignal}
-								noiseLevel={noiseLevel}
-							/>
-							<div className="flex items-center gap-1.5">
-								<span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-								<p className="text-[11px] font-semibold text-emerald-500 tracking-wide uppercase">
-									Teacher is live
-								</p>
+					<div className="flex flex-col">
+						{/* Tab navigation */}
+						<div className="flex border-b border-white/8">
+							<button
+								type="button"
+								onClick={() => setActiveTab("pulse")}
+								className={`flex-1 py-3 text-sm font-bold transition-colors ${
+									activeTab === "pulse"
+										? "text-emerald-400 border-b-2 border-emerald-400"
+										: "text-slate-500 hover:text-slate-300"
+								}`}
+							>
+								📊 Pulse
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("store")}
+								className={`flex-1 py-3 text-sm font-bold transition-colors ${
+									activeTab === "store"
+										? "text-amber-400 border-b-2 border-amber-400"
+										: "text-slate-500 hover:text-slate-300"
+								}`}
+							>
+								🛒 Store
+							</button>
+						</div>
+
+						{/* Pulse tab */}
+						{activeTab === "pulse" && (
+							<div className="flex flex-col gap-4 p-5">
+								{/* Teacher voice waveform */}
+								<div className="flex flex-col items-center gap-2">
+									<SoundcloudWave
+										active={isActive}
+										markTrigger={markTrigger}
+										latestSignal={currentSignal}
+										noiseLevel={noiseLevel}
+									/>
+									<div className="flex items-center gap-1.5">
+										<span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+										<p className="text-[11px] font-semibold text-emerald-500 tracking-wide uppercase">
+											Teacher is live
+										</p>
+									</div>
+								</div>
+
+								{/* Signal label */}
+								<p className="text-sm font-bold text-slate-300 text-center">How are you doing?</p>
+
+								{/* Signal buttons */}
+								<div className="flex flex-col gap-2.5">
+									{SIGNALS.map((s, i) => {
+										const isSelected = currentSignal === s.id;
+										return (
+											<button
+												key={s.id}
+												ref={(el) => {
+													btnRefs.current[i] = el;
+												}}
+												type="button"
+												onClick={() => submitSignal(s.id, btnRefs.current[i])}
+												disabled={isPending}
+												className={`relative flex items-center gap-4 rounded-xl px-5 py-4 transition-colors text-left border ${
+													isSelected
+														? `${s.accent} border-transparent ring-2 ${s.ring} shadow-xl ${s.glow}`
+														: "bg-[#0f1117] border-white/8 hover:border-white/20"
+												} disabled:opacity-60`}
+											>
+												<span
+													className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl font-black ${
+														isSelected ? "bg-black/20 text-white" : "bg-white/8 text-slate-400"
+													}`}
+												>
+													{s.icon}
+												</span>
+												<span
+													className={`text-base font-bold ${isSelected ? "text-white" : "text-slate-300"}`}
+												>
+													{s.label}
+												</span>
+												{isSelected && (
+													<span className="ml-auto text-[10px] font-black text-white/60 uppercase tracking-widest">
+														✓ Sent
+													</span>
+												)}
+											</button>
+										);
+									})}
+								</div>
+
+								{error && (
+									<p className="text-center text-xs text-rose-300 bg-rose-500/10 rounded-lg py-2">
+										{error}
+									</p>
+								)}
+
+								{/* Help / lost context */}
+								{currentSignal === "lost" && !showManip && (
+									<div className="rounded-xl bg-violet-500/10 border border-violet-500/20 px-4 py-3 text-center">
+										<p className="text-sm font-semibold text-violet-300">
+											Your teacher is on the way!
+										</p>
+										<p className="text-xs text-violet-400/70 mt-0.5">Hang tight, help is coming.</p>
+									</div>
+								)}
+
+								{/* Correction request */}
+								<div className="border-t border-white/6 pt-3">
+									<CorrectionRequest sessionId={sessionId} noiseLevel={noiseLevel} />
+								</div>
 							</div>
-						</div>
-
-						{/* Signal label */}
-						<p className="text-sm font-bold text-slate-300 text-center">How are you doing?</p>
-
-						{/* Signal buttons */}
-						<div className="flex flex-col gap-2.5">
-							{SIGNALS.map((s, i) => {
-								const isSelected = currentSignal === s.id;
-								return (
-									<button
-										key={s.id}
-										ref={(el) => {
-											btnRefs.current[i] = el;
-										}}
-										type="button"
-										onClick={() => submitSignal(s.id, btnRefs.current[i])}
-										disabled={isPending}
-										className={`relative flex items-center gap-4 rounded-xl px-5 py-4 transition-colors text-left border ${
-											isSelected
-												? `${s.accent} border-transparent ring-2 ${s.ring} shadow-xl ${s.glow}`
-												: "bg-[#0f1117] border-white/8 hover:border-white/20"
-										} disabled:opacity-60`}
-									>
-										<span
-											className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl font-black ${
-												isSelected ? "bg-black/20 text-white" : "bg-white/8 text-slate-400"
-											}`}
-										>
-											{s.icon}
-										</span>
-										<span
-											className={`text-base font-bold ${isSelected ? "text-white" : "text-slate-300"}`}
-										>
-											{s.label}
-										</span>
-										{isSelected && (
-											<span className="ml-auto text-[10px] font-black text-white/60 uppercase tracking-widest">
-												✓ Sent
-											</span>
-										)}
-									</button>
-								);
-							})}
-						</div>
-
-						{error && (
-							<p className="text-center text-xs text-rose-300 bg-rose-500/10 rounded-lg py-2">
-								{error}
-							</p>
 						)}
 
-						{/* Help / lost context */}
-						{currentSignal === "lost" && !showManip && (
-							<div className="rounded-xl bg-violet-500/10 border border-violet-500/20 px-4 py-3 text-center">
-								<p className="text-sm font-semibold text-violet-300">Your teacher is on the way!</p>
-								<p className="text-xs text-violet-400/70 mt-0.5">Hang tight, help is coming.</p>
+						{/* Store tab */}
+						{activeTab === "store" && (
+							<div className="p-4 bg-white rounded-b-2xl">
+								<StudentStore sessionId={sessionId} isOpen={storeIsOpen} />
 							</div>
 						)}
-
-						{/* Correction request */}
-						<div className="border-t border-white/6 pt-3">
-							<CorrectionRequest sessionId={sessionId} noiseLevel={noiseLevel} />
-						</div>
 					</div>
 				) : (
 					<div className="flex flex-col items-center gap-4 p-12">
