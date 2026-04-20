@@ -445,6 +445,14 @@ export default function CoachPage() {
 	// Only auto-enable command mode after teacher has used lecture recording at least once
 	const _hasEverListenedRef = useRef(false);
 
+	// Cancel pending mic/restart timers on unmount so they don't fire into a subsequent render
+	useEffect(() => {
+		return () => {
+			if (startMicTimerRef.current) clearTimeout(startMicTimerRef.current);
+			if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+		};
+	}, []);
+
 	// Derive mic button state
 	const micState: MicState = isOrbRecording ? "listening" : isLoading ? "processing" : "idle";
 
