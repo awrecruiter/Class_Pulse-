@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import { behaviorIncidents, behaviorProfiles, classes, rosterEntries } from "@/lib/db/schema";
+import { behaviorProfiles, classes, rosterEntries } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
 
 async function verifyTeacherOwnsClass(classId: string, teacherId: string) {
@@ -44,16 +44,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		.innerJoin(rosterEntries, eq(behaviorProfiles.rosterId, rosterEntries.id))
 		.where(eq(behaviorProfiles.classId, classId));
 
-	// Get last incident for each student
-	const allIncidents = await db
-		.select()
-		.from(behaviorIncidents)
-		.where(eq(behaviorIncidents.classId, classId))
-		.orderBy(behaviorIncidents.createdAt);
+	// Get latest incident per student using DISTINCT ON — avoids full table scan
+	const latestIncidents = await db.execute(sql`
+		SELECT DISTINCT ON (roster_id)
+			id, class_id, roster_id, session_id, step, notes, created_at
+		FROM behavior_incidents
+		WHERE class_id = ${classId}
+		ORDER BY roster_id, created_at DESC
+	`);
 
-	const lastIncidentMap: Record<string, (typeof allIncidents)[0]> = {};
-	for (const incident of allIncidents) {
-		lastIncidentMap[incident.rosterId] = incident;
+	const lastIncidentMap: Record<string, Record<string, unknown>> = {};
+	for (const incident of latestIncidents) {
+		const rosterId = incident.roster_id as string;
+		lastIncidentMap[rosterId] = incident;
 	}
 
 	const profilesWithIncidents = profiles.map((p) => ({

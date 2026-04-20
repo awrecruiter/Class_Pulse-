@@ -46,7 +46,6 @@ const incidentSchema = z.object({
 	rosterId: z.string().uuid(),
 	sessionId: z.string().uuid().optional(),
 	notes: z.string().max(500).default(""),
-	step: z.number().int().min(1).max(8).optional(),
 });
 
 async function verifyTeacherOwnsClass(classId: string, teacherId: string) {
@@ -104,208 +103,247 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	if (!rosterEntry)
 		return NextResponse.json({ error: "Student not found in class" }, { status: 404 });
 
-	// Get or create behavior profile
-	let [profile] = await db
-		.insert(behaviorProfiles)
-		.values({ classId, rosterId })
-		.onConflictDoUpdate({
-			target: [behaviorProfiles.classId, behaviorProfiles.rosterId],
-			set: { updatedAt: new Date() },
-		})
-		.returning();
-
-	if (!profile)
-		return NextResponse.json({ error: "Failed to get behavior profile" }, { status: 500 });
-
-	// Determine step
-	const newStep = result.data.step ?? Math.min(profile.currentStep + 1, 8);
-	const stepLabel = STEP_LABELS[newStep - 1] ?? `Step ${newStep}`;
-
-	// Get teacher\'s fee schedule (or defaults)
+	// Get teacher's fee schedule (or defaults) — read outside transaction
 	const feeRows = await db
 		.select()
 		.from(ramBuckFeeSchedule)
 		.where(eq(ramBuckFeeSchedule.teacherId, data.user.id));
 
 	const feeMap = new Map(feeRows.map((r) => [r.step, r.deductionAmount]));
-	const defaultFee = DEFAULT_FEE_SCHEDULE.find((d) => d.step === newStep);
-	const deductionAmount = feeMap.get(newStep) ?? defaultFee?.deductionAmount ?? 0;
 
-	// Insert incident
-	const [incident] = await db
-		.insert(behaviorIncidents)
-		.values({
-			classId,
-			rosterId,
-			sessionId: sessionId ?? null,
-			step: newStep,
-			label: stepLabel,
-			notes,
-			ramBuckDeduction: deductionAmount,
-		})
-		.returning();
+	// Variables populated inside transaction, used after for SMS
+	let incident: typeof behaviorIncidents.$inferSelect;
+	let updatedProfile: typeof behaviorProfiles.$inferSelect | undefined;
+	let parentNotificationMessage: string | null = null;
+	let parentNotificationId: string | null = null;
+	let _newStep: number;
+	let _deductionAmount: number;
 
-	if (!incident) return NextResponse.json({ error: "Failed to insert incident" }, { status: 500 });
+	try {
+		const txResult = await db.transaction(async (tx) => {
+			// Get or create behavior profile
+			const [profile] = await tx
+				.insert(behaviorProfiles)
+				.values({ classId, rosterId })
+				.onConflictDoUpdate({
+					target: [behaviorProfiles.classId, behaviorProfiles.rosterId],
+					set: { updatedAt: new Date() },
+				})
+				.returning();
 
-	// Update behavior profile
-	const [updatedProfile] = await db
-		.update(behaviorProfiles)
-		.set({
-			currentStep: newStep,
-			lastIncidentAt: new Date(),
-			updatedAt: new Date(),
-		})
-		.where(and(eq(behaviorProfiles.classId, classId), eq(behaviorProfiles.rosterId, rosterId)))
-		.returning();
+			if (!profile) throw new Error("Failed to get behavior profile");
 
-	// Deduct RAM bucks if applicable
-	if (deductionAmount > 0) {
-		// Upsert account first
-		const [account] = await db
-			.insert(ramBuckAccounts)
-			.values({ classId, rosterId })
-			.onConflictDoUpdate({
-				target: [ramBuckAccounts.classId, ramBuckAccounts.rosterId],
-				set: { updatedAt: new Date() },
-			})
-			.returning();
+			// C12: Compute step server-side — always increment by 1, max 8
+			const computedStep = Math.min(profile.currentStep + 1, 8);
+			const stepLabel = STEP_LABELS[computedStep - 1] ?? `Step ${computedStep}`;
 
-		if (account) {
-			const newBalance = Math.max(0, account.balance - deductionAmount);
-			await db
-				.update(ramBuckAccounts)
-				.set({ balance: newBalance, updatedAt: new Date() })
-				.where(and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)));
+			const defaultFee = DEFAULT_FEE_SCHEDULE.find((d) => d.step === computedStep);
+			const fee = feeMap.get(computedStep) ?? defaultFee?.deductionAmount ?? 0;
 
-			await db.insert(ramBuckTransactions).values({
-				classId,
-				rosterId,
-				sessionId: sessionId ?? null,
-				type: "behavior-fine",
-				amount: -deductionAmount,
-				reason: `Behavior consequence: ${stepLabel} (Step ${newStep})`,
-			});
-		}
-	}
+			// Insert incident
+			const [newIncident] = await tx
+				.insert(behaviorIncidents)
+				.values({
+					classId,
+					rosterId,
+					sessionId: sessionId ?? null,
+					step: computedStep,
+					label: stepLabel,
+					notes,
+					ramBuckDeduction: fee,
+				})
+				.returning();
 
-	// Generate parent notification for step >= 5
-	let parentMessage: { message: string; notificationId: string } | null = null;
-	let smsAutoResult: { sent: boolean; reason: string | null } = { sent: false, reason: null };
+			if (!newIncident) throw new Error("Failed to insert incident");
 
-	if (newStep >= 5) {
-		// Get student initials
-		const [student] = await db
-			.select({ firstInitial: rosterEntries.firstInitial, lastInitial: rosterEntries.lastInitial })
-			.from(rosterEntries)
-			.where(eq(rosterEntries.id, rosterId));
+			// Update behavior profile
+			const [updProfile] = await tx
+				.update(behaviorProfiles)
+				.set({
+					currentStep: computedStep,
+					lastIncidentAt: new Date(),
+					updatedAt: new Date(),
+				})
+				.where(and(eq(behaviorProfiles.classId, classId), eq(behaviorProfiles.rosterId, rosterId)))
+				.returning();
 
-		const studentInitials = student
-			? `${student.firstInitial}.${student.lastInitial}.`
-			: "your child";
-		const date = new Date().toLocaleDateString("en-US", {
-			month: "long",
-			day: "numeric",
-			year: "numeric",
+			// Deduct RAM bucks if applicable
+			if (fee > 0) {
+				const [account] = await tx
+					.insert(ramBuckAccounts)
+					.values({ classId, rosterId })
+					.onConflictDoUpdate({
+						target: [ramBuckAccounts.classId, ramBuckAccounts.rosterId],
+						set: { updatedAt: new Date() },
+					})
+					.returning();
+
+				if (account) {
+					const newBalance = Math.max(0, account.balance - fee);
+					await tx
+						.update(ramBuckAccounts)
+						.set({ balance: newBalance, updatedAt: new Date() })
+						.where(
+							and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)),
+						);
+
+					await tx.insert(ramBuckTransactions).values({
+						classId,
+						rosterId,
+						sessionId: sessionId ?? null,
+						type: "behavior-fine",
+						amount: -fee,
+						reason: `Behavior consequence: ${stepLabel} (Step ${computedStep})`,
+					});
+				}
+			}
+
+			// Generate parent notification for step >= 5
+			let notification: typeof parentNotifications.$inferSelect | undefined;
+
+			if (computedStep >= 5) {
+				const [student] = await tx
+					.select({
+						firstInitial: rosterEntries.firstInitial,
+						lastInitial: rosterEntries.lastInitial,
+					})
+					.from(rosterEntries)
+					.where(eq(rosterEntries.id, rosterId));
+
+				const studentInitials = student
+					? `${student.firstInitial}.${student.lastInitial}.`
+					: "your child";
+				const date = new Date().toLocaleDateString("en-US", {
+					month: "long",
+					day: "numeric",
+					year: "numeric",
+				});
+
+				const [classData] = await tx
+					.select({ label: classes.label })
+					.from(classes)
+					.where(eq(classes.id, classId));
+
+				const classLabel = classData?.label ?? "class";
+				const message = generateParentMessage(
+					computedStep,
+					stepLabel,
+					studentInitials,
+					classLabel,
+					date,
+				);
+
+				const [notif] = await tx
+					.insert(parentNotifications)
+					.values({
+						classId,
+						rosterId,
+						incidentId: newIncident.id,
+						message,
+						step: computedStep,
+					})
+					.returning();
+
+				notification = notif;
+			}
+
+			return {
+				incident: newIncident,
+				updatedProfile: updProfile,
+				notification,
+				computedStep,
+				fee,
+				stepLabel,
+			};
 		});
 
-		// Get class label from already-verified class query
-		const [classData] = await db
-			.select({ label: classes.label })
-			.from(classes)
-			.where(eq(classes.id, classId));
+		incident = txResult.incident;
+		updatedProfile = txResult.updatedProfile;
+		_newStep = txResult.computedStep;
+		_deductionAmount = txResult.fee;
 
-		const classLabel = classData?.label ?? "class";
-		const message = generateParentMessage(newStep, stepLabel, studentInitials, classLabel, date);
+		if (txResult.notification) {
+			parentNotificationMessage = txResult.notification.message;
+			parentNotificationId = txResult.notification.id;
+		}
+	} catch (err) {
+		console.error("[incident] transaction failed:", err);
+		return NextResponse.json({ error: "Failed to record incident" }, { status: 500 });
+	}
 
-		const [notification] = await db
-			.insert(parentNotifications)
-			.values({
-				classId,
-				rosterId,
-				incidentId: incident.id,
-				message,
-				step: newStep,
-			})
-			.returning();
+	// SMS send OUTSIDE transaction — network call, cannot roll back
+	let smsAutoResult: { sent: boolean; reason: string | null } = { sent: false, reason: null };
+	let parentMessage: { message: string; notificationId: string } | null = null;
 
-		if (notification) {
-			parentMessage = { message: notification.message, notificationId: notification.id };
+	if (parentNotificationMessage && parentNotificationId) {
+		parentMessage = { message: parentNotificationMessage, notificationId: parentNotificationId };
 
-			// Auto-send SMS if parent contact on file wrapped so SMS never crashes the behavior ladder
-			try {
-				const smsAllowed = smsRateLimiter.check(ip).success;
-				if (!smsAllowed) {
-					console.warn(
-						"[incident] smsRateLimiter exceeded skipping auto SMS for incident",
-						incident.id,
+		try {
+			const smsAllowed = smsRateLimiter.check(ip).success;
+			if (!smsAllowed) {
+				console.warn(
+					"[incident] smsRateLimiter exceeded skipping auto SMS for incident",
+					incident.id,
+				);
+				await db.insert(parentMessages).values({
+					classId,
+					rosterId,
+					incidentId: incident.id,
+					phone: "",
+					body: parentNotificationMessage,
+					triggeredBy: "incident",
+					status: "failed",
+					smsSid: null,
+				});
+				smsAutoResult = { sent: false, reason: "rate_limited" };
+			} else {
+				const [contact] = await db
+					.select({ phone: parentContacts.phone })
+					.from(parentContacts)
+					.where(
+						and(
+							eq(parentContacts.classId, classId),
+							eq(parentContacts.rosterId, rosterId),
+							eq(parentContacts.isActive, true),
+						),
 					);
+
+				if (!contact) {
 					await db.insert(parentMessages).values({
 						classId,
 						rosterId,
 						incidentId: incident.id,
 						phone: "",
-						body: message,
+						body: parentNotificationMessage,
 						triggeredBy: "incident",
-						status: "failed",
+						status: "no_number",
 						smsSid: null,
 					});
-					smsAutoResult = { sent: false, reason: "rate_limited" };
+					smsAutoResult = { sent: false, reason: "no_number" };
 				} else {
-					const [contact] = await db
-						.select({ phone: parentContacts.phone })
-						.from(parentContacts)
-						.where(
-							and(
-								eq(parentContacts.classId, classId),
-								eq(parentContacts.rosterId, rosterId),
-								eq(parentContacts.isActive, true),
-							),
-						);
-
-					if (!contact) {
-						// No contact on file log for audit trail
-						await db.insert(parentMessages).values({
-							classId,
-							rosterId,
-							incidentId: incident.id,
-							phone: "",
-							body: message,
-							triggeredBy: "incident",
-							status: "no_number",
-							smsSid: null,
-						});
-						smsAutoResult = { sent: false, reason: "no_number" };
-					} else {
-						const smsResult = await sendSms(contact.phone, message);
-						if (!smsResult.ok) {
-							console.error(
-								"[incident] SMS send failed for incident",
-								incident.id,
-								smsResult.error,
-							);
-						}
-						await db.insert(parentMessages).values({
-							classId,
-							rosterId,
-							incidentId: incident.id,
-							phone: contact.phone,
-							body: message,
-							triggeredBy: "incident",
-							status: smsResult.ok ? "sent" : "failed",
-							smsSid: smsResult.sid ?? null,
-						});
-						smsAutoResult = { sent: smsResult.ok, reason: smsResult.error ?? null };
+					const smsResult = await sendSms(contact.phone, parentNotificationMessage);
+					if (!smsResult.ok) {
+						console.error("[incident] SMS send failed for incident", incident.id, smsResult.error);
 					}
+					await db.insert(parentMessages).values({
+						classId,
+						rosterId,
+						incidentId: incident.id,
+						phone: contact.phone,
+						body: parentNotificationMessage,
+						triggeredBy: "incident",
+						status: smsResult.ok ? "sent" : "failed",
+						smsSid: smsResult.sid ?? null,
+					});
+					smsAutoResult = { sent: smsResult.ok, reason: smsResult.error ?? null };
 				}
-			} catch (smsErr) {
-				// SMS block must NEVER crash the behavior ladder
-				console.error("[incident] SMS/parentMessages block threw continuing:", smsErr);
-				smsAutoResult = { sent: false, reason: "internal_error" };
 			}
+		} catch (smsErr) {
+			// SMS block must NEVER crash the behavior ladder
+			console.error("[incident] SMS/parentMessages block threw continuing:", smsErr);
+			smsAutoResult = { sent: false, reason: "internal_error" };
 		}
 	}
-
-	profile = updatedProfile ?? profile;
 
 	return NextResponse.json({
 		incident,

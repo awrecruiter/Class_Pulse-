@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import { classes, diGroupMembers, diGroups, diSessions } from "@/lib/db/schema";
+import { classes, diGroupMembers, diGroups, diSessions, rosterEntries } from "@/lib/db/schema";
 import { diRateLimiter } from "@/lib/rate-limit";
 
 const AddMembersSchema = z.object({
@@ -58,6 +58,15 @@ export async function POST(request: NextRequest, { params }: Params) {
 	const parsed = AddMembersSchema.safeParse(body);
 	if (!parsed.success)
 		return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
+
+	// Verify every rosterId belongs to this class
+	for (const rosterId of parsed.data.rosterIds) {
+		const [rosterEntry] = await db
+			.select({ id: rosterEntries.id })
+			.from(rosterEntries)
+			.where(and(eq(rosterEntries.id, rosterId), eq(rosterEntries.classId, classId)));
+		if (!rosterEntry) return NextResponse.json({ error: "Student not in class" }, { status: 404 });
+	}
 
 	// Insert with conflict ignore (unique index on diSessionId + rosterId)
 	for (const rosterId of parsed.data.rosterIds) {
