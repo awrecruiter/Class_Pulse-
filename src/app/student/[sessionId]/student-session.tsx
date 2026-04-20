@@ -54,7 +54,7 @@ const SIGNALS: {
 ];
 
 // ─── STUDENT WAVEFORM (matches WaveformMeter aesthetic + signal markers) ─────
-type SignalMarker = { timestamp: number; signal: Signal };
+type SignalMarker = { barIndex: number; signal: Signal };
 
 const SIGNAL_COLORS: Record<Signal, { line: string; dot: string }> = {
 	"got-it": { line: "rgba(16,185,129,0.9)", dot: "rgba(110,231,183,1)" },
@@ -90,16 +90,17 @@ function SoundcloudWave({
 	latestSignalRef.current = latestSignal;
 	const noiseLevelRef = useRef(noiseLevel ?? 0);
 	const smoothedNoiseRef = useRef(0);
+	const barIndexRef = useRef(0);
 	useEffect(() => {
 		noiseLevelRef.current = noiseLevel ?? 0;
 	}, [noiseLevel]);
 
-	// Stamp a marker each time the student submits a signal
+	// Stamp a marker pinned to the current bar index so it never drifts
 	useEffect(() => {
 		if (markTrigger === 0 || !latestSignalRef.current) return;
 		markersRef.current = [
 			...markersRef.current,
-			{ timestamp: Date.now(), signal: latestSignalRef.current },
+			{ barIndex: barIndexRef.current, signal: latestSignalRef.current },
 		];
 	}, [markTrigger]);
 
@@ -157,6 +158,7 @@ function SoundcloudWave({
 					amp = last * 0.7;
 				}
 				historyRef.current.push(amp);
+				barIndexRef.current++;
 				if (historyRef.current.length > barCount) {
 					historyRef.current = historyRef.current.slice(-barCount);
 				}
@@ -165,13 +167,13 @@ function SoundcloudWave({
 			c.clearRect(0, 0, W, H);
 			const history = historyRef.current;
 			const centerY = H / 2;
-			const now = Date.now();
 			const alpha = activeRef.current ? 0.85 : 0.35;
 
-			// Map each marker to the bar index it lands on
+			// Map each marker to the bar index it lands on using absolute bar count
+			// so markers stay pinned as the waveform scrolls
 			const markerMap = new Map<number, Signal>();
 			for (const m of markersRef.current) {
-				const barsBack = Math.round((now - m.timestamp) / S_SAMPLE_MS);
+				const barsBack = barIndexRef.current - m.barIndex;
 				const idx = history.length - 1 - barsBack;
 				if (idx >= 0 && idx < history.length) markerMap.set(idx, m.signal);
 			}

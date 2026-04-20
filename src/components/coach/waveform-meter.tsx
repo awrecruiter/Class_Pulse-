@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react";
 const BAR_W = 2; // bar width px
 const BAR_GAP = 2; // gap between bars px
 const STEP = BAR_W + BAR_GAP;
-const SAMPLE_MS = 50; // new sample every 50ms → ~20fps scroll rate
+const SAMPLE_MS = 16; // sample every frame (~60fps) to capture inter-syllable dips
 
 interface WaveformMeterProps {
 	active: boolean; // true = mic is running
@@ -97,12 +97,13 @@ export function WaveformMeter({
 						sum += v * v;
 					}
 					const rms = Math.sqrt(sum / td.length);
-					const target = Math.min(1, rms * 8); // boost so normal speech hits full height
+					const target = Math.min(1, rms * 8);
 
-					// Instant attack, fast decay — FaceTime feel
+					// Moderate attack so quiet gaps between syllables stay visible;
+					// fast decay so the bar drops the instant audio drops
 					const prev = micAmpRef.current;
 					micAmpRef.current =
-						target > prev ? prev + (target - prev) * 0.85 : prev + (target - prev) * 0.4;
+						target > prev ? prev + (target - prev) * 0.4 : prev + (target - prev) * 0.35;
 
 					analyserRafId = requestAnimationFrame(tick);
 				}
