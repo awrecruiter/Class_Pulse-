@@ -63,6 +63,11 @@ export async function awardRamBucks(params: {
 	});
 
 	// 3. Group account update
+	// Store purchases and resets don't affect group coins — only active behavioral choices do.
+	if (type === "purchase" || type === "reset") {
+		return { newBalance, groupBalance: null };
+	}
+
 	const [membership] = await db
 		.select({ groupId: groupMemberships.groupId })
 		.from(groupMemberships)
@@ -86,7 +91,10 @@ export async function awardRamBucks(params: {
 		return { newBalance, groupBalance: null };
 	}
 
-	const newGroupBalance = Math.max(0, groupAccount.balance + amount);
+	// Punitive asymmetric: earning contributes +1 coin, deductions cost -2 coins.
+	// Amount is irrelevant — only the direction of the behavioral choice matters.
+	const coinDelta = amount > 0 ? 1 : -2;
+	const newGroupBalance = Math.max(0, groupAccount.balance + coinDelta);
 
 	await db
 		.update(groupAccounts)
