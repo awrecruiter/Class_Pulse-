@@ -754,25 +754,24 @@ export function DiPanel({
 					: s,
 			),
 		);
-		// Fire API: remove from old group (skip if dragging from unassigned pool), add to new
+		// Fire API: remove from old group first (unique constraint prevents concurrent insert+delete),
+		// then add to new group
 		try {
-			const calls: Promise<Response>[] = [
-				fetch(`/api/classes/${classId}/di-sessions/${session.id}/groups/${toGroupId}/members`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ rosterIds: [rosterId] }),
-				}),
-			];
 			if (fromGroupId !== "unassigned") {
-				calls.push(
-					fetch(`/api/classes/${classId}/di-sessions/${session.id}/groups/${fromGroupId}/members`, {
+				await fetch(
+					`/api/classes/${classId}/di-sessions/${session.id}/groups/${fromGroupId}/members`,
+					{
 						method: "DELETE",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ rosterId }),
-					}),
+					},
 				);
 			}
-			await Promise.all(calls);
+			await fetch(`/api/classes/${classId}/di-sessions/${session.id}/groups/${toGroupId}/members`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterIds: [rosterId] }),
+			});
 		} catch {
 			toast.error("Failed to move student");
 		}

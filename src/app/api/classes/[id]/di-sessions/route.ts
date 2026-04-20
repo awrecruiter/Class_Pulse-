@@ -118,7 +118,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 					})),
 				);
 			}
-			return { ...group, members: g.memberRosterIds };
+			return { ...group, members: g.memberRosterIds.map((rosterId) => ({ rosterId })) };
 		}),
 	);
 
