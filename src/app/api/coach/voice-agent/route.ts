@@ -66,6 +66,7 @@ Action schemas (pick exactly one):
 {"type":"ask_coach","question":"<question>"}
 {"type":"show_schedule"}
 {"type":"show_groups"}
+{"type":"show_di"}
 {"type":"open_doc","label":"<display name of the doc>","url":"<full URL>"}
 {"type":"create_class","label":"<class name>"}
 {"type":"open_class","className":"<class name>"}
@@ -95,7 +96,8 @@ Rules:
 - Group names: match fuzzily (e.g. "dogs" → Dogs)
 - "move/put/place/add/assign [student] to/into/in the [group]" or "[student] goes/join [group]" → move_to_group
 - "show my schedule" / "what's next" / "open schedule" / "show schedule" → show_schedule
-- "show groups" / "show DI groups" / "open groups" / "open DI groups" → show_groups
+- "show groups" / "open groups" / "show class groups" / "show student groups" → show_groups (class kanban: Dogs/Cats/Birds/Bears)
+- "show DI groups" / "open DI groups" / "open DI" / "show DI" / "differentiated instruction" → show_di (opens the DI session panel)
 - "open [doc name]" when the name matches a schedule doc → open_doc with label and URL from context
 - "create class <name>" → create_class
 - "open <class name>" when talking about a known class → open_class

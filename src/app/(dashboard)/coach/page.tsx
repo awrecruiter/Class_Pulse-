@@ -864,15 +864,20 @@ export default function CoachPage() {
 			setGroupsOpen(true);
 			setShowGroups(true);
 		}
+		function handleVoiceShowDi() {
+			setInputMode("di");
+		}
 		function handleVoiceOpenParentComms() {
 			setRightOpen(true);
 			setGroupsOpen(false);
 		}
 
 		window.addEventListener("voice-show_groups", handleVoiceShowGroups);
+		window.addEventListener("voice-show_di", handleVoiceShowDi);
 		window.addEventListener("voice-open_parent_comms", handleVoiceOpenParentComms);
 		return () => {
 			window.removeEventListener("voice-show_groups", handleVoiceShowGroups);
+			window.removeEventListener("voice-show_di", handleVoiceShowDi);
 			window.removeEventListener("voice-open_parent_comms", handleVoiceOpenParentComms);
 		};
 	}, [setShowGroups]);
@@ -1188,6 +1193,7 @@ export default function CoachPage() {
 									onSessionEnd={() => fetchStudents(selectedClassId)}
 									dispatchRef={diDispatchRef}
 									onActiveSessionChange={setDiSessionActive}
+									orbRecording={isOrbRecording}
 								/>
 							) : (
 								<div className="flex items-center justify-center h-32">

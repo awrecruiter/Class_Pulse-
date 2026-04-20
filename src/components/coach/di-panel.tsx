@@ -17,7 +17,6 @@ import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { DiVoiceAction } from "@/app/api/coach/di-voice/route";
 import { RamBuckBurst } from "@/components/coach/ram-buck-burst";
-import { readBooleanPreference, VOICE_DEBUG_FEEDBACK_ENABLED_KEY } from "@/lib/ui-prefs";
 
 // ─── Listen badge ────────────────────────────────────────────────────────────
 
@@ -67,6 +66,8 @@ export interface DiPanelProps {
 	dispatchRef?: React.MutableRefObject<((transcript: string) => void) | null>;
 	/** Called with true when an active session exists, false when all sessions are ended/cleared */
 	onActiveSessionChange?: (active: boolean) => void;
+	/** Whether the global orb is currently recording — shown in the listen badge */
+	orbRecording?: boolean;
 }
 
 // ─── Color map ────────────────────────────────────────────────────────────────
@@ -516,6 +517,7 @@ export function DiPanel({
 	onSessionEnd,
 	dispatchRef,
 	onActiveSessionChange,
+	orbRecording = false,
 }: DiPanelProps) {
 	// Session state
 	const [sessions, setSessions] = useState<DiSession[]>([]);
@@ -588,73 +590,10 @@ export function DiPanel({
 	// Setup multi-select
 	const [selectedRosterIds, setSelectedRosterIds] = useState<Set<string>>(new Set());
 
-	// ─── Always-on continuous voice ─────────────────────────────────────────────
-	const [listenState, setListenState] = useState<"on" | "off" | "processing">("off");
-	// Keep a ref to the latest dispatchVoiceCommand to avoid stale closures
-	const dispatchFnRef = useRef(dispatchVoiceCommand);
-	useEffect(() => {
-		dispatchFnRef.current = dispatchVoiceCommand;
-	});
-
-	useEffect(() => {
-		const SR =
-			typeof window !== "undefined"
-				? (window.SpeechRecognition ?? window.webkitSpeechRecognition)
-				: null;
-		if (!SR) {
-			toast.error("Speech recognition not supported in this browser");
-			return;
-		}
-
-		let stopped = false;
-		let recognition: SpeechRecognition | null = null;
-
-		function start() {
-			if (stopped || !SR) return;
-			recognition = new SR();
-			recognition.continuous = true;
-			recognition.interimResults = false;
-			recognition.lang = "en-US";
-			recognition.onstart = () => {
-				setListenState("on");
-			};
-			recognition.onresult = async (e: SpeechRecognitionEvent) => {
-				const result = e.results[e.results.length - 1];
-				if (!result?.isFinal) return;
-				const transcript = result[0]?.transcript ?? "";
-				if (!transcript.trim()) return;
-				if (readBooleanPreference(VOICE_DEBUG_FEEDBACK_ENABLED_KEY, true)) {
-					toast.info(`Heard: "${transcript}"`, { duration: 2000 });
-				}
-				setListenState("processing");
-				await dispatchFnRef.current(transcript);
-				setListenState("on");
-			};
-			recognition.onend = () => {
-				if (!stopped) setTimeout(start, 300);
-				else setListenState("off");
-			};
-			recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
-				if (e.error === "not-allowed") {
-					toast.error("Microphone access denied — check browser permissions");
-					stopped = true;
-					setListenState("off");
-				} else if (e.error === "service-unavailable") {
-					toast.error("Speech service unavailable");
-				} else if (e.error !== "no-speech" && e.error !== "aborted") {
-					console.warn("[DI voice error]", e.error);
-				}
-			};
-			recognition.start();
-		}
-
-		start();
-		return () => {
-			stopped = true;
-			recognition?.stop();
-			setListenState("off");
-		};
-	}, []); // mount/unmount only — dispatchFnRef handles freshness
+	// ─── Listen state driven by global orb — no separate mic instance ──────────
+	// The global coach orb routes speech to dispatchRef when inputMode === "di".
+	// Running a second SpeechRecognition here caused mic conflicts in Chrome.
+	const listenState: "on" | "off" | "processing" = orbRecording ? "on" : "off";
 
 	// Burst refs (one per group, keyed by group id)
 	const burstRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
