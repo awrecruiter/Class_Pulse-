@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { classSessions, manipulativePushes } from "@/lib/db/schema";
 import { getNoiseLevel } from "@/lib/noise-store";
 
+const SESSION_POLL_MS = 5000;
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,9 +26,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		return new Response("Session mismatch", { status: 403 });
 	}
 
-	// Verify session exists
+	// Verify session exists and is active
 	const [session] = await db
-		.select({ id: classSessions.id })
+		.select({ id: classSessions.id, status: classSessions.status })
 		.from(classSessions)
 		.where(eq(classSessions.id, sessionId));
 
@@ -48,21 +50,48 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				controller.close();
 			}
 
+			function sendSessionEnded() {
+				if (closed) return;
+				try {
+					controller.enqueue(
+						encoder.encode(`data: ${JSON.stringify({ type: "session-ended" })}\n\n`),
+					);
+				} catch {
+					// stream already closed
+				}
+				safeClose();
+			}
+
+			// If session was already ended before student connected, notify immediately
+			if (session.status === "ended") {
+				sendSessionEnded();
+				return;
+			}
+
 			// Send initial state immediately
 			await sendLatestPush(controller, encoder, sessionId, lastPushId, (id) => {
 				lastPushId = id;
 			});
 
-			// Poll every 5 seconds for new pushes
+			// Poll every 5 seconds for new pushes and session status
 			const interval = setInterval(async () => {
 				try {
+					// Check if teacher ended the session
+					const [current] = await db
+						.select({ status: classSessions.status })
+						.from(classSessions)
+						.where(eq(classSessions.id, sessionId));
+					if (!current || current.status === "ended") {
+						sendSessionEnded();
+						return;
+					}
 					await sendLatestPush(controller, encoder, sessionId, lastPushId, (id) => {
 						lastPushId = id;
 					});
 				} catch {
 					safeClose();
 				}
-			}, 5000);
+			}, SESSION_POLL_MS);
 
 			let lastNoiseLevel = -1;
 			const noiseInterval = setInterval(() => {

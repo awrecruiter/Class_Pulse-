@@ -307,6 +307,7 @@ export function StudentSession({
 	const [pushedStandardCode, setPushedStandardCode] = useState<string | undefined>(undefined);
 	const [showManip, setShowManip] = useState(false);
 	const [noiseLevel, setNoiseLevel] = useState(0);
+	const [sessionEnded, setSessionEnded] = useState(false);
 	const esRef = useRef<EventSource | null>(null);
 
 	const headerRef = useRef<HTMLDivElement>(null);
@@ -333,7 +334,7 @@ export function StudentSession({
 		});
 	}, []);
 
-	// SSE for pushed manipulatives
+	// SSE for pushed manipulatives and session lifecycle
 	useEffect(() => {
 		if (!isActive) return;
 		const es = new EventSource(`/api/sessions/${sessionId}/student-feed`);
@@ -341,6 +342,11 @@ export function StudentSession({
 		es.onmessage = (e) => {
 			try {
 				const parsed = JSON.parse(e.data) as PushPayload & { type?: string; level?: number };
+				if (parsed.type === "session-ended") {
+					setSessionEnded(true);
+					es.close();
+					return;
+				}
 				if (parsed.type === "noise" && typeof parsed.level === "number") {
 					setNoiseLevel(parsed.level);
 					return;
@@ -384,6 +390,21 @@ export function StudentSession({
 				setError("Couldn't save — try again");
 			}
 		});
+	}
+
+	if (sessionEnded) {
+		return (
+			<div className="flex min-h-screen flex-col items-center justify-center px-4 gap-6 text-center">
+				<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1e2230] ring-1 ring-white/10 shadow-lg">
+					<RamLogo size={40} />
+				</div>
+				<div>
+					<p className="text-2xl font-black text-white">Class is over!</p>
+					<p className="text-sm text-slate-400 mt-1">Great work today, {displayName}.</p>
+				</div>
+				<p className="text-xs text-slate-600">You can close this tab.</p>
+			</div>
+		);
 	}
 
 	return (

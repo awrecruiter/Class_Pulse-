@@ -148,7 +148,7 @@ describe("CoachPage voice session events", () => {
 					});
 				}
 
-				if (url === "/api/schedule?day=4&date=2026-03-18" && method === "GET") {
+				if (url.startsWith("/api/schedule?day=") && method === "GET") {
 					return new Response(JSON.stringify({ blocks: [] }), {
 						status: 200,
 						headers: { "Content-Type": "application/json" },
