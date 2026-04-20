@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
 	groupAccounts,
@@ -28,29 +28,27 @@ export async function awardRamBucks(params: {
 }): Promise<{ newBalance: number; groupBalance: number | null }> {
 	const { classId, rosterId, sessionId, type, amount, reason } = params;
 
-	// 1. Upsert individual account
+	// 1. Upsert individual account then atomically update balance.
+	// Using GREATEST(0, balance + amount) prevents going negative without a
+	// read-modify-write race — two concurrent requests can't both read the
+	// same stale balance and both write it back.
 	await db.insert(ramBuckAccounts).values({ classId, rosterId }).onConflictDoNothing();
 
-	const [existing] = await db
-		.select()
-		.from(ramBuckAccounts)
-		.where(and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)));
+	const [updated] = await db
+		.update(ramBuckAccounts)
+		.set({
+			balance: sql`GREATEST(0, balance + ${amount})`,
+			lifetimeEarned: sql`lifetime_earned + GREATEST(0, ${amount})`,
+			updatedAt: new Date(),
+		})
+		.where(and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)))
+		.returning({ balance: ramBuckAccounts.balance });
 
-	if (!existing) {
+	if (!updated) {
 		return { newBalance: 0, groupBalance: null };
 	}
 
-	const newBalance = Math.max(0, existing.balance + amount);
-	const lifetimeDelta = amount > 0 ? amount : 0;
-
-	await db
-		.update(ramBuckAccounts)
-		.set({
-			balance: newBalance,
-			lifetimeEarned: existing.lifetimeEarned + lifetimeDelta,
-			updatedAt: new Date(),
-		})
-		.where(and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)));
+	const newBalance = updated.balance;
 
 	// 2. Insert transaction record
 	await db.insert(ramBuckTransactions).values({
@@ -79,27 +77,21 @@ export async function awardRamBucks(params: {
 
 	const { groupId } = membership;
 
-	// Upsert group account
-	await db.insert(groupAccounts).values({ classId, groupId }).onConflictDoNothing();
-
-	const [groupAccount] = await db
-		.select()
-		.from(groupAccounts)
-		.where(and(eq(groupAccounts.classId, classId), eq(groupAccounts.groupId, groupId)));
-
-	if (!groupAccount) {
-		return { newBalance, groupBalance: null };
-	}
-
+	// Upsert group account then atomically apply coin delta.
 	// Punitive asymmetric: earning contributes +1 coin, deductions cost -2 coins.
 	// Amount is irrelevant — only the direction of the behavioral choice matters.
+	await db.insert(groupAccounts).values({ classId, groupId }).onConflictDoNothing();
+
 	const coinDelta = amount > 0 ? 1 : -2;
-	const newGroupBalance = Math.max(0, groupAccount.balance + coinDelta);
 
-	await db
+	const [updatedGroup] = await db
 		.update(groupAccounts)
-		.set({ balance: newGroupBalance, updatedAt: new Date() })
-		.where(and(eq(groupAccounts.classId, classId), eq(groupAccounts.groupId, groupId)));
+		.set({
+			balance: sql`GREATEST(0, balance + ${coinDelta})`,
+			updatedAt: new Date(),
+		})
+		.where(and(eq(groupAccounts.classId, classId), eq(groupAccounts.groupId, groupId)))
+		.returning({ balance: groupAccounts.balance });
 
-	return { newBalance, groupBalance: newGroupBalance };
+	return { newBalance, groupBalance: updatedGroup?.balance ?? null };
 }
