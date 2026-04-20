@@ -777,13 +777,20 @@ export function DiPanel({
 		}
 	}
 
-	// Expose dispatchVoiceCommand to parent via ref (global mic routing)
+	// Expose dispatchVoiceCommand to parent via ref (global mic routing).
+	// Use a ref for the latest closure so the effect only re-runs when dispatchRef changes,
+	// not on every render (avoids brief null windows in the global mic routing path).
+	const dispatchVoiceCommandRef = useRef<(transcript: string) => void>(dispatchVoiceCommand);
 	useEffect(() => {
-		if (dispatchRef) dispatchRef.current = dispatchVoiceCommand;
-		return () => {
-			if (dispatchRef) dispatchRef.current = null;
-		};
+		dispatchVoiceCommandRef.current = dispatchVoiceCommand;
 	});
+	useEffect(() => {
+		if (!dispatchRef) return;
+		dispatchRef.current = (t: string) => dispatchVoiceCommandRef.current(t);
+		return () => {
+			dispatchRef.current = null;
+		};
+	}, [dispatchRef]);
 
 	// ─── Start session ──────────────────────────────────────────────────────────
 

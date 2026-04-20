@@ -361,6 +361,12 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			return;
 		}
 
+		// show_di: open the DI groups panel immediately
+		if (data.type === "show_di") {
+			window.dispatchEvent(new CustomEvent("voice-show_di"));
+			return;
+		}
+
 		// open_doc: open document via toast or new tab
 		// Internal URLs (start with "/") always navigate immediately — voice commands are already confirmed by speech
 		if (data.type === "open_doc") {

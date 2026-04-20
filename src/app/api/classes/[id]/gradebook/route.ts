@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { and, between, eq } from "drizzle-orm";
+import { and, between, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
@@ -145,9 +145,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		.onConflictDoUpdate({
 			target: [cfuEntries.classId, cfuEntries.rosterId, cfuEntries.date, cfuEntries.standardCode],
 			set: {
-				score: cfuEntries.score,
-				notes: cfuEntries.notes,
-				sessionId: cfuEntries.sessionId,
+				score: sql`excluded.score`,
+				notes: sql`excluded.notes`,
+				sessionId: sql`excluded.session_id`,
 			},
 		})
 		.returning();

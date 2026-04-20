@@ -37,6 +37,7 @@ export type QueueItemData =
 	| { type: "ask_coach"; question: string }
 	| { type: "show_schedule" }
 	| { type: "show_groups" }
+	| { type: "show_di" }
 	| { type: "open_doc"; label: string; url: string }
 	| { type: "create_class"; label: string }
 	| { type: "open_class"; className: string }

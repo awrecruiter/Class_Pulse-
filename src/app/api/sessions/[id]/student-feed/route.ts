@@ -42,6 +42,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const stream = new ReadableStream({
 		async start(controller) {
 			let closed = false;
+			// Declare before safeClose so it can reference them without TDZ errors
+			let interval: ReturnType<typeof setInterval> | undefined;
+			let noiseInterval: ReturnType<typeof setInterval> | undefined;
+
 			function safeClose() {
 				if (closed) return;
 				closed = true;
@@ -74,7 +78,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			});
 
 			// Poll every 5 seconds for new pushes and session status
-			const interval = setInterval(async () => {
+			interval = setInterval(async () => {
 				try {
 					// Check if teacher ended the session
 					const [current] = await db
@@ -94,7 +98,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}, SESSION_POLL_MS);
 
 			let lastNoiseLevel = -1;
-			const noiseInterval = setInterval(() => {
+			noiseInterval = setInterval(() => {
 				try {
 					const level = getNoiseLevel(sessionId);
 					if (Math.abs(level - lastNoiseLevel) >= 3) {

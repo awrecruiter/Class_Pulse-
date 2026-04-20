@@ -305,6 +305,7 @@ export function StudentSession({
 
 	const [pushedSpec, setPushedSpec] = useState<ManipSpec>(null);
 	const [pushedStandardCode, setPushedStandardCode] = useState<string | undefined>(undefined);
+	const [pushedId, setPushedId] = useState<string | null>(null);
 	const [showManip, setShowManip] = useState(false);
 	const [noiseLevel, setNoiseLevel] = useState(0);
 	const [sessionEnded, setSessionEnded] = useState(false);
@@ -352,6 +353,7 @@ export function StudentSession({
 					return;
 				}
 				if (parsed.spec) {
+					setPushedId(parsed.pushId ?? null);
 					setPushedSpec(parsed.spec);
 					setPushedStandardCode(parsed.standardCode ?? undefined);
 					setShowManip(true);
@@ -441,14 +443,18 @@ export function StudentSession({
 				)}
 			</div>
 
-			{/* Pushed manipulative */}
+			{/* Pushed manipulative — key on pushId forces full remount when teacher sends a new push */}
 			{showManip && pushedSpec && (
 				<div className="w-full max-w-sm">
 					<StudentManipulative
+						key={pushedId ?? "manip"}
 						spec={pushedSpec}
 						sessionId={sessionId}
 						standardCode={pushedStandardCode}
-						onDismiss={() => setShowManip(false)}
+						onDismiss={() => {
+							setShowManip(false);
+							setPushedSpec(null);
+						}}
 					/>
 				</div>
 			)}

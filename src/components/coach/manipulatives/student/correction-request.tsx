@@ -25,15 +25,16 @@ export function CorrectionRequest({ sessionId, noiseLevel = 0 }: Props) {
 	async function handleSubmit() {
 		setLoading(true);
 		try {
-			await fetch(`/api/sessions/${sessionId}/correction-requests`, {
+			const res = await fetch(`/api/sessions/${sessionId}/correction-requests`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ context }),
 			});
+			if (!res.ok) throw new Error("Failed");
 			setSent(true);
 			setShowForm(false);
 		} catch {
-			// silently fail
+			// keep form open so student can retry
 		} finally {
 			setLoading(false);
 		}
