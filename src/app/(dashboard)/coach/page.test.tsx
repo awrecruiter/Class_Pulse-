@@ -88,6 +88,7 @@ function renderCoachPage() {
 describe("CoachPage voice session events", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		sessionStorage.clear();
 		toastError.mockReset();
 		startListeningMock.mockReset();
 		stopListeningMock.mockReset();
