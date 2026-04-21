@@ -1,9 +1,14 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
-import { classSessions, manipulativePushes, teacherSettings } from "@/lib/db/schema";
-import { getNoiseLevel } from "@/lib/noise-store";
+import {
+	classSessions,
+	manipulativePushes,
+	privilegePurchases,
+	ramBuckAccounts,
+	teacherSettings,
+} from "@/lib/db/schema";
 
 const SESSION_POLL_MS = 5000;
 
@@ -32,6 +37,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			id: classSessions.id,
 			status: classSessions.status,
 			teacherId: classSessions.teacherId,
+			classId: classSessions.classId,
 		})
 		.from(classSessions)
 		.where(eq(classSessions.id, sessionId));
@@ -48,15 +54,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			let closed = false;
 			// Declare before safeClose so it can reference them without TDZ errors
 			let interval: ReturnType<typeof setInterval> | undefined;
-			let noiseInterval: ReturnType<typeof setInterval> | undefined;
 			let storeInterval: ReturnType<typeof setInterval> | undefined;
+			let purchaseInterval: ReturnType<typeof setInterval> | undefined;
 
 			function safeClose() {
 				if (closed) return;
 				closed = true;
 				clearInterval(interval);
-				clearInterval(noiseInterval);
 				clearInterval(storeInterval);
+				clearInterval(purchaseInterval);
 				controller.close();
 			}
 
@@ -119,21 +125,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				}
 			}, SESSION_POLL_MS);
 
-			let lastNoiseLevel = -1;
-			noiseInterval = setInterval(() => {
-				try {
-					const level = getNoiseLevel(sessionId);
-					if (Math.abs(level - lastNoiseLevel) >= 3) {
-						lastNoiseLevel = level;
-						controller.enqueue(
-							encoder.encode(`data: ${JSON.stringify({ type: "noise", level })}\n\n`),
-						);
-					}
-				} catch {
-					safeClose();
-				}
-			}, 300);
-
 			storeInterval = setInterval(async () => {
 				try {
 					const [settings] = await db
@@ -149,6 +140,63 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					}
 				} catch {
 					safeClose();
+				}
+			}, 3000);
+
+			// Poll for purchase status changes (approved / rejected)
+			const notifiedPurchaseIds = new Set<string>();
+			const rosterId = payload.rosterId;
+			purchaseInterval = setInterval(async () => {
+				try {
+					const processed = await db
+						.select({
+							id: privilegePurchases.id,
+							itemId: privilegePurchases.itemId,
+							status: privilegePurchases.status,
+						})
+						.from(privilegePurchases)
+						.where(
+							and(
+								eq(privilegePurchases.classId, session.classId),
+								eq(privilegePurchases.rosterId, rosterId),
+								inArray(privilegePurchases.status, ["approved", "rejected"]),
+							),
+						);
+
+					for (const purchase of processed) {
+						if (notifiedPurchaseIds.has(purchase.id)) continue;
+						notifiedPurchaseIds.add(purchase.id);
+
+						let newBalance: number | undefined;
+						if (purchase.status === "approved") {
+							const [account] = await db
+								.select({ balance: ramBuckAccounts.balance })
+								.from(ramBuckAccounts)
+								.where(
+									and(
+										eq(ramBuckAccounts.classId, session.classId),
+										eq(ramBuckAccounts.rosterId, rosterId),
+									),
+								);
+							newBalance = account?.balance;
+						}
+
+						if (!closed) {
+							controller.enqueue(
+								encoder.encode(
+									`data: ${JSON.stringify({
+										type: "purchase-update",
+										purchaseId: purchase.id,
+										itemId: purchase.itemId,
+										status: purchase.status,
+										newBalance,
+									})}\n\n`,
+								),
+							);
+						}
+					}
+				} catch {
+					// non-fatal — student will see update next poll
 				}
 			}, 3000);
 

@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react";
 const BAR_W = 2; // bar width px
 const BAR_GAP = 2; // gap between bars px
 const STEP = BAR_W + BAR_GAP;
-const SAMPLE_MS = 16; // sample every frame (~60fps) to capture inter-syllable dips
+const SAMPLE_MS = 50; // ~20fps — smooth scroll without looking frenetic
 
 interface WaveformMeterProps {
 	active: boolean; // true = mic is running

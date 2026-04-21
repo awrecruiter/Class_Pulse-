@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type StoreItem = {
 	id: string;
@@ -17,9 +17,17 @@ type StoreData = {
 	rosterId: string;
 };
 
+type PurchaseUpdate = {
+	purchaseId: string;
+	itemId: string;
+	status: "approved" | "rejected";
+	newBalance?: number;
+};
+
 type Props = {
 	sessionId: string;
-	isOpen: boolean; // from SSE store-status event
+	isOpen: boolean;
+	purchaseUpdate?: PurchaseUpdate | null;
 };
 
 const CARD_COLORS = [
@@ -41,19 +49,57 @@ function SkeletonCard() {
 	);
 }
 
-export function StudentStore({ sessionId, isOpen: isOpenProp }: Props) {
+export function StudentStore({ sessionId, isOpen: isOpenProp, purchaseUpdate }: Props) {
 	const [isOpen, setIsOpen] = useState(isOpenProp);
 	const [items, setItems] = useState<StoreItem[]>([]);
 	const [balance, setBalance] = useState(0);
 	const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(new Set());
+	const [deniedItemIds, setDeniedItemIds] = useState<Set<string>>(new Set());
+	const [approvedItemIds, setApprovedItemIds] = useState<Set<string>>(new Set());
 	const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
+	const seenPurchaseIds = useRef<Set<string>>(new Set());
 
 	// Sync SSE prop → local open state
 	useEffect(() => {
 		setIsOpen(isOpenProp);
 	}, [isOpenProp]);
+
+	// React to teacher approve/reject decisions
+	useEffect(() => {
+		if (!purchaseUpdate) return;
+		const { purchaseId, itemId, status, newBalance } = purchaseUpdate;
+		if (seenPurchaseIds.current.has(purchaseId)) return;
+		seenPurchaseIds.current.add(purchaseId);
+
+		setPendingItemIds((prev) => {
+			const next = new Set(prev);
+			next.delete(itemId);
+			return next;
+		});
+
+		if (status === "approved") {
+			if (newBalance !== undefined) setBalance(newBalance);
+			setApprovedItemIds((prev) => new Set(prev).add(itemId));
+			setTimeout(() => {
+				setApprovedItemIds((prev) => {
+					const next = new Set(prev);
+					next.delete(itemId);
+					return next;
+				});
+			}, 4000);
+		} else {
+			setDeniedItemIds((prev) => new Set(prev).add(itemId));
+			setTimeout(() => {
+				setDeniedItemIds((prev) => {
+					const next = new Set(prev);
+					next.delete(itemId);
+					return next;
+				});
+			}, 6000);
+		}
+	}, [purchaseUpdate]);
 
 	// Fetch store data on mount
 	useEffect(() => {
@@ -157,13 +203,13 @@ export function StudentStore({ sessionId, isOpen: isOpenProp }: Props) {
 
 	// ── Store open ──────────────────────────────────────────────────────────────
 	return (
-		<div className="flex flex-col gap-5 pb-4">
-			{/* Balance banner */}
-			<div className="flex justify-center">
-				<div className="flex items-center gap-2 rounded-2xl bg-amber-50 border-2 border-amber-300 px-6 py-3 shadow-sm">
-					<span className="text-3xl leading-none">🪙</span>
+		<div className="flex flex-col h-full min-h-0">
+			{/* Sticky balance banner */}
+			<div className="shrink-0 flex justify-center py-3 px-4 bg-white border-b border-slate-100">
+				<div className="flex items-center gap-2 rounded-2xl bg-amber-50 border-2 border-amber-300 px-6 py-2.5 shadow-sm">
+					<span className="text-2xl leading-none">🪙</span>
 					<div className="flex flex-col leading-tight">
-						<span className="text-2xl font-black text-amber-600">{balance}</span>
+						<span className="text-xl font-black text-amber-600">{balance}</span>
 						<span className="text-xs font-bold text-amber-500 uppercase tracking-wide">
 							RAM Bucks
 						</span>
@@ -171,17 +217,20 @@ export function StudentStore({ sessionId, isOpen: isOpenProp }: Props) {
 				</div>
 			</div>
 
-			{/* Items grid */}
+			{/* Scrollable items */}
+			<div className="flex-1 overflow-y-auto px-4 py-3">
 			{items.length === 0 ? (
 				<div className="flex flex-col items-center gap-3 py-8 text-center">
 					<span className="text-4xl">🛒</span>
 					<p className="text-sm font-semibold text-slate-500">No items available right now</p>
 				</div>
 			) : (
-				<div className="grid grid-cols-1 gap-3">
+				<div className="grid grid-cols-1 gap-3 pb-2">
 					{items.map((item, idx) => {
 						const colorIdx = idx % CARD_COLORS.length;
 						const isPending = pendingItemIds.has(item.id);
+						const isApproved = approvedItemIds.has(item.id);
+						const isDenied = deniedItemIds.has(item.id);
 						const canAfford = balance >= item.cost;
 						const shortage = item.cost - balance;
 						const err = itemErrors[item.id];
@@ -213,13 +262,29 @@ export function StudentStore({ sessionId, isOpen: isOpenProp }: Props) {
 									</p>
 								)}
 
-								{isPending ? (
+								{isApproved ? (
 									<button
 										type="button"
 										disabled
-										className="w-full rounded-full bg-emerald-100 border border-emerald-300 py-2 text-sm font-black text-emerald-700 cursor-not-allowed"
+										className="w-full rounded-full bg-emerald-500 border border-emerald-400 py-2 text-sm font-black text-white cursor-default"
 									>
-										Requested! ⏳
+										Approved! 🎉
+									</button>
+								) : isDenied ? (
+									<button
+										type="button"
+										disabled
+										className="w-full rounded-full bg-rose-100 border border-rose-300 py-2 text-sm font-black text-rose-600 cursor-not-allowed"
+									>
+										Denied ❌
+									</button>
+								) : isPending ? (
+									<button
+										type="button"
+										disabled
+										className="w-full rounded-full bg-amber-50 border border-amber-300 py-2 text-sm font-black text-amber-600 cursor-not-allowed"
+									>
+										Pending… ⏳
 									</button>
 								) : canAfford ? (
 									<button
@@ -243,6 +308,7 @@ export function StudentStore({ sessionId, isOpen: isOpenProp }: Props) {
 					})}
 				</div>
 			)}
+			</div>
 		</div>
 	);
 }

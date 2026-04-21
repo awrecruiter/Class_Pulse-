@@ -28,6 +28,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
+	// Only protect page routes — all API routes handle their own auth internally.
+	// Putting API routes here causes the middleware to redirect API callers to the
+	// HTML login page instead of returning 401, which breaks student routes that
+	// use student-cookie auth instead of Neon Auth.
 	matcher: [
 		"/coach",
 		"/coach/:path*",
@@ -37,12 +41,7 @@ export const config = {
 		"/editor/:path*",
 		"/gradebook",
 		"/gradebook/:path*",
-		"/api/classes/:path*",
-		"/api/sessions/:path*",
-		"/api/teacher-settings/:path*",
-		"/api/privilege-items/:path*",
 		"/settings",
-		"/api/coach/:path*",
 		"/board",
 		"/parent-comms",
 		"/parent-comms/:path*",

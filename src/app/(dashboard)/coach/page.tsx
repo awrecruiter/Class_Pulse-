@@ -533,10 +533,6 @@ export default function CoachPage() {
 					setActiveJoinCode(s?.joinCode);
 					if (s?.id) {
 						sessionStorage.setItem("activeSessionId", s.id);
-						// Auto-start lecture mic so the waveform meter is live immediately
-						stopCommandsNow();
-						setIsOrbRecording(false);
-						startMicTimerRef.current = setTimeout(startListening, 350);
 					}
 				}
 			} catch {
@@ -1221,9 +1217,9 @@ export default function CoachPage() {
 								style={{ height: 160 }}
 							>
 								{/* Keep mounted for entire session so mic backoff gaps don't blink */}
-								{(isListening || isOrbRecording || !!activeSessionId) && (
+								{(isListening || !!activeSessionId) && (
 									<WaveformMeter
-										active={isListening || isOrbRecording || !!activeSessionId}
+										active={isListening}
 										height={72}
 										className="w-full"
 									/>

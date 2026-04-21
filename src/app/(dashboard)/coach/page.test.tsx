@@ -87,6 +87,7 @@ function renderCoachPage() {
 
 describe("CoachPage voice session events", () => {
 	beforeEach(() => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
 		localStorage.clear();
 		sessionStorage.clear();
 		toastError.mockReset();
@@ -159,6 +160,10 @@ describe("CoachPage voice session events", () => {
 				throw new Error(`Unexpected fetch: ${method} ${url}`);
 			}),
 		);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it("starts and ends the active class session from voice events", async () => {

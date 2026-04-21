@@ -782,16 +782,18 @@ export default function StorePage() {
 		fetchItems();
 	}, [fetchItems]);
 
-	const fetchPurchases = useCallback(async (classId: string) => {
+	const [refreshing, setRefreshing] = useState(false);
+
+	const fetchPurchases = useCallback(async (classId: string, { silent = false } = {}) => {
 		if (!classId) return;
-		setLoading(true);
+		if (!silent) setLoading(true);
 		try {
 			const res = await fetch(`/api/classes/${classId}/purchases`);
 			if (res.ok) setPurchases((await res.json()).purchases ?? []);
 		} catch {
 			/* noop */
 		} finally {
-			setLoading(false);
+			if (!silent) setLoading(false);
 		}
 	}, []);
 
@@ -825,6 +827,15 @@ export default function StorePage() {
 			return;
 		}
 		fetchPurchases(selectedClassId);
+	}, [selectedClassId, fetchPurchases]);
+
+	// Auto-refresh pending requests every 2 seconds (silent — no loading spinner)
+	useEffect(() => {
+		if (!selectedClassId) return;
+		const id = setInterval(() => {
+			void fetchPurchases(selectedClassId, { silent: true });
+		}, 2000);
+		return () => clearInterval(id);
 	}, [selectedClassId, fetchPurchases]);
 
 	useEffect(() => {
@@ -1136,14 +1147,42 @@ export default function StorePage() {
 				{/* ── Tab: Pending Requests ──────────────────────────────── */}
 				{activeTab === "pending" && (
 					<div>
-						<h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-							Pending Requests
-							{pendingCount > 0 && (
-								<span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-400 px-1.5">
-									{pendingCount}
-								</span>
-							)}
-						</h2>
+						<div className="flex items-center justify-between mb-4">
+							<h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+								Pending Requests
+								{pendingCount > 0 && (
+									<span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-400 px-1.5">
+										{pendingCount}
+									</span>
+								)}
+							</h2>
+							<button
+								type="button"
+								disabled={refreshing}
+								onClick={async () => {
+									if (!selectedClassId || refreshing) return;
+									setRefreshing(true);
+									await fetchPurchases(selectedClassId);
+									setRefreshing(false);
+								}}
+								className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800/50 active:scale-95 transition-all px-2.5 py-1 text-xs font-medium text-slate-400 disabled:opacity-50"
+							>
+								<svg
+									className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									aria-hidden="true"
+								>
+									<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+									<path d="M21 3v5h-5" />
+									<path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+									<path d="M8 16H3v5" />
+								</svg>
+								Refresh
+							</button>
+						</div>
 
 						{loading ? (
 							<div className="flex items-center justify-center py-12">

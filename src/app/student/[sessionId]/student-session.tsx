@@ -72,12 +72,10 @@ function SoundcloudWave({
 	active,
 	markTrigger,
 	latestSignal,
-	noiseLevel,
 }: {
 	active: boolean;
 	markTrigger: number;
 	latestSignal: Signal | null;
-	noiseLevel?: number;
 }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const historyRef = useRef<number[]>([]);
@@ -89,12 +87,7 @@ function SoundcloudWave({
 	const markersRef = useRef<SignalMarker[]>([]);
 	const latestSignalRef = useRef(latestSignal);
 	latestSignalRef.current = latestSignal;
-	const noiseLevelRef = useRef(noiseLevel ?? 0);
-	const smoothedNoiseRef = useRef(0);
 	const barIndexRef = useRef(0);
-	useEffect(() => {
-		noiseLevelRef.current = noiseLevel ?? 0;
-	}, [noiseLevel]);
 
 	// Stamp a marker pinned to the current bar index so it never drifts
 	useEffect(() => {
@@ -141,19 +134,10 @@ function SoundcloudWave({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					const target = (noiseLevelRef.current / 100) * 1.1;
-					const prev = smoothedNoiseRef.current;
-					smoothedNoiseRef.current =
-						target > prev ? prev + (target - prev) * 0.4 : prev + (target - prev) * 0.35;
-					const nl = smoothedNoiseRef.current;
-					if (nl > 0.01) {
-						amp = Math.min(1, nl + (Math.random() - 0.5) * 0.04);
-					} else {
-						synthPhaseRef.current += 0.18;
-						const base =
-							Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
-						amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
-					}
+					synthPhaseRef.current += 0.18;
+					const base =
+						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
+					amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
 				} else {
 					const last = historyRef.current.at(-1) ?? 0;
 					amp = last * 0.7;
@@ -308,10 +292,15 @@ export function StudentSession({
 	const [pushedStandardCode, setPushedStandardCode] = useState<string | undefined>(undefined);
 	const [pushedId, setPushedId] = useState<string | null>(null);
 	const [showManip, setShowManip] = useState(false);
-	const [noiseLevel, setNoiseLevel] = useState(0);
 	const [sessionEnded, setSessionEnded] = useState(false);
 	const [storeIsOpen, setStoreIsOpen] = useState(false);
 	const [activeTab, setActiveTab] = useState<"pulse" | "store">("pulse");
+	const [purchaseUpdate, setPurchaseUpdate] = useState<{
+		purchaseId: string;
+		itemId: string;
+		status: "approved" | "rejected";
+		newBalance?: number;
+	} | null>(null);
 	const esRef = useRef<EventSource | null>(null);
 
 	const headerRef = useRef<HTMLDivElement>(null);
@@ -355,12 +344,24 @@ export function StudentSession({
 					es.close();
 					return;
 				}
-				if (parsed.type === "noise" && typeof parsed.level === "number") {
-					setNoiseLevel(parsed.level);
-					return;
-				}
 				if (parsed.type === "store-status") {
 					setStoreIsOpen(parsed.isOpen ?? false);
+					return;
+				}
+				if (parsed.type === "purchase-update") {
+					const u = parsed as unknown as {
+						type: "purchase-update";
+						purchaseId: string;
+						itemId: string;
+						status: "approved" | "rejected";
+						newBalance?: number;
+					};
+					setPurchaseUpdate({
+						purchaseId: u.purchaseId,
+						itemId: u.itemId,
+						status: u.status,
+						newBalance: u.newBalance,
+					});
 					return;
 				}
 				if (parsed.spec) {
@@ -512,7 +513,6 @@ export function StudentSession({
 										active={isActive}
 										markTrigger={markTrigger}
 										latestSignal={currentSignal}
-										noiseLevel={noiseLevel}
 									/>
 									<div className="flex items-center gap-1.5">
 										<span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -584,15 +584,19 @@ export function StudentSession({
 
 								{/* Correction request */}
 								<div className="border-t border-white/6 pt-3">
-									<CorrectionRequest sessionId={sessionId} noiseLevel={noiseLevel} />
+									<CorrectionRequest sessionId={sessionId} />
 								</div>
 							</div>
 						)}
 
 						{/* Store tab */}
 						{activeTab === "store" && (
-							<div className="p-4 bg-white rounded-b-2xl">
-								<StudentStore sessionId={sessionId} isOpen={storeIsOpen} />
+							<div className="bg-white rounded-b-2xl overflow-hidden flex flex-col" style={{ maxHeight: "65vh" }}>
+								<StudentStore
+									sessionId={sessionId}
+									isOpen={storeIsOpen}
+									purchaseUpdate={purchaseUpdate}
+								/>
 							</div>
 						)}
 					</div>
