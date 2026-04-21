@@ -73,8 +73,16 @@ export function useCoachClassroom({
 
 	useEffect(() => {
 		fetch("/api/classes")
-			.then((r) => r.json() as Promise<{ classes?: CoachClassResponseRow[] }>)
+			.then((r) => {
+				if (r.status === 401) {
+					sessionStorage.removeItem("activeSessionId");
+					window.location.href = "/login";
+					return null;
+				}
+				return r.json() as Promise<{ classes?: CoachClassResponseRow[] }>;
+			})
 			.then((j) => {
+				if (!j) return;
 				const active = (j.classes ?? []).filter((c) => !c.isArchived);
 				setClasses(active);
 				if (active.length === 0) {
@@ -108,8 +116,22 @@ export function useCoachClassroom({
 		}
 		const reqId = ++activeSessionReqRef.current;
 		fetch(`/api/classes/${selectedClassId}`)
-			.then((r) => r.json())
-			.then(async (j) => {
+			.then(async (r) => {
+				if (r.status === 401) {
+					sessionStorage.removeItem("activeSessionId");
+					window.location.href = "/login";
+					return;
+				}
+				if (!r.ok) {
+					// Non-auth error — clear any stale session state rather than leaving
+					// a phantom "Session live" indicator with no backing DB row.
+					if (activeSessionReqRef.current !== reqId) return;
+					setActiveSessionId(undefined);
+					setActiveJoinCode(undefined);
+					sessionStorage.removeItem("activeSessionId");
+					return;
+				}
+				const j = await r.json();
 				if (activeSessionReqRef.current !== reqId) return;
 				const dbSessionId: string | undefined = j.activeSession?.id;
 				// sessionStorage tracks sessions started in THIS tab. If the DB has an
@@ -129,6 +151,7 @@ export function useCoachClassroom({
 					}
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
+					sessionStorage.removeItem("activeSessionId");
 				}
 			})
 			.catch(() => {});

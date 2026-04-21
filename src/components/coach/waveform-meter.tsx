@@ -5,21 +5,27 @@
  * Amplitude-over-time: new bars enter from the right, scroll left.
  * Bars are symmetric (extend above and below center line).
  *
- * Pure synthetic waveform — same pace and appearance as the student SoundcloudWave.
+ * Opens its own AudioContext + getUserMedia when active so bars respond
+ * to real vocal inflections (walkie-talkie feel). Falls back to synthetic
+ * waveform if mic access is unavailable.
+ *
+ * onAmplitude fires at SAMPLE_MS intervals with a 0–100 level so the
+ * coach page can stream teacher voice amplitude to students via SSE.
  */
 
 import { useEffect, useRef } from "react";
 
-const BAR_W = 2; // bar width px
-const BAR_GAP = 2; // gap between bars px
+const BAR_W = 2;
+const BAR_GAP = 2;
 const STEP = BAR_W + BAR_GAP;
 const SAMPLE_MS = 50; // one new bar every 50 ms — locked to student meter pace
 
 interface WaveformMeterProps {
-	active: boolean; // true = session is running (drives color + bar generation)
+	active: boolean;
 	height?: number;
 	className?: string;
-	confusionEvents?: number[]; // array of Date.now() timestamps when confusion spiked
+	confusionEvents?: number[];
+	onAmplitude?: (level: number) => void; // 0–100, fires every SAMPLE_MS when active
 }
 
 export function WaveformMeter({
@@ -27,6 +33,7 @@ export function WaveformMeter({
 	height = 56,
 	className = "",
 	confusionEvents = [],
+	onAmplitude,
 }: WaveformMeterProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const historyRef = useRef<number[]>([]);
@@ -34,10 +41,84 @@ export function WaveformMeter({
 	const lastSampleRef = useRef<number>(0);
 	const activeRef = useRef(active);
 	const confusionEventsRef = useRef<number[]>(confusionEvents);
+	const onAmplitudeRef = useRef(onAmplitude);
 	activeRef.current = active;
 	confusionEventsRef.current = confusionEvents;
+	onAmplitudeRef.current = onAmplitude;
 
+	const micAmpRef = useRef(0);
+	const micReadyRef = useRef(false);
 	const synthPhaseRef = useRef(0);
+
+	// ── Mic analyser ──────────────────────────────────────────────────────────
+	useEffect(() => {
+		if (!active) {
+			micAmpRef.current = 0;
+			micReadyRef.current = false;
+			return;
+		}
+
+		let disposed = false;
+		let stream: MediaStream | null = null;
+		let ctx: AudioContext | null = null;
+		let analyserRafId = 0;
+
+		async function start() {
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+				if (disposed) {
+					for (const t of stream.getTracks()) t.stop();
+					return;
+				}
+				ctx = new AudioContext();
+				await ctx.resume();
+
+				const source = ctx.createMediaStreamSource(stream);
+				const analyser = ctx.createAnalyser();
+				analyser.fftSize = 256;
+				analyser.smoothingTimeConstant = 0;
+
+				// Silent gain node forces Chrome to process the audio graph
+				const gain = ctx.createGain();
+				gain.gain.value = 0;
+				source.connect(analyser);
+				source.connect(gain);
+				gain.connect(ctx.destination);
+
+				const td = new Uint8Array(analyser.fftSize);
+				micReadyRef.current = true;
+
+				function tick() {
+					if (disposed) return;
+					analyser.getByteTimeDomainData(td);
+					let sum = 0;
+					for (let i = 0; i < td.length; i++) {
+						const v = (td[i] - 128) / 128;
+						sum += v * v;
+					}
+					const rms = Math.sqrt(sum / td.length);
+					const target = Math.min(1, rms * 8);
+					const prev = micAmpRef.current;
+					micAmpRef.current =
+						target > prev ? prev + (target - prev) * 0.4 : prev + (target - prev) * 0.35;
+					analyserRafId = requestAnimationFrame(tick);
+				}
+				analyserRafId = requestAnimationFrame(tick);
+			} catch {
+				// Mic unavailable — draw loop uses synthetic fallback
+			}
+		}
+
+		start();
+		return () => {
+			disposed = true;
+			cancelAnimationFrame(analyserRafId);
+			if (stream) for (const t of stream.getTracks()) t.stop();
+			ctx?.close();
+			micAmpRef.current = 0;
+			micReadyRef.current = false;
+		};
+	}, [active]);
 
 	// ── Draw loop ─────────────────────────────────────────────────────────────
 	useEffect(() => {
@@ -63,10 +144,16 @@ export function WaveformMeter({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					synthPhaseRef.current += 0.18;
-					const base =
-						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
-					amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
+					if (micReadyRef.current) {
+						const noise = (Math.random() - 0.5) * 0.02;
+						amp = Math.max(0, Math.min(1, micAmpRef.current + noise));
+					} else {
+						synthPhaseRef.current += 0.18;
+						const base =
+							Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
+						amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
+					}
+					onAmplitudeRef.current?.(Math.round(amp * 100));
 				} else {
 					const last = historyRef.current.at(-1) ?? 0;
 					amp = last * 0.7;

@@ -9,6 +9,7 @@ import {
 	ramBuckAccounts,
 	teacherSettings,
 } from "@/lib/db/schema";
+import { getNoiseLevel } from "@/lib/noise-store";
 
 const SESSION_POLL_MS = 5000;
 
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			let interval: ReturnType<typeof setInterval> | undefined;
 			let storeInterval: ReturnType<typeof setInterval> | undefined;
 			let purchaseInterval: ReturnType<typeof setInterval> | undefined;
+			let noiseInterval: ReturnType<typeof setInterval> | undefined;
 
 			function safeClose() {
 				if (closed) return;
@@ -63,6 +65,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				clearInterval(interval);
 				clearInterval(storeInterval);
 				clearInterval(purchaseInterval);
+				clearInterval(noiseInterval);
 				controller.close();
 			}
 
@@ -199,6 +202,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					// non-fatal — student will see update next poll
 				}
 			}, 3000);
+
+			// Forward teacher mic amplitude to student waveform every 200ms
+			noiseInterval = setInterval(() => {
+				if (closed) return;
+				const level = getNoiseLevel(sessionId);
+				try {
+					controller.enqueue(
+						encoder.encode(`data: ${JSON.stringify({ type: "noise", level })}\n\n`),
+					);
+				} catch {
+					safeClose();
+				}
+			}, 200);
 
 			request.signal.addEventListener("abort", safeClose);
 		},

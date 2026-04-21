@@ -445,6 +445,21 @@ export default function CoachPage() {
 	// Only auto-enable command mode after teacher has used lecture recording at least once
 	const _hasEverListenedRef = useRef(false);
 
+	// Throttled amplitude poster — streams teacher mic level to students via noise route
+	const lastNoisePushRef = useRef(0);
+	function handleAmplitude(level: number) {
+		const sid = activeSessionIdRef.current;
+		if (!sid) return;
+		const now = Date.now();
+		if (now - lastNoisePushRef.current < 200) return; // max 5/sec
+		lastNoisePushRef.current = now;
+		fetch(`/api/sessions/${sid}/noise`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ level }),
+		}).catch(() => {});
+	}
+
 	// Cancel pending mic/restart timers on unmount so they don't fire into a subsequent render
 	useEffect(() => {
 		return () => {
@@ -1216,10 +1231,12 @@ export default function CoachPage() {
 								className="shrink-0 flex flex-col items-center justify-center px-6 gap-3"
 								style={{ height: 160 }}
 							>
-								{/* Keep mounted for entire session so mic backoff gaps don't blink */}
-								{(isListening || !!activeSessionId) && (
-									<WaveformMeter active={!!activeSessionId} height={72} className="w-full" />
-								)}
+								<WaveformMeter
+									active={isListening || !!activeSessionId}
+									height={72}
+									className="w-full"
+									onAmplitude={handleAmplitude}
+								/>
 								{/* Session toggle */}
 								<div className="flex flex-col items-center gap-2">
 									<button

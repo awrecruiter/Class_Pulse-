@@ -70,10 +70,12 @@ const S_SAMPLE_MS = 50;
 
 function SoundcloudWave({
 	active,
+	teacherLevel,
 	markTrigger,
 	latestSignal,
 }: {
 	active: boolean;
+	teacherLevel: number; // 0-100 from teacher mic via SSE
 	markTrigger: number;
 	latestSignal: Signal | null;
 }) {
@@ -83,7 +85,9 @@ function SoundcloudWave({
 	const lastSampleRef = useRef<number>(0);
 	const synthPhaseRef = useRef(0);
 	const activeRef = useRef(active);
+	const teacherLevelRef = useRef(teacherLevel);
 	activeRef.current = active;
+	teacherLevelRef.current = teacherLevel;
 	const markersRef = useRef<SignalMarker[]>([]);
 	const latestSignalRef = useRef(latestSignal);
 	latestSignalRef.current = latestSignal;
@@ -118,26 +122,13 @@ function SoundcloudWave({
 
 			const barCount = Math.floor(W / S_STEP) + 1;
 
-			// Pre-populate on first draw so canvas isn't blank after a page reload
-			if (historyRef.current.length === 0 && activeRef.current && W > 0) {
-				let phase = Math.random() * Math.PI * 2;
-				const warmup: number[] = [];
-				for (let i = 0; i < barCount; i++) {
-					phase += 0.18;
-					const b = Math.sin(phase) * 0.14 + Math.sin(phase * 2.3) * 0.07;
-					warmup.push(Math.max(0, 0.18 + b + (Math.random() - 0.5) * 0.12));
-				}
-				historyRef.current = warmup;
-			}
-
 			if (ts - lastSampleRef.current >= S_SAMPLE_MS) {
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					synthPhaseRef.current += 0.18;
-					const base =
-						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
-					amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
+					// Teacher mic amplitude (0-1) with tiny noise to prevent static look
+					const teacherAmp = teacherLevelRef.current / 100;
+					amp = Math.max(0, teacherAmp + (Math.random() - 0.5) * 0.04);
 				} else {
 					const last = historyRef.current.at(-1) ?? 0;
 					amp = last * 0.7;
@@ -295,6 +286,7 @@ export function StudentSession({
 	const [sessionEnded, setSessionEnded] = useState(false);
 	const [storeIsOpen, setStoreIsOpen] = useState(false);
 	const [activeTab, setActiveTab] = useState<"pulse" | "store">("pulse");
+	const [teacherLevel, setTeacherLevel] = useState(0); // 0-100 teacher mic amplitude from SSE
 	const [purchaseUpdate, setPurchaseUpdate] = useState<{
 		purchaseId: string;
 		itemId: string;
@@ -346,6 +338,10 @@ export function StudentSession({
 				}
 				if (parsed.type === "store-status") {
 					setStoreIsOpen(parsed.isOpen ?? false);
+					return;
+				}
+				if (parsed.type === "noise") {
+					setTeacherLevel(typeof parsed.level === "number" ? parsed.level : 0);
 					return;
 				}
 				if (parsed.type === "purchase-update") {
@@ -511,6 +507,7 @@ export function StudentSession({
 								<div className="flex flex-col items-center gap-2">
 									<SoundcloudWave
 										active={isActive}
+										teacherLevel={teacherLevel}
 										markTrigger={markTrigger}
 										latestSignal={currentSignal}
 									/>
