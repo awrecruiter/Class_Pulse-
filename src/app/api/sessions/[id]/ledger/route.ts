@@ -8,6 +8,7 @@ import {
 	classSessions,
 	privilegeItems,
 	privilegePurchases,
+	ramBuckFeeSchedule,
 	ramBuckTransactions,
 } from "@/lib/db/schema";
 import { correctionRateLimiter } from "@/lib/rate-limit";
@@ -16,8 +17,14 @@ export type LedgerEntry = {
 	id: string;
 	date: string;
 	label: string;
-	amount: number | null; // null = no balance change (rejected with no deduction)
+	amount: number | null;
 	kind: "credit" | "debit" | "pending" | "rejected";
+};
+
+export type FeeRow = {
+	step: number;
+	label: string;
+	deductionAmount: number;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -48,13 +55,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		return NextResponse.json({ error: "Session mismatch" }, { status: 403 });
 
 	const [session] = await db
-		.select({ classId: classSessions.classId })
+		.select({ classId: classSessions.classId, teacherId: classSessions.teacherId })
 		.from(classSessions)
 		.where(eq(classSessions.id, sessionId));
 
 	if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
-	const { classId } = session;
+	const { classId, teacherId } = session;
 	const { rosterId } = payload;
 
 	// 1. Balance transactions (last 40)
@@ -132,5 +139,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	entries.sort((a, b) => b.date.localeCompare(a.date));
 	entries.splice(50);
 
-	return NextResponse.json({ entries });
+	// Fee schedule — behavior deductions the student may incur
+	const fees = await db
+		.select({
+			step: ramBuckFeeSchedule.step,
+			label: ramBuckFeeSchedule.label,
+			deductionAmount: ramBuckFeeSchedule.deductionAmount,
+		})
+		.from(ramBuckFeeSchedule)
+		.where(eq(ramBuckFeeSchedule.teacherId, teacherId))
+		.orderBy(ramBuckFeeSchedule.step);
+
+	return NextResponse.json({ entries, fees });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { LedgerEntry } from "@/app/api/sessions/[id]/ledger/route";
+import type { FeeRow, LedgerEntry } from "@/app/api/sessions/[id]/ledger/route";
 
 type StoreItem = {
 	id: string;
@@ -57,6 +57,14 @@ const KIND_CONFIG = {
 	rejected: { color: "text-slate-500", bg: "bg-slate-50 border-slate-200", sign: "" },
 };
 
+const EARN_GUIDE = [
+	{ emoji: "✅", label: "Correct answer", amount: 5 },
+	{ emoji: "⭐", label: "Mastery bonus", amount: 25 },
+	{ emoji: "📊", label: "iReady goal", amount: 20 },
+	{ emoji: "🌟", label: "Good behavior", amount: null, note: "Teacher's choice" },
+	{ emoji: "🏆", label: "Group activity win", amount: null, note: "Teacher's choice" },
+];
+
 function LedgerPanel({
 	sessionId,
 	balance,
@@ -66,7 +74,9 @@ function LedgerPanel({
 	balance: number;
 	onClose: () => void;
 }) {
+	const [tab, setTab] = useState<"history" | "guide">("history");
 	const [entries, setEntries] = useState<LedgerEntry[]>([]);
+	const [fees, setFees] = useState<FeeRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -81,10 +91,13 @@ function LedgerPanel({
 					const { error: e } = await res.json();
 					throw new Error(e ?? "Failed to load");
 				}
-				const data: { entries: LedgerEntry[] } = await res.json();
-				if (!cancelled) setEntries(data.entries);
+				const data: { entries: LedgerEntry[]; fees: FeeRow[] } = await res.json();
+				if (!cancelled) {
+					setEntries(data.entries);
+					setFees(data.fees ?? []);
+				}
 			} catch (err) {
-				if (!cancelled) setError(err instanceof Error ? err.message : "Could not load ledger");
+				if (!cancelled) setError(err instanceof Error ? err.message : "Could not load");
 			} finally {
 				if (!cancelled) setLoading(false);
 			}
@@ -113,80 +126,149 @@ function LedgerPanel({
 			<div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
 				<div className="flex items-center gap-2">
 					<span className="text-lg">🐏</span>
-					<span className="text-base font-black text-slate-700">RAM Bucks History</span>
+					<span className="text-base font-black text-slate-700">RAM Bucks</span>
 				</div>
 				<button
 					type="button"
 					onClick={onClose}
 					className="text-slate-400 hover:text-slate-600 text-xl font-bold leading-none"
-					aria-label="Close ledger"
+					aria-label="Close"
 				>
 					×
 				</button>
 			</div>
 
-			{/* Balance summary */}
-			<div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-amber-50 border-b border-amber-100">
-				<span className="text-xs font-bold text-amber-700 uppercase tracking-wide">
-					Current Balance
-				</span>
-				<span className="text-lg font-black text-amber-600">🪙 {balance}</span>
+			{/* Balance + tabs */}
+			<div className="shrink-0 bg-amber-50 border-b border-amber-100">
+				<div className="flex items-center justify-between px-4 py-2">
+					<span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Balance</span>
+					<span className="text-lg font-black text-amber-600">🪙 {balance}</span>
+				</div>
+				<div className="flex px-3 pb-0 gap-1">
+					{(["history", "guide"] as const).map((t) => (
+						<button
+							key={t}
+							type="button"
+							onClick={() => setTab(t)}
+							className={`flex-1 py-1.5 text-xs font-bold rounded-t-lg transition-colors ${
+								tab === t
+									? "bg-white text-indigo-600 shadow-sm"
+									: "text-amber-700 hover:text-amber-900"
+							}`}
+						>
+							{t === "history" ? "📋 History" : "💡 How to Earn"}
+						</button>
+					))}
+				</div>
 			</div>
 
-			{/* Entries */}
+			{/* Tab content */}
 			<div className="flex-1 overflow-y-auto px-3 py-2">
-				{loading ? (
-					<div className="flex flex-col gap-2 pt-2">
-						{[1, 2, 3, 4].map((i) => (
-							<div key={i} className="h-12 rounded-xl bg-slate-100 animate-pulse" />
-						))}
-					</div>
-				) : error ? (
-					<div className="flex flex-col items-center gap-2 py-10 text-center">
-						<span className="text-3xl">😬</span>
-						<p className="text-xs text-slate-500">{error}</p>
-					</div>
-				) : entries.length === 0 ? (
-					<div className="flex flex-col items-center gap-2 py-10 text-center">
-						<span className="text-3xl">📭</span>
-						<p className="text-sm font-semibold text-slate-500">No transactions yet</p>
-						<p className="text-xs text-slate-400">Earn RAM Bucks by answering questions!</p>
-					</div>
+				{tab === "history" ? (
+					loading ? (
+						<div className="flex flex-col gap-2 pt-2">
+							{[1, 2, 3, 4].map((i) => (
+								<div key={i} className="h-12 rounded-xl bg-slate-100 animate-pulse" />
+							))}
+						</div>
+					) : error ? (
+						<div className="flex flex-col items-center gap-2 py-10 text-center">
+							<span className="text-3xl">😬</span>
+							<p className="text-xs text-slate-500">{error}</p>
+						</div>
+					) : entries.length === 0 ? (
+						<div className="flex flex-col items-center gap-2 py-10 text-center">
+							<span className="text-3xl">📭</span>
+							<p className="text-sm font-semibold text-slate-500">No transactions yet</p>
+							<p className="text-xs text-slate-400">Earn RAM Bucks by answering questions!</p>
+						</div>
+					) : (
+						<div className="flex flex-col gap-1.5 pb-2">
+							{entries.map((entry) => {
+								const cfg = KIND_CONFIG[entry.kind];
+								return (
+									<div
+										key={entry.id}
+										className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${cfg.bg}`}
+									>
+										<div className="flex-1 min-w-0">
+											<p className="text-xs font-semibold text-slate-700 leading-tight truncate">
+												{entry.label}
+											</p>
+											<p className="text-xs text-slate-400 mt-0.5">{fmt(entry.date)}</p>
+										</div>
+										<div className="shrink-0 text-right">
+											{entry.amount !== null ? (
+												<span className={`text-sm font-black ${cfg.color}`}>
+													{entry.amount > 0 ? "+" : ""}
+													{entry.amount} 🐏
+												</span>
+											) : entry.kind === "pending" ? (
+												<span className="text-xs font-bold text-amber-600 bg-amber-100 rounded-full px-2 py-0.5">
+													Pending ⏳
+												</span>
+											) : (
+												<span className="text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+													Denied ❌
+												</span>
+											)}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					)
 				) : (
-					<div className="flex flex-col gap-1.5 pb-2">
-						{entries.map((entry) => {
-							const cfg = KIND_CONFIG[entry.kind];
-							return (
-								<div
-									key={entry.id}
-									className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${cfg.bg}`}
-								>
-									<div className="flex-1 min-w-0">
-										<p className="text-xs font-semibold text-slate-700 leading-tight truncate">
-											{entry.label}
-										</p>
-										<p className="text-xs text-slate-400 mt-0.5">{fmt(entry.date)}</p>
+					<div className="flex flex-col gap-3 pb-2 pt-1">
+						{/* Ways to earn */}
+						<div>
+							<p className="text-xs font-black text-emerald-700 uppercase tracking-wide mb-1.5 px-1">
+								Ways to Earn 🐏
+							</p>
+							<div className="flex flex-col gap-1.5">
+								{EARN_GUIDE.map((row) => (
+									<div
+										key={row.label}
+										className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5"
+									>
+										<span className="text-lg leading-none shrink-0">{row.emoji}</span>
+										<p className="flex-1 text-xs font-semibold text-slate-700">{row.label}</p>
+										<span className="shrink-0 text-sm font-black text-emerald-600">
+											{row.amount !== null ? (
+												`+${row.amount} 🐏`
+											) : (
+												<span className="text-xs font-bold text-emerald-500">{row.note}</span>
+											)}
+										</span>
 									</div>
-									<div className="shrink-0 text-right">
-										{entry.amount !== null ? (
-											<span className={`text-sm font-black ${cfg.color}`}>
-												{cfg.sign}
-												{entry.amount > 0 ? "+" : ""}
-												{entry.amount} 🐏
+								))}
+							</div>
+						</div>
+
+						{/* Behavior fines */}
+						{fees.length > 0 && (
+							<div>
+								<p className="text-xs font-black text-rose-600 uppercase tracking-wide mb-1.5 px-1">
+									Behavior Fines ⚠️
+								</p>
+								<div className="flex flex-col gap-1.5">
+									{fees.map((fee) => (
+										<div
+											key={fee.step}
+											className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5"
+										>
+											<span className="shrink-0 text-xs font-black text-rose-400 w-5 text-center">
+												{fee.step}
 											</span>
-										) : entry.kind === "pending" ? (
-											<span className="text-xs font-bold text-amber-600 bg-amber-100 rounded-full px-2 py-0.5">
-												Pending ⏳
+											<p className="flex-1 text-xs font-semibold text-slate-700">{fee.label}</p>
+											<span className="shrink-0 text-sm font-black text-rose-600">
+												−{fee.deductionAmount} 🐏
 											</span>
-										) : (
-											<span className="text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
-												Denied ❌
-											</span>
-										)}
-									</div>
+										</div>
+									))}
 								</div>
-							);
-						})}
+							</div>
+						)}
 					</div>
 				)}
 			</div>
