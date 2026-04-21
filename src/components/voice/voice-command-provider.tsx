@@ -40,6 +40,16 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		setScheduleOverlayOpen,
 	} = useVoiceQueue();
 
+	// Guard: prevent async callbacks (callVoiceAgent, executeCommand, executeMoveToGroup)
+	// from firing toasts after the provider unmounts (e.g. when teacher navigates to student page)
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+		};
+	}, []);
+
 	// Keep a stable ref to activeClassId so async callbacks always see the latest
 	const activeClassIdRef = useRef(activeClassId);
 	useEffect(() => {
@@ -222,6 +232,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: resolveStudent/resolveGroup are stable module-level functions; including them would cause infinite loops
 	const executeMoveToGroup = useCallback(async (studentName: string, groupName: string) => {
+		if (!mountedRef.current) return;
 		const classId = activeClassIdRef.current;
 		toast.info(`Moving ${studentName} → ${groupName}…`, { duration: 3000 });
 		if (!classId) {
@@ -230,11 +241,13 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		}
 		try {
 			const student = await resolveStudent(classId, studentName);
+			if (!mountedRef.current) return;
 			if (!student) {
 				toast.error(`Student "${studentName}" not found on roster`);
 				return;
 			}
 			const group = await resolveGroup(classId, groupName);
+			if (!mountedRef.current) return;
 			if (!group) {
 				toast.error(`Group "${groupName}" not found`);
 				return;
@@ -244,10 +257,12 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ rosterId: student.rosterId }),
 			});
+			if (!mountedRef.current) return;
 			if (!res.ok) throw new Error("Failed");
 			toast.success(`Moved ${studentName} → ${groupName} group`);
 			window.dispatchEvent(new CustomEvent("group-assignment-changed"));
 		} catch {
+			if (!mountedRef.current) return;
 			toast.error("Move failed — check your connection");
 		}
 	}, []);
@@ -740,11 +755,13 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					}),
 				});
 
+				if (!mountedRef.current) return;
 				if (!res.ok) {
 					toast.error("Voice agent unavailable");
 					return;
 				}
 				const { action } = (await res.json()) as { action: VoiceAction };
+				if (!mountedRef.current) return;
 				if (action.type === "ignore") {
 					if (readBooleanPreference(VOICE_DEBUG_FEEDBACK_ENABLED_KEY, false)) {
 						toast.info("Didn't catch a command");
@@ -769,9 +786,10 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					handleCommand(action, transcript);
 				}
 			} catch {
+				if (!mountedRef.current) return;
 				toast.error("Voice command failed — check your connection");
 			} finally {
-				setAgentThinking(false);
+				if (mountedRef.current) setAgentThinking(false);
 			}
 		},
 		[setAgentThinking, handleCommand, refreshAgentContext, handleNavigate],
@@ -796,6 +814,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	// biome-ignore lint/correctness/useExhaustiveDependencies: resolveStudent/resolveGroup are stable module-level functions; including them would cause infinite loops
 	const executeCommand = useCallback(
 		async (item: QueueItem) => {
+			if (!mountedRef.current) return;
 			const classId = activeClassIdRef.current;
 			if (!classId) {
 				toast.error("No class selected — open Coach and pick a class first");
@@ -972,7 +991,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					confirm(item.id);
 				}
 			} catch {
-				toast.error("Command failed — check your connection");
+				if (mountedRef.current) toast.error("Command failed — check your connection");
 			}
 		},
 		[confirm, dismiss],
