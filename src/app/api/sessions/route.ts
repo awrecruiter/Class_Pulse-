@@ -11,6 +11,7 @@ import { sessionRateLimiter } from "@/lib/rate-limit";
 
 const createSessionSchema = z.object({
 	classId: z.string().uuid(),
+	standardCode: z.string().max(32).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
 			date: today,
 			status: "active",
 			expiresAt,
+			standardCode: result.data.standardCode ?? null,
 		})
 		.returning();
 

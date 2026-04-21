@@ -207,6 +207,8 @@ export const classSessions = pgTable(
 		endedAt: timestamp("ended_at", { withTimezone: true }),
 		// Auto-expire after 30 days for data hygiene
 		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		// FL BEST standard covered in this session — used for cross-session pattern detection
+		standardCode: text("standard_code"),
 	},
 	(table) => [
 		index("idx_class_sessions_class_id").on(table.classId),
@@ -829,6 +831,81 @@ export const scheduleDocLinks = pgTable(
 	(table) => [index("idx_schedule_doc_links_block_id").on(table.blockId)],
 );
 
+// ─── Phase 13: Parent Intervention Loop ──────────────────────────────────────
+
+// Teacher's pacing guide — which FL BEST standard is taught which week
+export const pacingGuideEntries = pgTable(
+	"pacing_guide_entries",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		// YYYY-MM-DD — Monday of the target week
+		weekOf: text("week_of").notNull(),
+		standardCode: text("standard_code").notNull(),
+		title: text("title").notNull().default(""),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_pacing_guide_teacher_id").on(table.teacherId),
+		uniqueIndex("idx_pacing_guide_teacher_week").on(table.teacherId, table.weekOf),
+	],
+);
+
+// Detected cross-session comprehension patterns that warrant parent outreach
+export const interventionFlags = pgTable(
+	"intervention_flags",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		classId: uuid("class_id")
+			.notNull()
+			.references(() => classes.id, { onDelete: "cascade" }),
+		rosterId: uuid("roster_id")
+			.notNull()
+			.references(() => rosterEntries.id, { onDelete: "cascade" }),
+		// "tier2" = same standard 2+ sessions | "tier3" = 3+ standards or 2+ weeks
+		tier: text("tier").notNull(),
+		// The standard code that triggered this flag (primary standard for tier3)
+		standardCode: text("standard_code").notNull(),
+		// How many sessions the student was lost on this standard
+		sessionCount: integer("session_count").notNull().default(2),
+		// "draft" | "sent" | "dismissed"
+		status: text("status").notNull().default("draft"),
+		detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow().notNull(),
+		sentAt: timestamp("sent_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("idx_intervention_flags_class_id").on(table.classId),
+		index("idx_intervention_flags_roster_id").on(table.rosterId),
+		index("idx_intervention_flags_status").on(table.status),
+		// One active draft per student per standard (prevent duplicate drafts)
+		uniqueIndex("idx_intervention_flags_active").on(
+			table.rosterId,
+			table.standardCode,
+			table.status,
+		),
+	],
+);
+
+// Short-lived signed tokens that let a parent view a print-friendly report
+export const parentReportTokens = pgTable(
+	"parent_report_tokens",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		token: text("token").notNull().unique(),
+		flagId: uuid("flag_id")
+			.notNull()
+			.references(() => interventionFlags.id, { onDelete: "cascade" }),
+		// 30-day TTL
+		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		viewedAt: timestamp("viewed_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_parent_report_tokens_token").on(table.token),
+		index("idx_parent_report_tokens_flag_id").on(table.flagId),
+	],
+);
+
 // ─── Relations ───────────────────────────────────────────────────────────────
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
@@ -1115,5 +1192,24 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
 	organization: one(organizations, {
 		fields: [subscriptions.organizationId],
 		references: [organizations.id],
+	}),
+}));
+
+export const interventionFlagsRelations = relations(interventionFlags, ({ one, many }) => ({
+	class: one(classes, {
+		fields: [interventionFlags.classId],
+		references: [classes.id],
+	}),
+	rosterEntry: one(rosterEntries, {
+		fields: [interventionFlags.rosterId],
+		references: [rosterEntries.id],
+	}),
+	reportTokens: many(parentReportTokens),
+}));
+
+export const parentReportTokensRelations = relations(parentReportTokens, ({ one }) => ({
+	flag: one(interventionFlags, {
+		fields: [parentReportTokens.flagId],
+		references: [interventionFlags.id],
 	}),
 }));

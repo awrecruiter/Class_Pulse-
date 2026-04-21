@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { classSessions } from "@/lib/db/schema";
+import { detectInterventions } from "@/lib/intervention-detector";
 import { sessionRateLimiter } from "@/lib/rate-limit";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +30,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 		.set({ status: "ended", endedAt: new Date() })
 		.where(eq(classSessions.id, id))
 		.returning();
+
+	// Fire-and-forget pattern detection (non-blocking — doesn't delay the response)
+	detectInterventions(session.classId, session.teacherId).catch(() => {});
 
 	return NextResponse.json({ session: ended });
 }

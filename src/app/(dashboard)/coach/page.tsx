@@ -25,10 +25,12 @@ import { AmbientHud } from "@/components/coach/ambient-hud";
 import { ComprehensionPanel, type SignalMap } from "@/components/coach/comprehension-panel";
 import { DiPanel } from "@/components/coach/di-panel";
 import { GroupsSidebarPanel } from "@/components/coach/groups-sidebar-panel";
+import { InterventionPanel } from "@/components/coach/intervention-panel";
 import { LectureVisualizer } from "@/components/coach/lecture-visualizer";
 import type { MicState } from "@/components/coach/mic-button";
 import { ParentCommsPanel } from "@/components/coach/parent-comms-panel";
 import { RemediationFlow } from "@/components/coach/remediation-flow";
+import { SessionStandardTag } from "@/components/coach/session-standard-tag";
 import { StandardPicker } from "@/components/coach/standard-picker";
 import { WaveformMeter } from "@/components/coach/waveform-meter";
 import { ScheduleSidebarPanel } from "@/components/schedule/schedule-sidebar-panel";
@@ -401,6 +403,9 @@ export default function CoachPage() {
 	// Per-student comprehension signal map — keyed by rosterId, updated via SSE
 	const [signalMap, setSignalMap] = useState<SignalMap>({});
 
+	// Standard code for current/next session — teacher can set before going live
+	const [sessionStandardCode, setSessionStandardCode] = useState<string>("");
+
 	// Panel collapse state
 	const [leftOpen, setLeftOpen] = useState(true);
 	const [studentsOpen, setStudentsOpen] = useState(false);
@@ -539,7 +544,10 @@ export default function CoachPage() {
 				const res = await fetch("/api/sessions", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ classId }),
+					body: JSON.stringify({
+						classId,
+						...(sessionStandardCode ? { standardCode: sessionStandardCode } : {}),
+					}),
 				});
 				const data = await res.json().catch(() => ({}));
 				if (res.ok) {
@@ -1237,6 +1245,16 @@ export default function CoachPage() {
 									className="w-full"
 									onAmplitude={handleAmplitude}
 								/>
+								{/* Standard tag — shown before session starts */}
+								{!activeSessionId && (
+									<div className="w-full px-1">
+										<SessionStandardTag
+											value={sessionStandardCode}
+											onChange={setSessionStandardCode}
+										/>
+									</div>
+								)}
+
 								{/* Session toggle */}
 								<div className="flex flex-col items-center gap-2">
 									<button
@@ -1375,6 +1393,9 @@ export default function CoachPage() {
 										/>
 									</div>
 								)}
+
+								{/* Cross-session intervention alerts */}
+								<InterventionPanel />
 
 								{/* Behavior message log */}
 								{behaviorMsgs.length > 0 && (
