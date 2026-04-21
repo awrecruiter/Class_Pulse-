@@ -336,7 +336,7 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 									{onShowDiGroups &&
 										height >= 40 &&
 										/\bdi\b|differentiat|small.?group/i.test(block.title) && (
-											<div className="absolute bottom-1 right-1.5 hidden group-hover:block">
+											<div className="absolute bottom-1 right-1.5">
 												<button
 													type="button"
 													onClick={(e) => {
@@ -349,9 +349,9 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 												</button>
 											</div>
 										)}
-									{/* Doc pills shown on hover if multiple docs */}
+									{/* Doc pills — always visible so touch screens can open them */}
 									{block.docs.length > 1 && (
-										<div className="absolute inset-x-1.5 bottom-1 hidden group-hover:flex flex-wrap gap-0.5">
+										<div className="absolute inset-x-1.5 bottom-1 flex flex-wrap gap-0.5">
 											{block.docs.map((doc) => (
 												<button
 													key={doc.id}

@@ -155,16 +155,20 @@ function StudentChip({
 			<span className="text-[10px] font-medium text-slate-200 leading-tight text-center w-full truncate px-0.5">
 				{student.displayName}
 			</span>
-			{/* Balance — tap opens teacher ledger */}
+			{/* Balance pill — tap opens teacher ledger */}
 			<button
 				type="button"
 				onClick={(e) => {
 					e.stopPropagation();
 					onBalanceTap?.(student);
 				}}
-				className={`inline-flex items-center gap-0.5 text-[9px] tabular-nums leading-none rounded px-0.5 ${student.balance > 0 ? "text-amber-400 font-bold hover:bg-amber-400/10" : "text-slate-500 hover:bg-slate-700"} transition-colors cursor-pointer`}
+				className={`inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums leading-none rounded-md px-1.5 py-0.5 border transition-colors cursor-pointer ${
+					student.balance > 0
+						? "text-amber-400 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20"
+						: "text-slate-500 border-slate-700 bg-slate-800/60 hover:bg-slate-700"
+				}`}
 			>
-				<BanknoteIcon className="h-2.5 w-2.5 shrink-0 text-emerald-400" />
+				<BanknoteIcon className="h-3 w-3 shrink-0 text-emerald-400" />
 				{student.balance}
 			</button>
 			{/* Student ID popup — shows when chip is active */}
