@@ -32,6 +32,7 @@ import { ParentCommsPanel } from "@/components/coach/parent-comms-panel";
 import { RemediationFlow } from "@/components/coach/remediation-flow";
 import { SessionStandardTag } from "@/components/coach/session-standard-tag";
 import { StandardPicker } from "@/components/coach/standard-picker";
+import { TeacherLedgerSheet } from "@/components/coach/teacher-ledger-sheet";
 import { WaveformMeter } from "@/components/coach/waveform-meter";
 import { ScheduleSidebarPanel } from "@/components/schedule/schedule-sidebar-panel";
 import { useVoiceQueue } from "@/contexts/voice-queue";
@@ -113,11 +114,13 @@ function StudentChip({
 	active,
 	signal,
 	onTap,
+	onBalanceTap,
 }: {
 	student: StudentOverview;
 	active: boolean;
 	signal?: string;
 	onTap: (s: StudentOverview) => void;
+	onBalanceTap?: (s: StudentOverview) => void;
 }) {
 	return (
 		<button
@@ -152,13 +155,18 @@ function StudentChip({
 			<span className="text-[10px] font-medium text-slate-200 leading-tight text-center w-full truncate px-0.5">
 				{student.displayName}
 			</span>
-			{/* Balance */}
-			<span
-				className={`inline-flex items-center gap-0.5 text-[9px] tabular-nums leading-none ${student.balance > 0 ? "text-amber-400 font-bold" : "text-slate-500"}`}
+			{/* Balance — tap opens teacher ledger */}
+			<button
+				type="button"
+				onClick={(e) => {
+					e.stopPropagation();
+					onBalanceTap?.(student);
+				}}
+				className={`inline-flex items-center gap-0.5 text-[9px] tabular-nums leading-none rounded px-0.5 ${student.balance > 0 ? "text-amber-400 font-bold hover:bg-amber-400/10" : "text-slate-500 hover:bg-slate-700"} transition-colors cursor-pointer`}
 			>
 				<BanknoteIcon className="h-2.5 w-2.5 shrink-0 text-emerald-400" />
 				{student.balance}
-			</span>
+			</button>
 			{/* Student ID popup — shows when chip is active */}
 			{active && (
 				<span className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap rounded bg-slate-900 border border-slate-700 px-1.5 py-0.5 text-[9px] font-mono text-slate-300 shadow-lg pointer-events-none">
@@ -405,6 +413,9 @@ export default function CoachPage() {
 
 	// Standard code for current/next session — teacher can set before going live
 	const [sessionStandardCode, setSessionStandardCode] = useState<string>("");
+
+	// Teacher ledger sheet — tapping a student balance opens this
+	const [ledgerStudent, setLedgerStudent] = useState<StudentOverview | null>(null);
 
 	// Panel collapse state
 	const [leftOpen, setLeftOpen] = useState(true);
@@ -914,654 +925,691 @@ export default function CoachPage() {
 	const selectedClass = classes.find((c) => c.id === selectedClassId);
 
 	return (
-		<div className="h-[calc(100vh-3.5rem)] bg-[#0d1525] flex flex-col overflow-hidden">
-			{/* ── Top bar ──────────────────────────────────────────────── */}
-			<div className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center gap-3 flex-wrap">
-				{/* Session status dot */}
-				<span
-					className={`flex items-center gap-1.5 text-xs font-medium ${activeSessionId ? "text-emerald-400" : "text-slate-500"}`}
-				>
+		<>
+			<div className="h-[calc(100vh-3.5rem)] bg-[#0d1525] flex flex-col overflow-hidden">
+				{/* ── Top bar ──────────────────────────────────────────────── */}
+				<div className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center gap-3 flex-wrap">
+					{/* Session status dot */}
 					<span
-						className={`w-2 h-2 rounded-full ${activeSessionId ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`}
-					/>
-					{activeSessionId ? "Session live" : "No active session"}
-				</span>
-
-				{/* Panels toggle */}
-				<button
-					type="button"
-					onClick={() => {
-						const anyOpen = leftOpen || rightOpen;
-						setLeftOpen(!anyOpen);
-						setRightOpen(!anyOpen);
-					}}
-					className="text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors px-2 py-1 rounded hover:bg-slate-800"
-				>
-					{leftOpen || rightOpen ? "⊟ Panels" : "⊞ Panels"}
-				</button>
-
-				<div className="ml-auto flex items-center gap-2">
-					{/* Saved flash */}
-					{showSaved && (
-						<span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 animate-pulse">
-							<CheckIcon className="h-3 w-3" />
-							{savedWordCount.toLocaleString()} words captured
-						</span>
-					)}
-					{/* Record lesson */}
-					{isSupported && (
-						<button
-							type="button"
-							onClick={() => {
-								if (isListening) {
-									stopListening();
-								} else {
-									if (readBooleanPreference(GLOBAL_VOICE_ONLY_MODE_KEY, false)) {
-										toast.error("Global voice only mode is on — turn it off to record a lesson");
-										return;
-									}
-									// Kill command mode before starting lecture recording
-									autoCommandRef.current = false;
-									if (restartTimerRef.current) {
-										clearTimeout(restartTimerRef.current);
-										restartTimerRef.current = null;
-									}
-									stopCommandsNow();
-									setIsOrbRecording(false);
-									playActivationChime();
-									setTimeout(startListening, 350);
-								}
-							}}
-							className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
-								isListening
-									? "bg-red-500/20 text-red-300 ring-1 ring-red-500/50"
-									: "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
-							}`}
-						>
-							{isListening ? (
-								<>
-									<span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-									Stop · {lectureMinutes}m
-								</>
-							) : (
-								<>
-									<MicIcon className="h-3 w-3" />
-									Record lesson
-								</>
-							)}
-						</button>
-					)}
-					{wordCount > 0 && (
-						<button
-							type="button"
-							onClick={clearTranscript}
-							className="text-slate-500 hover:text-slate-300 transition-colors"
-						>
-							<XIcon className="h-3.5 w-3.5" />
-						</button>
-					)}
-				</div>
-			</div>
-
-			{/* ── Main grid ─────────────────────────────────────────────── */}
-			<div
-				className="flex-1 min-h-0 grid gap-0"
-				style={{
-					gridTemplateColumns: [
-						leftOpen ? "320px" : "2rem",
-						"1fr",
-						rightOpen ? "300px" : "2rem",
-					].join(" "),
-				}}
-			>
-				{/* ── LEFT: Roster + Comprehension ─────────────────────── */}
-				<div
-					className={`border-r border-slate-800 flex flex-col gap-0 min-h-0 overflow-hidden relative ${leftOpen ? "overflow-y-auto" : "items-center py-3"}`}
-				>
-					{leftOpen ? (
-						<>
-							{/* Sidebar header */}
-							<div className="sticky top-0 z-10 bg-[#0d1525] border-b border-slate-800 flex items-center justify-between px-3 py-2">
-								<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 pl-1">
-									Class Pulse
-								</p>
-								<button
-									type="button"
-									onClick={() => setLeftOpen(false)}
-									title="Collapse sidebar"
-									className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
-								>
-									<ChevronLeftIcon className="h-3.5 w-3.5" />
-								</button>
-							</div>
-
-							{/* Comprehension panel — collapsible */}
-							<div className="border-b border-slate-800">
-								<button
-									type="button"
-									onClick={() => setComprehensionOpen((o) => !o)}
-									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
-								>
-									<ChevronDownIcon
-										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${comprehensionOpen ? "" : "-rotate-90"}`}
-									/>
-									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
-										Comprehension
-									</p>
-								</button>
-								{comprehensionOpen && selectedClassId && (
-									<div className="px-4 pb-3">
-										<ComprehensionPanel
-											classId={selectedClassId}
-											activeSessionId={activeSessionId}
-											onSignalUpdate={setSignalMap}
-										/>
-									</div>
-								)}
-							</div>
-
-							{/* Schedule — collapsible */}
-							<div className="border-b border-slate-800">
-								<button
-									type="button"
-									onClick={() => setScheduleOpen((o) => !o)}
-									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
-								>
-									<ChevronDownIcon
-										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${scheduleOpen ? "" : "-rotate-90"}`}
-									/>
-									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
-										Today's Schedule
-									</p>
-								</button>
-								<div className={scheduleOpen ? undefined : "hidden"}>
-									<ScheduleSidebarPanel
-										onShowDiGroups={() => {
-											setShowGroups(true);
-											setInputMode("ask");
-										}}
-									/>
-								</div>
-							</div>
-
-							{/* Student roster — collapsible */}
-							<div className="border-b border-slate-800">
-								<button
-									type="button"
-									onClick={() => setStudentsOpen((o) => !o)}
-									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
-								>
-									<ChevronDownIcon
-										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${studentsOpen ? "" : "-rotate-90"}`}
-									/>
-									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
-										{studentsLoading ? "Loading…" : `${students.length} Students`}
-									</p>
-								</button>
-								{studentsOpen && (
-									<div className="px-4 pb-3 pt-2">
-										{students.length > 0 ? (
-											<div className="grid grid-cols-3 gap-1.5">
-												{students.map((s) => (
-													<StudentChip
-														key={s.rosterId}
-														student={s}
-														active={activeStudent?.rosterId === s.rosterId}
-														signal={signalMap[s.rosterId]}
-														onTap={handleStudentTap}
-													/>
-												))}
-											</div>
-										) : !studentsLoading ? (
-											<p className="text-xs text-slate-500">No students on roster yet.</p>
-										) : null}
-									</div>
-								)}
-							</div>
-						</>
-					) : (
-						<button
-							type="button"
-							onClick={() => setLeftOpen(true)}
-							title="Expand left panel"
-							className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
-						>
-							<ChevronRightIcon className="h-3.5 w-3.5" />
-						</button>
-					)}
-				</div>
-
-				{/* ── CENTER: Voice cockpit ─────────────────────────────── */}
-				<div className="flex flex-col min-h-0 overflow-hidden">
-					{/* Mode toggle — always visible */}
-					<div
-						className={`flex justify-center px-6 ${scaffoldResponse ? "pt-3 pb-3" : "pt-6 pb-2"}`}
+						className={`flex items-center gap-1.5 text-xs font-medium ${activeSessionId ? "text-emerald-400" : "text-slate-500"}`}
 					>
-						<div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs font-semibold">
+						<span
+							className={`w-2 h-2 rounded-full ${activeSessionId ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`}
+						/>
+						{activeSessionId ? "Session live" : "No active session"}
+					</span>
+
+					{/* Panels toggle */}
+					<button
+						type="button"
+						onClick={() => {
+							const anyOpen = leftOpen || rightOpen;
+							setLeftOpen(!anyOpen);
+							setRightOpen(!anyOpen);
+						}}
+						className="text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors px-2 py-1 rounded hover:bg-slate-800"
+					>
+						{leftOpen || rightOpen ? "⊟ Panels" : "⊞ Panels"}
+					</button>
+
+					<div className="ml-auto flex items-center gap-2">
+						{/* Saved flash */}
+						{showSaved && (
+							<span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 animate-pulse">
+								<CheckIcon className="h-3 w-3" />
+								{savedWordCount.toLocaleString()} words captured
+							</span>
+						)}
+						{/* Record lesson */}
+						{isSupported && (
 							<button
 								type="button"
 								onClick={() => {
-									if (inputMode === "ask") {
-										setInputMode("di");
-									} else if (inputMode === "di") {
-										setInputMode("ask");
+									if (isListening) {
+										stopListening();
 									} else {
-										setInputMode("ask");
-										setShowTextInput(true);
+										if (readBooleanPreference(GLOBAL_VOICE_ONLY_MODE_KEY, false)) {
+											toast.error("Global voice only mode is on — turn it off to record a lesson");
+											return;
+										}
+										// Kill command mode before starting lecture recording
+										autoCommandRef.current = false;
+										if (restartTimerRef.current) {
+											clearTimeout(restartTimerRef.current);
+											restartTimerRef.current = null;
+										}
+										stopCommandsNow();
+										setIsOrbRecording(false);
+										playActivationChime();
+										setTimeout(startListening, 350);
 									}
 								}}
-								className={`px-4 py-2 transition-colors ${
-									inputMode === "ask" || inputMode === "di"
-										? "bg-indigo-600/30 text-indigo-300"
-										: "bg-slate-800 text-slate-400 hover:text-slate-200"
+								className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+									isListening
+										? "bg-red-500/20 text-red-300 ring-1 ring-red-500/50"
+										: "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
 								}`}
 							>
-								🎓 Instruction
-								{inputMode === "ask" || inputMode === "di"
-									? inputMode === "di"
-										? " ▴"
-										: " ▾"
-									: ""}
+								{isListening ? (
+									<>
+										<span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
+										Stop · {lectureMinutes}m
+									</>
+								) : (
+									<>
+										<MicIcon className="h-3 w-3" />
+										Record lesson
+									</>
+								)}
 							</button>
+						)}
+						{wordCount > 0 && (
 							<button
 								type="button"
-								onClick={() => {
-									setInputMode("behavior");
-									setScaffoldResponse(null);
-									setScaffoldError(null);
-								}}
-								className={`px-4 py-2 transition-colors ${inputMode === "behavior" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
+								onClick={clearTranscript}
+								className="text-slate-500 hover:text-slate-300 transition-colors"
 							>
-								🧑‍🏫 Behavior
+								<XIcon className="h-3.5 w-3.5" />
 							</button>
-						</div>
+						)}
 					</div>
+				</div>
 
-					{classes.length === 0 && (
-						<div className="flex-1 min-h-0 flex items-start justify-center px-6 pt-10">
-							<div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-center">
-								<p className="text-sm font-semibold text-slate-100">No classes yet</p>
-								<p className="mt-2 text-sm text-slate-400">
-									Coach is working, but this account does not have any classes to load. Create a
-									class first, then come back here to start sessions and groups, or open Parent
-									Comms directly from here.
-								</p>
-								<div className="mt-5 flex items-center justify-center gap-3">
-									<Link
-										href="/classes"
-										className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
-									>
-										Open Classes
-									</Link>
-									<Link
-										href="/parent-comms"
-										className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
-									>
-										Open Parent Comms
-									</Link>
-									<Link
-										href="/settings"
-										className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
-									>
-										Account Settings
-									</Link>
-								</div>
-							</div>
-						</div>
-					)}
-
-					{/* DI Panel */}
-					{classes.length > 0 && (inputMode === "di" || diSessionActive) && (
-						<div className={`flex-1 min-h-0 overflow-y-auto${inputMode !== "di" ? " hidden" : ""}`}>
-							{selectedClassId ? (
-								<DiPanel
-									classId={selectedClassId}
-									students={students}
-									onSessionEnd={() => fetchStudents(selectedClassId)}
-									dispatchRef={diDispatchRef}
-									onActiveSessionChange={setDiSessionActive}
-									orbRecording={isOrbRecording}
-								/>
-							) : (
-								<div className="flex items-center justify-center h-32">
-									<p className="text-sm text-slate-500">Select a class to use DI groups.</p>
-								</div>
-							)}
-						</div>
-					)}
-
-					{/* Session start/stop + waveform zone */}
-					{classes.length > 0 &&
-						showOrbArea &&
-						inputMode !== "di" &&
-						!(inputMode === "ask" && scaffoldResponse) && (
-							<div
-								className="shrink-0 flex flex-col items-center justify-center px-6 gap-3"
-								style={{ height: 160 }}
-							>
-								<WaveformMeter
-									active={isListening || !!activeSessionId}
-									height={72}
-									className="w-full"
-									onAmplitude={handleAmplitude}
-								/>
-								{/* Standard tag — shown before session starts */}
-								{!activeSessionId && (
-									<div className="w-full px-1">
-										<SessionStandardTag
-											value={sessionStandardCode}
-											onChange={setSessionStandardCode}
-										/>
-									</div>
-								)}
-
-								{/* Session toggle */}
-								<div className="flex flex-col items-center gap-2">
+				{/* ── Main grid ─────────────────────────────────────────────── */}
+				<div
+					className="flex-1 min-h-0 grid gap-0"
+					style={{
+						gridTemplateColumns: [
+							leftOpen ? "320px" : "2rem",
+							"1fr",
+							rightOpen ? "300px" : "2rem",
+						].join(" "),
+					}}
+				>
+					{/* ── LEFT: Roster + Comprehension ─────────────────────── */}
+					<div
+						className={`border-r border-slate-800 flex flex-col gap-0 min-h-0 overflow-hidden relative ${leftOpen ? "overflow-y-auto" : "items-center py-3"}`}
+					>
+						{leftOpen ? (
+							<>
+								{/* Sidebar header */}
+								<div className="sticky top-0 z-10 bg-[#0d1525] border-b border-slate-800 flex items-center justify-between px-3 py-2">
+									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 pl-1">
+										Class Pulse
+									</p>
 									<button
 										type="button"
-										onClick={handleSessionToggle}
-										disabled={!selectedClassId}
-										className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40 ${
-											activeSessionId
-												? "bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
-												: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
-										}`}
+										onClick={() => setLeftOpen(false)}
+										title="Collapse sidebar"
+										className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
 									>
-										{activeSessionId ? (
-											<>
-												<SquareIcon className="h-4 w-4 fill-current" /> Stop Session
-											</>
-										) : (
-											<>
-												<RadioIcon className="h-4 w-4" /> Go Live
-											</>
-										)}
+										<ChevronLeftIcon className="h-3.5 w-3.5" />
 									</button>
-									{activeSessionId && activeJoinCode && (
-										<div className="flex items-center gap-2">
-											<span className="text-xs text-slate-500">Code:</span>
-											<span className="font-mono font-black tracking-widest text-amber-400 text-base">
-												{activeJoinCode}
-											</span>
-											<button
-												type="button"
-												onClick={() => navigator.clipboard.writeText(activeJoinCode)}
-												title="Copy join code"
-												className="text-slate-600 hover:text-amber-400 transition-colors"
-											>
-												<CopyIcon className="h-3.5 w-3.5" />
-											</button>
+								</div>
+
+								{/* Comprehension panel — collapsible */}
+								<div className="border-b border-slate-800">
+									<button
+										type="button"
+										onClick={() => setComprehensionOpen((o) => !o)}
+										className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+									>
+										<ChevronDownIcon
+											className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${comprehensionOpen ? "" : "-rotate-90"}`}
+										/>
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+											Comprehension
+										</p>
+									</button>
+									{comprehensionOpen && selectedClassId && (
+										<div className="px-4 pb-3">
+											<ComprehensionPanel
+												classId={selectedClassId}
+												activeSessionId={activeSessionId}
+												onSignalUpdate={setSignalMap}
+											/>
 										</div>
 									)}
 								</div>
-							</div>
-						)}
 
-					{/* Groups zone — fixed height, no scroll */}
-					{classes.length > 0 && showOrbArea && inputMode !== "di" && (
-						<div className="shrink-0 flex flex-col">
-							{/* Class selector + group cards */}
-							{classes.length > 0 && (
-								<div className="flex gap-1.5 justify-center px-4 pt-3 pb-2">
-									{classes.map((c) => (
-										<button
-											key={c.id}
-											type="button"
-											onClick={() => {
-												if (selectedClassId === c.id) {
-													setShowGroups((v) => !v);
-												} else {
-													setSelectedClassId(c.id);
-													setShowGroups(true);
-												}
-											}}
-											className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedClassId === c.id ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"}`}
-										>
-											{c.label}
-											{selectedClassId === c.id ? (showGroups ? " ▴" : " ▾") : ""}
-										</button>
-									))}
-								</div>
-							)}
-						</div>
-					)}
-					{/* Response content — flex-1 in ask/behavior; hidden in DI (DI panel owns all space) */}
-					<div
-						className={`min-h-0 overflow-y-auto flex flex-col ${inputMode === "di" ? "hidden" : "flex-1"}`}
-					>
-						{showOrbArea && (
-							<>
-								{/* Ask mode: loading + response appear immediately below input */}
-								{inputMode === "ask" && isLoading && (
-									<div className="flex items-center justify-center gap-2 py-4">
-										{[0, 1, 2].map((i) => (
-											<span
-												key={i}
-												className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
-												style={{ animationDelay: `${i * 150}ms` }}
-											/>
-										))}
-										<span className="text-xs text-indigo-400">Thinking...</span>
-									</div>
-								)}
-								{inputMode === "ask" && scaffoldError && (
-									<div className="mx-6 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-										{scaffoldError}
-									</div>
-								)}
-								{inputMode === "ask" && scaffoldResponse && !isLoading && (
-									<div className="px-6 pb-4">
-										<div className="flex justify-end mb-2">
-											<button
-												type="button"
-												onClick={() => {
-													setScaffoldResponse(null);
-													setScaffoldError(null);
-												}}
-												className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-											>
-												<XIcon className="h-3 w-3" />
-												Close
-											</button>
-										</div>
-										<RemediationFlow
-											response={scaffoldResponse}
-											onDeepen={handleDeepen}
-											onGradeChange={handleGradeChange}
-											sessionId={activeSessionId}
-											standardCode={pinnedStandards[0]}
-											transcript={transcript}
-											isRefetching={isLoading}
+								{/* Schedule — collapsible */}
+								<div className="border-b border-slate-800">
+									<button
+										type="button"
+										onClick={() => setScheduleOpen((o) => !o)}
+										className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+									>
+										<ChevronDownIcon
+											className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${scheduleOpen ? "" : "-rotate-90"}`}
 										/>
-									</div>
-								)}
-
-								{/* Lecture visualizer */}
-								{(visual || visualLoading) && (
-									<div className="px-6 pb-4">
-										<LectureVisualizer visual={visual} loading={visualLoading} />
-									</div>
-								)}
-
-								{/* Ambient HUD — mount whenever session is live so correction requests show even when mic is off */}
-								{(isListening || !!activeSessionId) && (
-									<div className="px-6 pb-4">
-										<AmbientHud
-											transcript={transcript}
-											isListening={isListening}
-											sessionId={activeSessionId}
-										/>
-									</div>
-								)}
-
-								{/* Cross-session intervention alerts */}
-								<InterventionPanel />
-
-								{/* Behavior message log */}
-								{behaviorMsgs.length > 0 && (
-									<div className="px-6 pb-4 flex flex-col gap-2">
-										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-											Session Log
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+											Today's Schedule
 										</p>
-										<div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
-											{behaviorMsgs.map((msg) => (
-												<div
-													key={msg.id}
-													className={`flex ${msg.role === "teacher" ? "justify-end" : "justify-start"}`}
-												>
-													{msg.role === "teacher" ? (
-														<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-indigo-600 px-3 py-2">
-															<p className="text-sm text-white leading-snug">{msg.text}</p>
-														</div>
-													) : (
-														<div className="max-w-[90%] flex flex-col gap-1.5">
-															<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2">
-																<div className="flex items-start justify-between gap-2">
-																	<p className="text-sm text-slate-200 leading-snug flex-1">
-																		{msg.text}
-																	</p>
-																	<SpeakButton text={msg.text} />
-																</div>
-																{msg.response?.ramBuck?.reason && (
-																	<p className="text-xs text-slate-400 mt-1 italic">
-																		{msg.response.ramBuck.reason}
-																	</p>
-																)}
-															</div>
-															{msg.response && <ActionBadge response={msg.response} />}
-															{msg.response?.incidentNote && (
-																<div className="rounded border-l-2 border-orange-500 bg-slate-800 px-2 py-1.5 flex items-start justify-between gap-2">
-																	<p className="text-xs text-orange-300 leading-snug flex-1">
-																		<span className="font-medium">Behavior note: </span>
-																		{msg.response.incidentNote}
-																	</p>
-																	<CopyButton text={msg.response.incidentNote} />
-																</div>
-															)}
-															{msg.response?.parentMessage && (
-																<div className="rounded border-l-2 border-amber-500 bg-slate-800 px-2 py-1.5 flex flex-col gap-1">
-																	<div className="flex items-center justify-between gap-2">
-																		<span className="text-xs font-medium text-amber-300">
-																			ClassDojo message
-																		</span>
-																		<div className="flex items-center gap-2">
-																			<CopyButton text={msg.response.parentMessage} />
-																			{msg.rosterId && selectedClassId && (
-																				<SmsSendButton
-																					classId={selectedClassId}
-																					rosterId={msg.rosterId}
-																					body={msg.response.parentMessage}
-																				/>
-																			)}
-																		</div>
-																	</div>
-																	<p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
-																		{msg.response.parentMessage}
-																	</p>
-																</div>
-															)}
-															{msg.response?.toneAnalysis && (
-																<div className="rounded border-l-2 border-violet-500 bg-slate-800/80 px-2 py-1.5">
-																	<p className="text-[10px] font-semibold uppercase tracking-widest text-violet-400 mb-0.5">
-																		Situation
-																	</p>
-																	<p className="text-xs text-slate-300 leading-snug">
-																		{msg.response.toneAnalysis}
-																	</p>
-																</div>
-															)}
-															{msg.response?.nextSteps && msg.response.nextSteps.length > 0 && (
-																<div className="rounded border-l-2 border-emerald-500 bg-slate-800/80 px-2 py-1.5">
-																	<p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400 mb-1">
-																		Next steps
-																	</p>
-																	<ol className="flex flex-col gap-1">
-																		{msg.response.nextSteps.map((step, i) => (
-																			<li
-																				// biome-ignore lint/suspicious/noArrayIndexKey: ordered steps have no stable id
-																				key={i}
-																				className="flex items-start gap-1.5 text-xs text-slate-300 leading-snug"
-																			>
-																				<span className="shrink-0 font-bold text-emerald-500 tabular-nums">
-																					{i + 1}.
-																				</span>
-																				{step}
-																			</li>
-																		))}
-																	</ol>
-																</div>
-															)}
-														</div>
-													)}
-												</div>
-											))}
-											{isLoading && (
-												<div className="flex justify-start">
-													<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2.5">
-														<div className="flex gap-1">
-															{[0, 1, 2].map((i) => (
-																<span
-																	key={i}
-																	className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
-																	style={{ animationDelay: `${i * 150}ms` }}
-																/>
-															))}
-														</div>
-													</div>
-												</div>
-											)}
-											<div ref={bottomRef} />
-										</div>
-										<button
-											type="button"
-											onClick={() => {
-												setBehaviorMsgs([]);
-												historyRef.current = [];
+									</button>
+									<div className={scheduleOpen ? undefined : "hidden"}>
+										<ScheduleSidebarPanel
+											onShowDiGroups={() => {
+												setShowGroups(true);
+												setInputMode("ask");
 											}}
-											className="self-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
-										>
-											Clear session log
-										</button>
+										/>
 									</div>
-								)}
+								</div>
+
+								{/* Student roster — collapsible */}
+								<div className="border-b border-slate-800">
+									<button
+										type="button"
+										onClick={() => setStudentsOpen((o) => !o)}
+										className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+									>
+										<ChevronDownIcon
+											className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${studentsOpen ? "" : "-rotate-90"}`}
+										/>
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+											{studentsLoading ? "Loading…" : `${students.length} Students`}
+										</p>
+									</button>
+									{studentsOpen && (
+										<div className="px-4 pb-3 pt-2">
+											{students.length > 0 ? (
+												<div className="grid grid-cols-3 gap-1.5">
+													{students.map((s) => (
+														<StudentChip
+															key={s.rosterId}
+															student={s}
+															active={activeStudent?.rosterId === s.rosterId}
+															signal={signalMap[s.rosterId]}
+															onTap={handleStudentTap}
+															onBalanceTap={setLedgerStudent}
+														/>
+													))}
+												</div>
+											) : !studentsLoading ? (
+												<p className="text-xs text-slate-500">No students on roster yet.</p>
+											) : null}
+										</div>
+									)}
+								</div>
 							</>
+						) : (
+							<button
+								type="button"
+								onClick={() => setLeftOpen(true)}
+								title="Expand left panel"
+								className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
+							>
+								<ChevronRightIcon className="h-3.5 w-3.5" />
+							</button>
 						)}
 					</div>
 
-					{/* Input row — pinned to bottom of center column */}
-					<div className="shrink-0 border-t border-slate-800 px-4 py-3 flex flex-col gap-2">
-						{/* Standards picker — always visible in ask mode */}
-						{inputMode === "ask" && (
-							<StandardPicker
-								value={pinnedStandards}
-								onChange={setPinnedStandards}
-								defaultGrade={
-									selectedClass?.gradeLevel
-										? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
-										: undefined
-								}
-							/>
+					{/* ── CENTER: Voice cockpit ─────────────────────────────── */}
+					<div className="flex flex-col min-h-0 overflow-hidden">
+						{/* Mode toggle — always visible */}
+						<div
+							className={`flex justify-center px-6 ${scaffoldResponse ? "pt-3 pb-3" : "pt-6 pb-2"}`}
+						>
+							<div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs font-semibold">
+								<button
+									type="button"
+									onClick={() => {
+										if (inputMode === "ask") {
+											setInputMode("di");
+										} else if (inputMode === "di") {
+											setInputMode("ask");
+										} else {
+											setInputMode("ask");
+											setShowTextInput(true);
+										}
+									}}
+									className={`px-4 py-2 transition-colors ${
+										inputMode === "ask" || inputMode === "di"
+											? "bg-indigo-600/30 text-indigo-300"
+											: "bg-slate-800 text-slate-400 hover:text-slate-200"
+									}`}
+								>
+									🎓 Instruction
+									{inputMode === "ask" || inputMode === "di"
+										? inputMode === "di"
+											? " ▴"
+											: " ▾"
+										: ""}
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setInputMode("behavior");
+										setScaffoldResponse(null);
+										setScaffoldError(null);
+									}}
+									className={`px-4 py-2 transition-colors ${inputMode === "behavior" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-400 hover:text-slate-200"}`}
+								>
+									🧑‍🏫 Behavior
+								</button>
+							</div>
+						</div>
+
+						{classes.length === 0 && (
+							<div className="flex-1 min-h-0 flex items-start justify-center px-6 pt-10">
+								<div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-center">
+									<p className="text-sm font-semibold text-slate-100">No classes yet</p>
+									<p className="mt-2 text-sm text-slate-400">
+										Coach is working, but this account does not have any classes to load. Create a
+										class first, then come back here to start sessions and groups, or open Parent
+										Comms directly from here.
+									</p>
+									<div className="mt-5 flex items-center justify-center gap-3">
+										<Link
+											href="/classes"
+											className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+										>
+											Open Classes
+										</Link>
+										<Link
+											href="/parent-comms"
+											className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+										>
+											Open Parent Comms
+										</Link>
+										<Link
+											href="/settings"
+											className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+										>
+											Account Settings
+										</Link>
+									</div>
+								</div>
+							</div>
 						)}
-						{/* Done recording — prominent stop button while lecture capture is active */}
-						{isListening && (
-							<button
-								type="button"
-								onClick={stopListening}
-								className="w-full flex items-center justify-center gap-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-sm font-semibold py-2 hover:bg-red-500/25 transition-colors"
+
+						{/* DI Panel */}
+						{classes.length > 0 && (inputMode === "di" || diSessionActive) && (
+							<div
+								className={`flex-1 min-h-0 overflow-y-auto${inputMode !== "di" ? " hidden" : ""}`}
 							>
-								<span className="h-2 w-2 rounded-full bg-red-400 animate-pulse shrink-0" />
-								Done —{" "}
-								{lectureMinutes > 0 ? `${lectureMinutes}m captured` : "stop lecture recording"}
-							</button>
+								{selectedClassId ? (
+									<DiPanel
+										classId={selectedClassId}
+										students={students}
+										onSessionEnd={() => fetchStudents(selectedClassId)}
+										dispatchRef={diDispatchRef}
+										onActiveSessionChange={setDiSessionActive}
+										orbRecording={isOrbRecording}
+									/>
+								) : (
+									<div className="flex items-center justify-center h-32">
+										<p className="text-sm text-slate-500">Select a class to use DI groups.</p>
+									</div>
+								)}
+							</div>
 						)}
-						<div className="flex gap-2 items-end">
-							<textarea
-								rows={2}
-								value={textInput}
-								onChange={(e) => setTextInput(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" && !e.shiftKey) {
-										e.preventDefault();
+
+						{/* Session start/stop + waveform zone */}
+						{classes.length > 0 &&
+							showOrbArea &&
+							inputMode !== "di" &&
+							!(inputMode === "ask" && scaffoldResponse) && (
+								<div
+									className="shrink-0 flex flex-col items-center justify-center px-6 gap-3"
+									style={{ height: 160 }}
+								>
+									<WaveformMeter
+										active={isListening || !!activeSessionId}
+										height={72}
+										className="w-full"
+										onAmplitude={handleAmplitude}
+									/>
+									{/* Standard tag — shown before session starts */}
+									{!activeSessionId && (
+										<div className="w-full px-1">
+											<SessionStandardTag
+												value={sessionStandardCode}
+												onChange={setSessionStandardCode}
+											/>
+										</div>
+									)}
+
+									{/* Session toggle */}
+									<div className="flex flex-col items-center gap-2">
+										<button
+											type="button"
+											onClick={handleSessionToggle}
+											disabled={!selectedClassId}
+											className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40 ${
+												activeSessionId
+													? "bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
+													: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
+											}`}
+										>
+											{activeSessionId ? (
+												<>
+													<SquareIcon className="h-4 w-4 fill-current" /> Stop Session
+												</>
+											) : (
+												<>
+													<RadioIcon className="h-4 w-4" /> Go Live
+												</>
+											)}
+										</button>
+										{activeSessionId && activeJoinCode && (
+											<div className="flex items-center gap-2">
+												<span className="text-xs text-slate-500">Code:</span>
+												<span className="font-mono font-black tracking-widest text-amber-400 text-base">
+													{activeJoinCode}
+												</span>
+												<button
+													type="button"
+													onClick={() => navigator.clipboard.writeText(activeJoinCode)}
+													title="Copy join code"
+													className="text-slate-600 hover:text-amber-400 transition-colors"
+												>
+													<CopyIcon className="h-3.5 w-3.5" />
+												</button>
+											</div>
+										)}
+									</div>
+								</div>
+							)}
+
+						{/* Groups zone — fixed height, no scroll */}
+						{classes.length > 0 && showOrbArea && inputMode !== "di" && (
+							<div className="shrink-0 flex flex-col">
+								{/* Class selector + group cards */}
+								{classes.length > 0 && (
+									<div className="flex gap-1.5 justify-center px-4 pt-3 pb-2">
+										{classes.map((c) => (
+											<button
+												key={c.id}
+												type="button"
+												onClick={() => {
+													if (selectedClassId === c.id) {
+														setShowGroups((v) => !v);
+													} else {
+														setSelectedClassId(c.id);
+														setShowGroups(true);
+													}
+												}}
+												className={`rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95 ${selectedClassId === c.id ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"}`}
+											>
+												{c.label}
+												{selectedClassId === c.id ? (showGroups ? " ▴" : " ▾") : ""}
+											</button>
+										))}
+									</div>
+								)}
+							</div>
+						)}
+						{/* Response content — flex-1 in ask/behavior; hidden in DI (DI panel owns all space) */}
+						<div
+							className={`min-h-0 overflow-y-auto flex flex-col ${inputMode === "di" ? "hidden" : "flex-1"}`}
+						>
+							{showOrbArea && (
+								<>
+									{/* Ask mode: loading + response appear immediately below input */}
+									{inputMode === "ask" && isLoading && (
+										<div className="flex items-center justify-center gap-2 py-4">
+											{[0, 1, 2].map((i) => (
+												<span
+													key={i}
+													className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
+													style={{ animationDelay: `${i * 150}ms` }}
+												/>
+											))}
+											<span className="text-xs text-indigo-400">Thinking...</span>
+										</div>
+									)}
+									{inputMode === "ask" && scaffoldError && (
+										<div className="mx-6 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+											{scaffoldError}
+										</div>
+									)}
+									{inputMode === "ask" && scaffoldResponse && !isLoading && (
+										<div className="px-6 pb-4">
+											<div className="flex justify-end mb-2">
+												<button
+													type="button"
+													onClick={() => {
+														setScaffoldResponse(null);
+														setScaffoldError(null);
+													}}
+													className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+												>
+													<XIcon className="h-3 w-3" />
+													Close
+												</button>
+											</div>
+											<RemediationFlow
+												response={scaffoldResponse}
+												onDeepen={handleDeepen}
+												onGradeChange={handleGradeChange}
+												sessionId={activeSessionId}
+												standardCode={pinnedStandards[0]}
+												transcript={transcript}
+												isRefetching={isLoading}
+											/>
+										</div>
+									)}
+
+									{/* Lecture visualizer */}
+									{(visual || visualLoading) && (
+										<div className="px-6 pb-4">
+											<LectureVisualizer visual={visual} loading={visualLoading} />
+										</div>
+									)}
+
+									{/* Ambient HUD — mount whenever session is live so correction requests show even when mic is off */}
+									{(isListening || !!activeSessionId) && (
+										<div className="px-6 pb-4">
+											<AmbientHud
+												transcript={transcript}
+												isListening={isListening}
+												sessionId={activeSessionId}
+											/>
+										</div>
+									)}
+
+									{/* Cross-session intervention alerts */}
+									<InterventionPanel />
+
+									{/* Behavior message log */}
+									{behaviorMsgs.length > 0 && (
+										<div className="px-6 pb-4 flex flex-col gap-2">
+											<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+												Session Log
+											</p>
+											<div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
+												{behaviorMsgs.map((msg) => (
+													<div
+														key={msg.id}
+														className={`flex ${msg.role === "teacher" ? "justify-end" : "justify-start"}`}
+													>
+														{msg.role === "teacher" ? (
+															<div className="max-w-[80%] rounded-xl rounded-tr-sm bg-indigo-600 px-3 py-2">
+																<p className="text-sm text-white leading-snug">{msg.text}</p>
+															</div>
+														) : (
+															<div className="max-w-[90%] flex flex-col gap-1.5">
+																<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2">
+																	<div className="flex items-start justify-between gap-2">
+																		<p className="text-sm text-slate-200 leading-snug flex-1">
+																			{msg.text}
+																		</p>
+																		<SpeakButton text={msg.text} />
+																	</div>
+																	{msg.response?.ramBuck?.reason && (
+																		<p className="text-xs text-slate-400 mt-1 italic">
+																			{msg.response.ramBuck.reason}
+																		</p>
+																	)}
+																</div>
+																{msg.response && <ActionBadge response={msg.response} />}
+																{msg.response?.incidentNote && (
+																	<div className="rounded border-l-2 border-orange-500 bg-slate-800 px-2 py-1.5 flex items-start justify-between gap-2">
+																		<p className="text-xs text-orange-300 leading-snug flex-1">
+																			<span className="font-medium">Behavior note: </span>
+																			{msg.response.incidentNote}
+																		</p>
+																		<CopyButton text={msg.response.incidentNote} />
+																	</div>
+																)}
+																{msg.response?.parentMessage && (
+																	<div className="rounded border-l-2 border-amber-500 bg-slate-800 px-2 py-1.5 flex flex-col gap-1">
+																		<div className="flex items-center justify-between gap-2">
+																			<span className="text-xs font-medium text-amber-300">
+																				ClassDojo message
+																			</span>
+																			<div className="flex items-center gap-2">
+																				<CopyButton text={msg.response.parentMessage} />
+																				{msg.rosterId && selectedClassId && (
+																					<SmsSendButton
+																						classId={selectedClassId}
+																						rosterId={msg.rosterId}
+																						body={msg.response.parentMessage}
+																					/>
+																				)}
+																			</div>
+																		</div>
+																		<p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+																			{msg.response.parentMessage}
+																		</p>
+																	</div>
+																)}
+																{msg.response?.toneAnalysis && (
+																	<div className="rounded border-l-2 border-violet-500 bg-slate-800/80 px-2 py-1.5">
+																		<p className="text-[10px] font-semibold uppercase tracking-widest text-violet-400 mb-0.5">
+																			Situation
+																		</p>
+																		<p className="text-xs text-slate-300 leading-snug">
+																			{msg.response.toneAnalysis}
+																		</p>
+																	</div>
+																)}
+																{msg.response?.nextSteps && msg.response.nextSteps.length > 0 && (
+																	<div className="rounded border-l-2 border-emerald-500 bg-slate-800/80 px-2 py-1.5">
+																		<p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400 mb-1">
+																			Next steps
+																		</p>
+																		<ol className="flex flex-col gap-1">
+																			{msg.response.nextSteps.map((step, i) => (
+																				<li
+																					// biome-ignore lint/suspicious/noArrayIndexKey: ordered steps have no stable id
+																					key={i}
+																					className="flex items-start gap-1.5 text-xs text-slate-300 leading-snug"
+																				>
+																					<span className="shrink-0 font-bold text-emerald-500 tabular-nums">
+																						{i + 1}.
+																					</span>
+																					{step}
+																				</li>
+																			))}
+																		</ol>
+																	</div>
+																)}
+															</div>
+														)}
+													</div>
+												))}
+												{isLoading && (
+													<div className="flex justify-start">
+														<div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2.5">
+															<div className="flex gap-1">
+																{[0, 1, 2].map((i) => (
+																	<span
+																		key={i}
+																		className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
+																		style={{ animationDelay: `${i * 150}ms` }}
+																	/>
+																))}
+															</div>
+														</div>
+													</div>
+												)}
+												<div ref={bottomRef} />
+											</div>
+											<button
+												type="button"
+												onClick={() => {
+													setBehaviorMsgs([]);
+													historyRef.current = [];
+												}}
+												className="self-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
+											>
+												Clear session log
+											</button>
+										</div>
+									)}
+								</>
+							)}
+						</div>
+
+						{/* Input row — pinned to bottom of center column */}
+						<div className="shrink-0 border-t border-slate-800 px-4 py-3 flex flex-col gap-2">
+							{/* Standards picker — always visible in ask mode */}
+							{inputMode === "ask" && (
+								<StandardPicker
+									value={pinnedStandards}
+									onChange={setPinnedStandards}
+									defaultGrade={
+										selectedClass?.gradeLevel
+											? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
+											: undefined
+									}
+								/>
+							)}
+							{/* Done recording — prominent stop button while lecture capture is active */}
+							{isListening && (
+								<button
+									type="button"
+									onClick={stopListening}
+									className="w-full flex items-center justify-center gap-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-sm font-semibold py-2 hover:bg-red-500/25 transition-colors"
+								>
+									<span className="h-2 w-2 rounded-full bg-red-400 animate-pulse shrink-0" />
+									Done —{" "}
+									{lectureMinutes > 0 ? `${lectureMinutes}m captured` : "stop lecture recording"}
+								</button>
+							)}
+							<div className="flex gap-2 items-end">
+								<textarea
+									rows={2}
+									value={textInput}
+									onChange={(e) => setTextInput(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" && !e.shiftKey) {
+											e.preventDefault();
+											if (inputMode === "di") {
+												diDispatchRef.current?.(textInput);
+												setTextInput("");
+											} else if (inputMode === "ask") {
+												sendAcademic(textInput);
+											} else {
+												sendBehavior(textInput);
+											}
+										}
+									}}
+									placeholder={
+										inputMode === "di"
+											? '"Put Marcus in Red" or "Give Blue 2 points"'
+											: inputMode === "ask"
+												? "What are your students struggling with?"
+												: '"Give Jordan 15 bucks for great focus"'
+									}
+									className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+									disabled={isLoading}
+								/>
+								<button
+									type="button"
+									onClick={toggleOrb}
+									disabled={isLoading}
+									title={isOrbRecording ? "Stop" : "Voice input"}
+									className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center border transition-all disabled:opacity-40 ${isOrbRecording ? "bg-blue-500 border-blue-400 text-white [animation:mic-center-pulse_1.4s_ease-in-out_infinite]" : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200"}`}
+								>
+									<MicIcon className="h-4 w-4" />
+								</button>
+								<button
+									type="button"
+									disabled={!textInput.trim() || isLoading}
+									onClick={() => {
 										if (inputMode === "di") {
 											diDispatchRef.current?.(textInput);
 											setTextInput("");
@@ -1570,106 +1618,85 @@ export default function CoachPage() {
 										} else {
 											sendBehavior(textInput);
 										}
-									}
-								}}
-								placeholder={
-									inputMode === "di"
-										? '"Put Marcus in Red" or "Give Blue 2 points"'
-										: inputMode === "ask"
-											? "What are your students struggling with?"
-											: '"Give Jordan 15 bucks for great focus"'
-								}
-								className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-								disabled={isLoading}
-							/>
-							<button
-								type="button"
-								onClick={toggleOrb}
-								disabled={isLoading}
-								title={isOrbRecording ? "Stop" : "Voice input"}
-								className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center border transition-all disabled:opacity-40 ${isOrbRecording ? "bg-blue-500 border-blue-400 text-white [animation:mic-center-pulse_1.4s_ease-in-out_infinite]" : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200"}`}
-							>
-								<MicIcon className="h-4 w-4" />
-							</button>
-							<button
-								type="button"
-								disabled={!textInput.trim() || isLoading}
-								onClick={() => {
-									if (inputMode === "di") {
-										diDispatchRef.current?.(textInput);
-										setTextInput("");
-									} else if (inputMode === "ask") {
-										sendAcademic(textInput);
-									} else {
-										sendBehavior(textInput);
-									}
-								}}
-								className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-500 transition-colors"
-							>
-								<SendIcon className="h-4 w-4" />
-							</button>
-						</div>
-					</div>
-				</div>
-
-				{/* ── RIGHT: Parent Comms ──────────────────────────────── */}
-				<div className="border-l border-slate-800 flex flex-col overflow-hidden min-h-0">
-					{rightOpen ? (
-						<>
-							<div className="shrink-0 border-b border-slate-800">
-								<button
-									type="button"
-									onClick={() => setGroupsOpen((o) => !o)}
-									className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+									}}
+									className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-500 transition-colors"
 								>
-									<ChevronDownIcon
-										className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${groupsOpen ? "" : "-rotate-90"}`}
-									/>
-									<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
-										Groups
-									</p>
+									<SendIcon className="h-4 w-4" />
 								</button>
 							</div>
-							{selectedClassId ? (
-								<>
-									<div className={`min-h-0 overflow-y-auto${groupsOpen ? " flex-1" : " hidden"}`}>
-										<GroupsSidebarPanel
-											classId={selectedClassId}
-											initialStudents={students}
-											initialGroups={groups}
-										/>
-									</div>
-									<div className={`min-h-0 overflow-y-scroll${groupsOpen ? " hidden" : " flex-1"}`}>
-										<ParentCommsPanel
-											classId={selectedClassId}
-											students={students}
-											externalPreselect={parentCommsPreselect}
-											onCollapse={() => setRightOpen(false)}
-										/>
-									</div>
-								</>
-							) : (
-								<div className="flex-1 flex items-center justify-center px-5 text-center">
-									<p className="text-sm text-slate-500">
-										Select or create a class to load groups and parent communications.
-									</p>
-								</div>
-							)}
-						</>
-					) : (
-						<div className="flex items-center justify-center py-3">
-							<button
-								type="button"
-								onClick={() => setRightOpen(true)}
-								title="Expand Parent Comms"
-								className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
-							>
-								<ChevronLeftIcon className="h-3.5 w-3.5" />
-							</button>
 						</div>
-					)}
+					</div>
+
+					{/* ── RIGHT: Parent Comms ──────────────────────────────── */}
+					<div className="border-l border-slate-800 flex flex-col overflow-hidden min-h-0">
+						{rightOpen ? (
+							<>
+								<div className="shrink-0 border-b border-slate-800">
+									<button
+										type="button"
+										onClick={() => setGroupsOpen((o) => !o)}
+										className="w-full flex items-center gap-1.5 px-4 py-2 hover:bg-slate-800/50 transition-colors group"
+									>
+										<ChevronDownIcon
+											className={`h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-transform shrink-0 ${groupsOpen ? "" : "-rotate-90"}`}
+										/>
+										<p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 group-hover:text-slate-400">
+											Groups
+										</p>
+									</button>
+								</div>
+								{selectedClassId ? (
+									<>
+										<div className={`min-h-0 overflow-y-auto${groupsOpen ? " flex-1" : " hidden"}`}>
+											<GroupsSidebarPanel
+												classId={selectedClassId}
+												initialStudents={students}
+												initialGroups={groups}
+											/>
+										</div>
+										<div
+											className={`min-h-0 overflow-y-scroll${groupsOpen ? " hidden" : " flex-1"}`}
+										>
+											<ParentCommsPanel
+												classId={selectedClassId}
+												students={students}
+												externalPreselect={parentCommsPreselect}
+												onCollapse={() => setRightOpen(false)}
+											/>
+										</div>
+									</>
+								) : (
+									<div className="flex-1 flex items-center justify-center px-5 text-center">
+										<p className="text-sm text-slate-500">
+											Select or create a class to load groups and parent communications.
+										</p>
+									</div>
+								)}
+							</>
+						) : (
+							<div className="flex items-center justify-center py-3">
+								<button
+									type="button"
+									onClick={() => setRightOpen(true)}
+									title="Expand Parent Comms"
+									className="h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:text-slate-400 hover:bg-slate-700/50 transition-colors"
+								>
+									<ChevronLeftIcon className="h-3.5 w-3.5" />
+								</button>
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
-		</div>
+
+			{/* Teacher RAM Buck ledger sheet */}
+			{ledgerStudent && selectedClassId && (
+				<TeacherLedgerSheet
+					student={ledgerStudent}
+					classId={selectedClassId}
+					onClose={() => setLedgerStudent(null)}
+				/>
+			)}
+		</>
 	);
 }
