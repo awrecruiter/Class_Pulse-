@@ -1218,11 +1218,7 @@ export default function CoachPage() {
 							>
 								{/* Keep mounted for entire session so mic backoff gaps don't blink */}
 								{(isListening || !!activeSessionId) && (
-									<WaveformMeter
-										active={isListening}
-										height={72}
-										className="w-full"
-									/>
+									<WaveformMeter active={!!activeSessionId} height={72} className="w-full" />
 								)}
 								{/* Session toggle */}
 								<div className="flex flex-col items-center gap-2">

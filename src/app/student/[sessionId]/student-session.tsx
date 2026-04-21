@@ -591,7 +591,10 @@ export function StudentSession({
 
 						{/* Store tab */}
 						{activeTab === "store" && (
-							<div className="bg-white rounded-b-2xl overflow-hidden flex flex-col" style={{ maxHeight: "65vh" }}>
+							<div
+								className="bg-white rounded-b-2xl overflow-hidden flex flex-col"
+								style={{ maxHeight: "65vh" }}
+							>
 								<StudentStore
 									sessionId={sessionId}
 									isOpen={storeIsOpen}

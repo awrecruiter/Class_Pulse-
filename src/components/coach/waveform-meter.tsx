@@ -5,9 +5,7 @@
  * Amplitude-over-time: new bars enter from the right, scroll left.
  * Bars are symmetric (extend above and below center line).
  *
- * Opens its own AudioContext + getUserMedia when active so bars respond
- * to real vocal inflections (walkie-talkie feel). Falls back to synthetic
- * waveform if mic access is unavailable.
+ * Pure synthetic waveform — same pace and appearance as the student SoundcloudWave.
  */
 
 import { useEffect, useRef } from "react";
@@ -15,10 +13,10 @@ import { useEffect, useRef } from "react";
 const BAR_W = 2; // bar width px
 const BAR_GAP = 2; // gap between bars px
 const STEP = BAR_W + BAR_GAP;
-const SAMPLE_MS = 50; // ~20fps — smooth scroll without looking frenetic
+const SAMPLE_MS = 50; // one new bar every 50 ms — locked to student meter pace
 
 interface WaveformMeterProps {
-	active: boolean; // true = mic is running
+	active: boolean; // true = session is running (drives color + bar generation)
 	height?: number;
 	className?: string;
 	confusionEvents?: number[]; // array of Date.now() timestamps when confusion spiked
@@ -39,92 +37,7 @@ export function WaveformMeter({
 	activeRef.current = active;
 	confusionEventsRef.current = confusionEvents;
 
-	// Real mic amplitude (0–1) — updated by the analyser effect below
-	const micAmpRef = useRef(0);
-	// True once getUserMedia succeeds; drives draw-loop branch selection
-	const micReadyRef = useRef(false);
-	// Synthetic phase — used only when mic is unavailable
 	const synthPhaseRef = useRef(0);
-
-	// ── Mic analyser effect ────────────────────────────────────────────────────
-	useEffect(() => {
-		if (!active) {
-			micAmpRef.current = 0;
-			micReadyRef.current = false;
-			return;
-		}
-
-		let disposed = false;
-		let stream: MediaStream | null = null;
-		let ctx: AudioContext | null = null;
-		let analyserRafId = 0;
-
-		async function start() {
-			try {
-				stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-				if (disposed) {
-					for (const t of stream.getTracks()) t.stop();
-					return;
-				}
-
-				ctx = new AudioContext();
-				await ctx.resume(); // ensure context isn't auto-suspended
-
-				const source = ctx.createMediaStreamSource(stream);
-				const analyser = ctx.createAnalyser();
-				analyser.fftSize = 256;
-				analyser.smoothingTimeConstant = 0; // manual smoothing below
-
-				// Silent gain → ctx.destination forces Chrome to process the graph.
-				// Without a destination connection some Chrome versions return all-zero data.
-				const gain = ctx.createGain();
-				gain.gain.value = 0;
-				source.connect(analyser);
-				source.connect(gain);
-				gain.connect(ctx.destination);
-
-				const td = new Uint8Array(analyser.fftSize);
-				micReadyRef.current = true;
-
-				function tick() {
-					if (disposed) return;
-					analyser.getByteTimeDomainData(td);
-
-					// Time-domain RMS: values 0–255 where 128 = silence
-					let sum = 0;
-					for (let i = 0; i < td.length; i++) {
-						const v = (td[i] - 128) / 128;
-						sum += v * v;
-					}
-					const rms = Math.sqrt(sum / td.length);
-					const target = Math.min(1, rms * 8);
-
-					// Moderate attack so quiet gaps between syllables stay visible;
-					// fast decay so the bar drops the instant audio drops
-					const prev = micAmpRef.current;
-					micAmpRef.current =
-						target > prev ? prev + (target - prev) * 0.4 : prev + (target - prev) * 0.35;
-
-					analyserRafId = requestAnimationFrame(tick);
-				}
-
-				analyserRafId = requestAnimationFrame(tick);
-			} catch {
-				// Mic unavailable — draw loop will use synthetic fallback
-			}
-		}
-
-		start();
-
-		return () => {
-			disposed = true;
-			cancelAnimationFrame(analyserRafId);
-			if (stream) for (const t of stream.getTracks()) t.stop();
-			ctx?.close();
-			micAmpRef.current = 0;
-			micReadyRef.current = false;
-		};
-	}, [active]);
 
 	// ── Draw loop ─────────────────────────────────────────────────────────────
 	useEffect(() => {
@@ -150,20 +63,11 @@ export function WaveformMeter({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					if (micReadyRef.current) {
-						// Real mic — tiny noise keeps static amplitude from looking frozen
-						const noise = (Math.random() - 0.5) * 0.02;
-						amp = Math.max(0, Math.min(1, micAmpRef.current + noise));
-					} else {
-						// Synthetic fallback: two sine waves + noise
-						synthPhaseRef.current += 0.18;
-						const base =
-							Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
-						const noise = (Math.random() - 0.5) * 0.12;
-						amp = Math.max(0, 0.18 + base + noise);
-					}
+					synthPhaseRef.current += 0.18;
+					const base =
+						Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
+					amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
 				} else {
-					// Decay toward zero when not active
 					const last = historyRef.current.at(-1) ?? 0;
 					amp = last * 0.7;
 				}

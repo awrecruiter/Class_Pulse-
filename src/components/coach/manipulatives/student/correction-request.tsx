@@ -42,7 +42,6 @@ export function CorrectionRequest({ sessionId }: Props) {
 
 	return (
 		<div className="flex flex-col items-center gap-3 py-4">
-
 			{!showForm ? (
 				<button
 					type="button"
