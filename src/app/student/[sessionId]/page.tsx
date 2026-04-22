@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import {
+	classAssignments,
 	classes,
 	classSessions,
 	comprehensionSignals,
@@ -92,6 +93,13 @@ export default async function StudentSessionPage({
 		groupBalance = ga?.balance ?? null;
 	}
 
+	// Load today's homework assignment
+	const today = new Date().toISOString().slice(0, 10);
+	const [assignmentRow] = await db
+		.select({ content: classAssignments.content })
+		.from(classAssignments)
+		.where(and(eq(classAssignments.classId, session.classId), eq(classAssignments.date, today)));
+
 	const displayName = entry ? `${entry.firstInitial}.${entry.lastInitial}.` : "Student";
 	const classLabel = cls?.label ?? "Class";
 	const isActive = session.status === "active";
@@ -108,6 +116,7 @@ export default async function StudentSessionPage({
 			groupBalance={groupBalance}
 			groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
 			joinCode={session.joinCode}
+			todayAssignment={assignmentRow?.content ?? null}
 		/>
 	);
 }

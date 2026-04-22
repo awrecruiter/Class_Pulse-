@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
 import { Button } from "@/components/ui/button";
+import { YAAG_TOPICS } from "@/data/yaag-2025-2026";
 import type { ServiceSurface } from "@/lib/subscription";
 import {
 	GLOBAL_VOICE_ONLY_MODE_KEY,
@@ -92,6 +93,8 @@ function PacingGuideCard() {
 	const [standardCode, setStandardCode] = useState("");
 	const [title, setTitle] = useState("");
 	const [saving, setSaving] = useState(false);
+	const [topicOverride, setTopicOverride] = useState<number | "">("");
+	const [savingOverride, setSavingOverride] = useState(false);
 
 	const load = useCallback(async () => {
 		try {
@@ -104,6 +107,33 @@ function PacingGuideCard() {
 			// non-fatal
 		}
 	}, []);
+
+	useEffect(() => {
+		fetch("/api/teacher-settings")
+			.then((r) => (r.ok ? r.json() : { settings: {} }))
+			.then((j) => {
+				if (typeof j.settings?.currentTopicNumber === "number")
+					setTopicOverride(j.settings.currentTopicNumber);
+			})
+			.catch(() => {});
+	}, []);
+
+	async function handleSaveOverride(val: number | "") {
+		setTopicOverride(val);
+		setSavingOverride(true);
+		try {
+			await fetch("/api/teacher-settings", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ currentTopicNumber: val === "" ? null : val }),
+			});
+			toast.success(val === "" ? "Using YAAG auto-schedule" : `Override set to Topic ${val}`);
+		} catch {
+			toast.error("Failed to save");
+		} finally {
+			setSavingOverride(false);
+		}
+	}
 
 	useEffect(() => {
 		load();
@@ -163,6 +193,39 @@ function PacingGuideCard() {
 					Tag which standard you plan to cover each week — enables cross-session intervention
 					detection
 				</p>
+			</div>
+
+			{/* Current topic override — lets teacher correct when pacing drifts from YAAG dates */}
+			<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-2">
+				<div>
+					<p className="text-xs font-semibold text-slate-300">Current Topic Override</p>
+					<p className="text-[11px] text-slate-500 mt-0.5">
+						If your class is ahead or behind the YAAG schedule, set your actual topic here. Leave
+						blank to auto-detect from today&apos;s date.
+					</p>
+				</div>
+				<div className="flex items-center gap-2">
+					<select
+						value={topicOverride}
+						onChange={(e) =>
+							handleSaveOverride(e.target.value === "" ? "" : Number(e.target.value))
+						}
+						disabled={savingOverride}
+						className="flex-1 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
+					>
+						<option value="">Auto (from YAAG dates)</option>
+						{YAAG_TOPICS.map((t) => (
+							<option key={t.number} value={t.number}>
+								Topic {t.roman}: {t.title}
+							</option>
+						))}
+					</select>
+				</div>
+				{topicOverride !== "" && (
+					<p className="text-[10px] text-amber-400">
+						Override active — schedule sidebar and homework will use Topic {topicOverride}
+					</p>
+				)}
 			</div>
 
 			<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-3">

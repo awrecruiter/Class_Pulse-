@@ -87,6 +87,8 @@ export const teacherSettings = pgTable("teacher_settings", {
 	voiceNavMode: text("voice_nav_mode").notNull().default("immediate"),
 	// "immediate" = open external app immediately (same tab) | "confirm" = show tappable toast first
 	voiceAppOpenMode: text("voice_app_open_mode").notNull().default("immediate"),
+	// Teacher-set current topic override (1–18). Null = auto-infer from YAAG dates.
+	currentTopicNumber: integer("current_topic_number"),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -833,6 +835,65 @@ export const scheduleDocLinks = pgTable(
 
 // ─── Phase 13: Parent Intervention Loop ──────────────────────────────────────
 
+// Teacher-set per-topic start date overrides (supersedes YAAG hardcoded dates)
+export const pacingOverrides = pgTable(
+	"pacing_overrides",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		topicNumber: integer("topic_number").notNull(), // 1–18
+		startDate: text("start_date").notNull(), // YYYY-MM-DD
+		// How to handle downstream topics when this override cascades
+		cascadeMode: text("cascade_mode").notNull().default("push_forward"), // "push_forward" | "push_back" | "stack"
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_pacing_overrides_teacher_topic").on(table.teacherId, table.topicNumber),
+		index("idx_pacing_overrides_teacher_id").on(table.teacherId),
+	],
+);
+
+// Days the teacher marks as blocked (no instruction: assemblies, testing days, field trips)
+export const blockedDays = pgTable(
+	"blocked_days",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		date: text("date").notNull(), // YYYY-MM-DD
+		reason: text("reason"), // optional label shown in calendar
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_blocked_days_teacher_date").on(table.teacherId, table.date),
+		index("idx_blocked_days_teacher_id").on(table.teacherId),
+	],
+);
+
+// Explicit per-lesson placements on the calendar (produced by drag operations)
+// When a row exists here it supersedes the computed date for that lesson
+export const pacingLessonPlacements = pgTable(
+	"pacing_lesson_placements",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		topicNumber: integer("topic_number").notNull(), // 1–18
+		lessonNumber: text("lesson_number").notNull(), // e.g. "14.1", "14.2"
+		date: text("date").notNull(), // YYYY-MM-DD
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_pacing_lesson_placements_teacher_lesson").on(
+			table.teacherId,
+			table.topicNumber,
+			table.lessonNumber,
+		),
+		index("idx_pacing_lesson_placements_teacher_id").on(table.teacherId),
+		index("idx_pacing_lesson_placements_date").on(table.teacherId, table.date),
+	],
+);
+
 // Teacher's pacing guide — which FL BEST standard is taught which week
 export const pacingGuideEntries = pgTable(
 	"pacing_guide_entries",
@@ -883,6 +944,27 @@ export const interventionFlags = pgTable(
 			table.standardCode,
 			table.status,
 		),
+	],
+);
+
+// Teacher-set daily homework/practice assignment per class
+export const classAssignments = pgTable(
+	"class_assignments",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		classId: uuid("class_id")
+			.notNull()
+			.references(() => classes.id, { onDelete: "cascade" }),
+		teacherId: text("teacher_id").notNull(),
+		// YYYY-MM-DD
+		date: text("date").notNull(),
+		content: text("content").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_class_assignments_class_date").on(table.classId, table.date),
+		index("idx_class_assignments_class_id").on(table.classId),
 	],
 );
 

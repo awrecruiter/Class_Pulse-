@@ -18,6 +18,8 @@ const updateSettingsSchema = z.object({
 	scheduleDocOpenMode: z.enum(["toast", "new-tab"]).optional(),
 	voiceNavMode: z.enum(["immediate", "toast"]).optional(),
 	voiceAppOpenMode: z.enum(["immediate", "confirm"]).optional(),
+	// null = auto-infer from YAAG; 1–18 = force a specific topic
+	currentTopicNumber: z.number().int().min(1).max(18).nullable().optional(),
 });
 
 export async function GET(request: NextRequest) {

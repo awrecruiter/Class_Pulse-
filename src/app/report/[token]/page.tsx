@@ -1,9 +1,16 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FL_BEST_STANDARDS } from "@/data/fl-best-standards";
 import { db } from "@/lib/db";
-import { classes, interventionFlags, parentReportTokens, rosterEntries } from "@/lib/db/schema";
+import {
+	classAssignments,
+	classes,
+	interventionFlags,
+	parentReportTokens,
+	rosterEntries,
+} from "@/lib/db/schema";
+import { getTopicForDate } from "@/lib/pacing";
 import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +71,15 @@ export default async function ReportPage({ params }: PageProps) {
 		.from(classes)
 		.where(eq(classes.id, flag.classId));
 
+	// Fetch the assignment for the date the flag was detected
+	const flagDate = flag.detectedAt.toISOString().slice(0, 10);
+	const [assignmentRow] = await db
+		.select({ content: classAssignments.content })
+		.from(classAssignments)
+		.where(and(eq(classAssignments.classId, flag.classId), eq(classAssignments.date, flagDate)));
+
 	const standard = FL_BEST_STANDARDS.find((s) => s.code === flag.standardCode);
+	const currentTopic = getTopicForDate(new Date().toISOString().slice(0, 10));
 	const studentDisplay = roster
 		? `${roster.firstInitial}.${roster.lastInitial}. (ID: ${roster.studentId})`
 		: "Your student";
@@ -102,12 +117,13 @@ export default async function ReportPage({ params }: PageProps) {
 				fontFamily: "Georgia, 'Times New Roman', serif",
 				background: "#fff",
 				color: "#1a1a1a",
-				padding: "2.5rem",
+				padding: "1.5rem",
 				maxWidth: "680px",
 				margin: "0 auto",
 			}}
 		>
 			<style>{`
+        @media (min-width: 480px) { .report-wrap { padding: 2.5rem !important; } }
         @media print {
           .no-print { display: none !important; }
           body { background: #fff; }
@@ -225,6 +241,62 @@ export default async function ReportPage({ params }: PageProps) {
 					))}
 				</ul>
 			</div>
+
+			{/* Tonight's assignment — shown if teacher set one for the session date */}
+			{assignmentRow?.content && (
+				<div style={{ marginBottom: "1.5rem" }}>
+					<h2
+						style={{
+							fontSize: "0.8rem",
+							textTransform: "uppercase",
+							letterSpacing: "0.08em",
+							color: "#555",
+							marginBottom: "0.5rem",
+						}}
+					>
+						Tonight&apos;s Practice
+					</h2>
+					<div
+						style={{
+							background: "#eef2ff",
+							borderLeft: "4px solid #4f46e5",
+							padding: "0.75rem 1rem",
+							borderRadius: "2px",
+						}}
+					>
+						<p style={{ lineHeight: 1.65, margin: 0, fontFamily: "system-ui, sans-serif" }}>
+							{assignmentRow.content}
+						</p>
+					</div>
+				</div>
+			)}
+
+			{/* What the class is working on right now */}
+			{currentTopic && (
+				<div style={{ marginBottom: "1.5rem" }}>
+					<h2
+						style={{
+							fontSize: "0.8rem",
+							textTransform: "uppercase",
+							letterSpacing: "0.08em",
+							color: "#555",
+							marginBottom: "0.5rem",
+						}}
+					>
+						Currently in Class
+					</h2>
+					<p style={{ lineHeight: 1.65, fontFamily: "system-ui, sans-serif", fontSize: "0.9rem" }}>
+						Topic {currentTopic.roman}: <strong>{currentTopic.title}</strong>
+						{currentTopic.standardCodes.length > 0 && (
+							<span style={{ color: "#777", fontSize: "0.8rem" }}>
+								{" "}
+								({currentTopic.standardCodes.slice(0, 2).join(", ")}
+								{currentTopic.standardCodes.length > 2 ? "…" : ""})
+							</span>
+						)}
+					</p>
+				</div>
+			)}
 
 			{/* Next steps */}
 			<div style={{ marginBottom: "2rem" }}>

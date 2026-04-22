@@ -83,7 +83,6 @@ function SoundcloudWave({
 	const historyRef = useRef<number[]>([]);
 	const rafRef = useRef<number>(0);
 	const lastSampleRef = useRef<number>(0);
-	const synthPhaseRef = useRef(0);
 	const activeRef = useRef(active);
 	const teacherLevelRef = useRef(teacherLevel);
 	activeRef.current = active;
@@ -243,6 +242,7 @@ type Props = {
 	groupBalance: number | null;
 	groupName: string | null;
 	joinCode: string;
+	todayAssignment: string | null;
 };
 
 export function StudentSession({
@@ -256,6 +256,7 @@ export function StudentSession({
 	groupBalance,
 	groupName,
 	joinCode,
+	todayAssignment,
 }: Props) {
 	const router = useRouter();
 	const [currentSignal, setCurrentSignal] = useState<Signal | null>(initialSignal);
@@ -447,6 +448,16 @@ export function StudentSession({
 								{groupName}: {groupBalance} pts
 							</div>
 						)}
+					</div>
+				)}
+
+				{/* Tonight's practice assignment */}
+				{todayAssignment && (
+					<div className="w-full max-w-xs rounded-xl bg-indigo-500/10 border border-indigo-500/25 px-4 py-3 text-center">
+						<p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-1">
+							📚 Tonight&apos;s Practice
+						</p>
+						<p className="text-sm font-semibold text-slate-200 leading-snug">{todayAssignment}</p>
 					</div>
 				)}
 			</div>

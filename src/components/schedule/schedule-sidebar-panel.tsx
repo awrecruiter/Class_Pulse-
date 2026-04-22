@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ScheduleDocLink } from "@/hooks/use-schedule-today";
 import { useScheduleToday } from "@/hooks/use-schedule-today";
+import { getTodayPacing } from "@/lib/pacing";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,8 @@ function nextWeekday(from: Date): Date {
 export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () => void }) {
 	const { blocks, loading } = useScheduleToday();
 	const [scheduleDocOpenMode, setScheduleDocOpenMode] = useState<"toast" | "new-tab">("toast");
+	const [topicOverride, setTopicOverride] = useState<number | null>(null);
+	const todayPacing = getTodayPacing(undefined, topicOverride);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [tomorrowBlocks, setTomorrowBlocks] = useState<typeof blocks>([]);
 	const [tomorrowLoading, setTomorrowLoading] = useState(false);
@@ -175,6 +178,8 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 			.then((j) => {
 				if (j.settings?.scheduleDocOpenMode)
 					setScheduleDocOpenMode(j.settings.scheduleDocOpenMode as "toast" | "new-tab");
+				if (typeof j.settings?.currentTopicNumber === "number")
+					setTopicOverride(j.settings.currentTopicNumber);
 			})
 			.catch(() => {});
 	}, []);
@@ -237,6 +242,50 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 			<div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
 				{label}
 			</div>
+
+			{/* Current pacing topic badge — only shown for today */}
+			{!dayIsOver && todayPacing && (
+				<div className="mx-3 mb-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5">
+					<p className="text-[9px] font-bold uppercase tracking-widest text-indigo-400 mb-0.5">
+						Topic {todayPacing.topic.roman}
+						{todayPacing.topic.isReview
+							? " · FAST Review"
+							: todayPacing.topic.isG6Prep
+								? " · Gr 6 Prep"
+								: ""}
+					</p>
+					<p className="text-[11px] font-semibold text-slate-300 leading-tight">
+						{todayPacing.topic.title}
+					</p>
+					{todayPacing.currentLesson && (
+						<p className="text-[10px] text-slate-500 mt-0.5">
+							Lesson {todayPacing.currentLesson.number} · {todayPacing.currentLesson.title}
+						</p>
+					)}
+					{todayPacing.topic.standardCodes.length > 0 && (
+						<div className="flex flex-wrap gap-1 mt-1">
+							{todayPacing.topic.standardCodes.slice(0, 3).map((code) => (
+								<span
+									key={code}
+									className="text-[9px] font-mono text-indigo-400/70 bg-indigo-500/10 rounded px-1 py-0.5"
+								>
+									{code}
+								</span>
+							))}
+							{todayPacing.topic.standardCodes.length > 3 && (
+								<span className="text-[9px] text-slate-600">
+									+{todayPacing.topic.standardCodes.length - 3}
+								</span>
+							)}
+						</div>
+					)}
+					{todayPacing.isFastWindow && (
+						<p className="text-[9px] font-bold text-amber-400 mt-1">
+							⚡ FAST Testing Window Active
+						</p>
+					)}
+				</div>
+			)}
 			{/* Fixed-height scroll window — hides scrollbar track */}
 			<div
 				ref={scrollRef}

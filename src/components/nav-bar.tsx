@@ -2,6 +2,7 @@
 
 import {
 	BookOpenIcon,
+	CalendarDays,
 	GraduationCapIcon,
 	LogOutIcon,
 	MessageSquareIcon,
@@ -203,6 +204,7 @@ function UserMenu() {
 const NAV_LINKS = [
 	{ href: "/coach", label: "Coach", icon: GraduationCapIcon },
 	{ href: "/classes", label: "Classes", icon: UsersIcon },
+	{ href: "/pacing", label: "Pacing", icon: CalendarDays },
 	{ href: "/gradebook", label: "Gradebook", icon: BookOpenIcon },
 	{ href: "/store", label: "Store", icon: ShoppingBagIcon },
 	{ href: "/board", label: "Board", icon: MonitorIcon },

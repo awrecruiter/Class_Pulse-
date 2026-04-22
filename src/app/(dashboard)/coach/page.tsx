@@ -23,6 +23,7 @@ import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
 import type { VisualResponse } from "@/app/api/coach/visualize/route";
 import { AmbientHud } from "@/components/coach/ambient-hud";
 import { ComprehensionPanel, type SignalMap } from "@/components/coach/comprehension-panel";
+import { DailyAssignmentInput } from "@/components/coach/daily-assignment-input";
 import { DiPanel } from "@/components/coach/di-panel";
 import { GroupsSidebarPanel } from "@/components/coach/groups-sidebar-panel";
 import { InterventionPanel } from "@/components/coach/intervention-panel";
@@ -1250,71 +1251,80 @@ export default function CoachPage() {
 						)}
 
 						{/* Session start/stop + waveform zone */}
-						{classes.length > 0 &&
-							showOrbArea &&
-							inputMode !== "di" &&
-							!(inputMode === "ask" && scaffoldResponse) && (
-								<div
-									className="shrink-0 flex flex-col items-center justify-center px-6 gap-3"
-									style={{ height: 160 }}
-								>
-									<WaveformMeter
-										active={isListening || !!activeSessionId}
-										height={72}
-										className="w-full"
-										onAmplitude={handleAmplitude}
-									/>
-									{/* Standard tag — shown before session starts */}
-									{!activeSessionId && (
-										<div className="w-full px-1">
-											<SessionStandardTag
-												value={sessionStandardCode}
-												onChange={setSessionStandardCode}
-											/>
+						{/* WaveformMeter is always mounted when a session is live so the noise
+						    feed keeps flowing to students even in DI mode or scaffold view.
+						    CSS hidden removes it from layout while keeping the mic + onAmplitude active. */}
+						{classes.length > 0 && showOrbArea && (
+							<div
+								className={`shrink-0 flex flex-col items-center justify-center px-6 gap-3${
+									inputMode === "di" || (inputMode === "ask" && scaffoldResponse) ? " hidden" : ""
+								}`}
+								style={{ height: 160 }}
+							>
+								<WaveformMeter
+									active={isListening || !!activeSessionId}
+									height={72}
+									className="w-full"
+									onAmplitude={handleAmplitude}
+								/>
+								{/* Standard tag — shown before session starts */}
+								{!activeSessionId && (
+									<div className="w-full px-1">
+										<SessionStandardTag
+											value={sessionStandardCode}
+											onChange={setSessionStandardCode}
+										/>
+									</div>
+								)}
+
+								{/* Session toggle */}
+								<div className="flex flex-col items-center gap-2">
+									<button
+										type="button"
+										onClick={handleSessionToggle}
+										disabled={!selectedClassId}
+										className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40 ${
+											activeSessionId
+												? "bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
+												: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
+										}`}
+									>
+										{activeSessionId ? (
+											<>
+												<SquareIcon className="h-4 w-4 fill-current" /> Stop Session
+											</>
+										) : (
+											<>
+												<RadioIcon className="h-4 w-4" /> Go Live
+											</>
+										)}
+									</button>
+									{activeSessionId && activeJoinCode && (
+										<div className="flex items-center gap-2">
+											<span className="text-xs text-slate-500">Code:</span>
+											<span className="font-mono font-black tracking-widest text-amber-400 text-base">
+												{activeJoinCode}
+											</span>
+											<button
+												type="button"
+												onClick={() => navigator.clipboard.writeText(activeJoinCode)}
+												title="Copy join code"
+												className="text-slate-600 hover:text-amber-400 transition-colors"
+											>
+												<CopyIcon className="h-3.5 w-3.5" />
+											</button>
 										</div>
 									)}
-
-									{/* Session toggle */}
-									<div className="flex flex-col items-center gap-2">
-										<button
-											type="button"
-											onClick={handleSessionToggle}
-											disabled={!selectedClassId}
-											className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40 ${
-												activeSessionId
-													? "bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
-													: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
-											}`}
-										>
-											{activeSessionId ? (
-												<>
-													<SquareIcon className="h-4 w-4 fill-current" /> Stop Session
-												</>
-											) : (
-												<>
-													<RadioIcon className="h-4 w-4" /> Go Live
-												</>
-											)}
-										</button>
-										{activeSessionId && activeJoinCode && (
-											<div className="flex items-center gap-2">
-												<span className="text-xs text-slate-500">Code:</span>
-												<span className="font-mono font-black tracking-widest text-amber-400 text-base">
-													{activeJoinCode}
-												</span>
-												<button
-													type="button"
-													onClick={() => navigator.clipboard.writeText(activeJoinCode)}
-													title="Copy join code"
-													className="text-slate-600 hover:text-amber-400 transition-colors"
-												>
-													<CopyIcon className="h-3.5 w-3.5" />
-												</button>
-											</div>
-										)}
-									</div>
 								</div>
-							)}
+							</div>
+						)}
+
+						{/* Daily homework assignment — shown when a class is selected */}
+						{selectedClassId && showOrbArea && inputMode !== "di" && (
+							<div className="px-3 pb-1">
+								<DailyAssignmentInput classId={selectedClassId} />
+							</div>
+						)}
 
 						{/* Groups zone — fixed height, no scroll */}
 						{classes.length > 0 && showOrbArea && inputMode !== "di" && (
