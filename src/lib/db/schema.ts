@@ -894,6 +894,58 @@ export const pacingLessonPlacements = pgTable(
 	],
 );
 
+// Shared district/school defaults for lesson resources (slides, book page, worksheet, video)
+// Seeded via CSV at year start; no teacherId — applies to all teachers
+export const lessonResourceDefaults = pgTable(
+	"lesson_resource_defaults",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		topicNumber: integer("topic_number").notNull(), // 1–18
+		lessonNumber: text("lesson_number").notNull(), // e.g. "14.1"
+		resourceType: text("resource_type").notNull(), // "slides"|"book"|"worksheet"|"video"|"other"
+		label: text("label").notNull(),
+		url: text("url").notNull(),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_lesson_resource_defaults_topic_lesson_type").on(
+			table.topicNumber,
+			table.lessonNumber,
+			table.resourceType,
+		),
+		index("idx_lesson_resource_defaults_topic").on(table.topicNumber),
+	],
+);
+
+// Per-teacher resource overrides and additions
+// isHidden=true means teacher is suppressing a shared default for that type
+export const lessonResources = pgTable(
+	"lesson_resources",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		topicNumber: integer("topic_number").notNull(),
+		lessonNumber: text("lesson_number").notNull(),
+		resourceType: text("resource_type").notNull(),
+		label: text("label").notNull(),
+		url: text("url").notNull(),
+		isHidden: boolean("is_hidden").notNull().default(false),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_lesson_resources_teacher_lesson_type").on(
+			table.teacherId,
+			table.topicNumber,
+			table.lessonNumber,
+			table.resourceType,
+		),
+		index("idx_lesson_resources_teacher_id").on(table.teacherId),
+	],
+);
+
 // Teacher's pacing guide — which FL BEST standard is taught which week
 export const pacingGuideEntries = pgTable(
 	"pacing_guide_entries",

@@ -45,6 +45,11 @@ export const VOICE_SURFACES: VoiceSurface[] = [
 			"message parent",
 			"show schedule",
 			"open schedule doc",
+			"open slides",
+			"open book",
+			"open worksheet",
+			"open video",
+			"open resource",
 		],
 	},
 	{

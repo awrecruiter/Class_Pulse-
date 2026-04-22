@@ -7,6 +7,7 @@ import type { QueueItem } from "@/contexts/voice-queue";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import type { BoardCommand } from "@/hooks/use-board-voice";
 import { useGlobalVoiceCommands } from "@/hooks/use-global-voice-commands";
+import { getTodayPacing } from "@/lib/pacing";
 import {
 	readBooleanPreference,
 	TOASTS_ENABLED_KEY,
@@ -17,6 +18,7 @@ import {
 	getVoiceSurfaceSummary,
 	matchNavigationDestination,
 } from "@/lib/voice/registry";
+import type { LessonResource } from "@/types";
 import { QueueDrawer } from "./queue-drawer";
 
 export function VoiceCommandProvider({ children }: { children: React.ReactNode }) {
@@ -393,6 +395,29 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			return;
 		}
 
+		if (data.type === "open_resource") {
+			const pacing = getTodayPacing();
+			if (!pacing?.currentLesson) {
+				toast.error("No active lesson to open resources for");
+				return;
+			}
+			const topicNumber = pacing.topic.number;
+			const lessonNum = pacing.currentLesson.number;
+			fetch(`/api/resources/lesson?topic=${topicNumber}&lesson=${encodeURIComponent(lessonNum)}`)
+				.then((r) => r.json())
+				.then(({ resources }: { resources: LessonResource[] }) => {
+					const match = resources.find((r) => r.resourceType === data.resourceType);
+					if (match) {
+						window.open(match.url, "_blank", "noopener,noreferrer");
+						toast.success(`Opening ${match.label}`);
+					} else {
+						toast.error(`No ${data.resourceType} linked for Lesson ${lessonNum}`);
+					}
+				})
+				.catch(() => toast.error("Could not load resources"));
+			return;
+		}
+
 		if (data.type === "parent_message") {
 			enqueue(data, transcript);
 			return;
@@ -600,6 +625,26 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					executeMoveToGroupRef.current(moveMatch[1], rawGroup);
 					return;
 				}
+			}
+
+			// Fast-path: "open [resource type]" — open today's lesson resource without AI
+			const openResourceMatch =
+				/\bopen\s+(slides?|slide\s*deck|powerpoint|ppt|book|textbook|worksheet|video)\b/i.exec(
+					transcript,
+				);
+			if (openResourceMatch) {
+				const rawType = openResourceMatch[1].toLowerCase();
+				const resourceType: "slides" | "book" | "worksheet" | "video" = /slide|power|ppt/.test(
+					rawType,
+				)
+					? "slides"
+					: /book|text/.test(rawType)
+						? "book"
+						: /work|sheet/.test(rawType)
+							? "worksheet"
+							: "video";
+				handleCommand({ type: "open_resource", resourceType }, transcript);
+				return;
 			}
 
 			// Fast-path: give/award [name] [amount] (ram) bucks

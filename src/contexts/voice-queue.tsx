@@ -45,7 +45,8 @@ export type QueueItemData =
 	| { type: "approve_purchase"; studentName?: string; itemName?: string }
 	| { type: "reject_purchase"; studentName?: string; itemName?: string }
 	| { type: "draft_parent_message"; studentName: string; messageText: string }
-	| { type: "send_parent_message"; studentName: string; messageText: string };
+	| { type: "send_parent_message"; studentName: string; messageText: string }
+	| { type: "open_resource"; resourceType: "slides" | "book" | "worksheet" | "video" | "other" };
 
 export interface QueueItem {
 	id: string;

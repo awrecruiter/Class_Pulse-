@@ -3,6 +3,7 @@
 import {
 	BookOpenIcon,
 	CalendarDays,
+	FolderOpenIcon,
 	GraduationCapIcon,
 	LogOutIcon,
 	MessageSquareIcon,
@@ -205,6 +206,7 @@ const NAV_LINKS = [
 	{ href: "/coach", label: "Coach", icon: GraduationCapIcon },
 	{ href: "/classes", label: "Classes", icon: UsersIcon },
 	{ href: "/pacing", label: "Pacing", icon: CalendarDays },
+	{ href: "/resources", label: "Resources", icon: FolderOpenIcon },
 	{ href: "/gradebook", label: "Gradebook", icon: BookOpenIcon },
 	{ href: "/store", label: "Store", icon: ShoppingBagIcon },
 	{ href: "/board", label: "Board", icon: MonitorIcon },

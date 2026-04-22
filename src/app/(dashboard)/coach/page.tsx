@@ -34,6 +34,7 @@ import { RemediationFlow } from "@/components/coach/remediation-flow";
 import { SessionStandardTag } from "@/components/coach/session-standard-tag";
 import { StandardPicker } from "@/components/coach/standard-picker";
 import { TeacherLedgerSheet } from "@/components/coach/teacher-ledger-sheet";
+import { TodayResourcesPanel } from "@/components/coach/today-resources-panel";
 import { WaveformMeter } from "@/components/coach/waveform-meter";
 import { ScheduleSidebarPanel } from "@/components/schedule/schedule-sidebar-panel";
 import { useVoiceQueue } from "@/contexts/voice-queue";
@@ -41,6 +42,7 @@ import { useLectureTranscript } from "@/hooks/use-lecture-transcript";
 import { useMicSlot } from "@/hooks/use-mic-manager";
 import type { CoachResponse } from "@/lib/ai/coach";
 import { playActivationChime } from "@/lib/chime";
+import { getTodayPacing } from "@/lib/pacing";
 import { GLOBAL_VOICE_ONLY_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 import { type ParentCommsPreselect, useCoachClassroom } from "./use-coach-classroom";
 import { useCoachVoiceEvents } from "./use-coach-voice-events";
@@ -1325,6 +1327,23 @@ export default function CoachPage() {
 								<DailyAssignmentInput classId={selectedClassId} />
 							</div>
 						)}
+
+						{/* Today's lesson resources — shown when a class is selected and pacing is active */}
+						{selectedClassId &&
+							showOrbArea &&
+							inputMode !== "di" &&
+							(() => {
+								const p = getTodayPacing();
+								if (!p?.currentLesson) return null;
+								return (
+									<div className="px-3 pb-1">
+										<TodayResourcesPanel
+											topicNumber={p.topic.number}
+											lessonNumber={p.currentLesson.number}
+										/>
+									</div>
+								);
+							})()}
 
 						{/* Groups zone — fixed height, no scroll */}
 						{classes.length > 0 && showOrbArea && inputMode !== "di" && (
