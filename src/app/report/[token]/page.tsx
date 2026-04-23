@@ -1,12 +1,15 @@
 import { and, desc, eq, gt, gte, sql } from "drizzle-orm";
 import {
+	AlertTriangle,
 	BookOpen,
+	Check,
 	ExternalLink,
 	GraduationCap,
 	MessageCircle,
 	ShieldAlert,
 	Siren,
 	TriangleAlert,
+	X,
 } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -198,39 +201,105 @@ export default async function ReportPage({ params }: PageProps) {
 	const behaviorLabel =
 		step === 0 ? "No incidents" : step <= 2 ? `Step ${step} of 8 — minor` : `Step ${step} of 8`;
 
+	const behaviorColor = step <= 2 ? "bg-emerald-500" : step >= 5 ? "bg-rose-500" : "bg-amber-400";
+	const behaviorStatus = step <= 2 ? "Good standing" : step >= 5 ? "Needs attention" : "Monitor";
+	const behaviorIcon =
+		step <= 2 ? (
+			<Check size={32} strokeWidth={3} className="text-white" />
+		) : step >= 5 ? (
+			<X size={32} strokeWidth={3} className="text-white" />
+		) : (
+			<AlertTriangle size={28} strokeWidth={2.5} className="text-white" />
+		);
+
+	const academicColor =
+		signal === "got-it"
+			? "bg-emerald-500"
+			: signal === "lost" || isUrgent
+				? "bg-rose-500"
+				: "bg-amber-400";
+	const academicStatus =
+		signal === "got-it"
+			? "On track"
+			: signal === "lost" || isUrgent
+				? "Needs support"
+				: signal === "almost"
+					? "Getting there"
+					: "Flagged";
+	const academicIcon =
+		signal === "got-it" ? (
+			<Check size={32} strokeWidth={3} className="text-white" />
+		) : signal === "lost" || isUrgent ? (
+			<X size={32} strokeWidth={3} className="text-white" />
+		) : (
+			<AlertTriangle size={28} strokeWidth={2.5} className="text-white" />
+		);
+
 	const conversationStarter =
 		signal === "lost" || signal === "almost"
 			? `"Can you show me one problem you worked on today? I want to practice ${topic} with you."`
 			: `"What's one thing you learned about ${topic} today? Teach it to me!"`;
 
 	return (
-		<div className="min-h-screen bg-[#0c0c14]">
+		<div className="min-h-screen bg-[#F5F5F7]">
 			<style>{`@media print { .no-print { display: none !important; } }`}</style>
 
 			<div className="max-w-sm mx-auto px-4 pt-8 pb-10 space-y-3">
 				{/* Identity */}
 				<div className="pb-2">
-					<p className="flex items-center gap-1.5 text-[10px] text-zinc-600 font-semibold uppercase tracking-widest mb-2">
+					<p className="flex items-center gap-1.5 text-[10px] text-[#86868B] font-semibold uppercase tracking-widest mb-2">
 						<span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
 						Class Pulse · {cls?.label}
 					</p>
 					<div className="flex items-end justify-between">
-						<h1 className="text-3xl font-bold text-white">{studentDisplay}</h1>
-						<p className="text-xs text-zinc-600 pb-1">{dateStr}</p>
+						<h1 className="text-3xl font-bold text-[#1D1D1F]">{studentDisplay}</h1>
+						<p className="text-xs text-[#86868B] pb-1">{dateStr}</p>
 					</div>
-					{studentId && <p className="text-xs text-zinc-600 mt-0.5">ID {studentId}</p>}
+					{studentId && <p className="text-xs text-[#86868B] mt-0.5">ID {studentId}</p>}
+				</div>
+
+				{/* Status tiles */}
+				<div className="grid grid-cols-2 gap-3">
+					{/* Behavior tile */}
+					<div className="rounded-2xl bg-white shadow-sm border border-black/5 py-5 flex flex-col items-center gap-3">
+						<div
+							role="img"
+							aria-label={`Behavior: ${behaviorStatus}`}
+							className={`w-16 h-16 rounded-full ${behaviorColor} flex items-center justify-center shadow-sm`}
+						>
+							{behaviorIcon}
+						</div>
+						<div className="flex items-center gap-1.5">
+							<ShieldAlert size={13} className="text-[#86868B] shrink-0" />
+							<p className="text-sm font-semibold text-[#1D1D1F]">Behavior</p>
+						</div>
+					</div>
+					{/* Academics tile */}
+					<div className="rounded-2xl bg-white shadow-sm border border-black/5 py-5 flex flex-col items-center gap-3">
+						<div
+							role="img"
+							aria-label={`Academics: ${academicStatus}`}
+							className={`w-16 h-16 rounded-full ${academicColor} flex items-center justify-center shadow-sm`}
+						>
+							{academicIcon}
+						</div>
+						<div className="flex items-center gap-1.5">
+							<GraduationCap size={13} className="text-[#86868B] shrink-0" />
+							<p className="text-sm font-semibold text-[#1D1D1F]">Academics</p>
+						</div>
+					</div>
 				</div>
 
 				{/* Homework — only when assigned */}
 				{assignmentRow?.content && (
-					<div className="rounded-2xl border border-violet-500 bg-violet-500/10 overflow-hidden">
+					<div className="rounded-2xl bg-white shadow-sm border border-black/5 overflow-hidden">
 						<div className="flex items-center gap-2 px-4 pt-3.5 pb-1.5">
-							<BookOpen size={13} className="text-violet-400 shrink-0" />
-							<span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">
+							<BookOpen size={13} className="text-violet-500 shrink-0" />
+							<span className="text-[10px] font-semibold text-violet-500 uppercase tracking-widest">
 								Tonight's Homework
 							</span>
 						</div>
-						<p className="px-4 pb-4 text-white text-lg font-semibold leading-snug">
+						<p className="px-4 pb-4 text-[#1D1D1F] text-lg font-semibold leading-snug">
 							{assignmentRow.content}
 						</p>
 					</div>
@@ -238,48 +307,46 @@ export default async function ReportPage({ params }: PageProps) {
 
 				{/* Comprehension — only when student signalled */}
 				{comp && (
-					<div className={`rounded-2xl border ${comp.border} ${comp.bg} px-4 py-3.5`}>
-						<p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${comp.label}`}>
+					<div className={`rounded-2xl bg-white shadow-sm border border-black/5 px-4 py-3.5`}>
+						<p className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${comp.label}`}>
 							How They Did Today
 						</p>
 						<div className="flex items-start gap-3">
 							<span className="text-2xl leading-none">{comp.emoji}</span>
 							<div>
-								<p className="text-white font-semibold">{comp.headline}</p>
-								<p className="text-sm text-zinc-400 mt-0.5">{comp.sub}</p>
+								<p className="text-[#1D1D1F] font-semibold">{comp.headline}</p>
+								<p className="text-sm text-[#86868B] mt-0.5">{comp.sub}</p>
 							</div>
 						</div>
 					</div>
 				)}
 
 				{/* Teacher flag */}
-				<div
-					className={`rounded-2xl border overflow-hidden ${isUrgent ? "border-rose-500 bg-rose-500/10" : "border-amber-500 bg-amber-500/10"}`}
-				>
-					<div className="flex items-center gap-2 px-4 pt-3.5 pb-1.5">
+				<div className="rounded-2xl bg-white shadow-sm border border-black/5 overflow-hidden">
+					<div className={`flex items-center gap-2 px-4 pt-3.5 pb-1.5`}>
 						{isUrgent ? (
-							<Siren size={13} className="text-rose-400 shrink-0" />
+							<Siren size={13} className="text-rose-500 shrink-0" />
 						) : (
-							<TriangleAlert size={13} className="text-amber-400 shrink-0" />
+							<TriangleAlert size={13} className="text-amber-500 shrink-0" />
 						)}
 						<span
-							className={`text-[10px] font-bold uppercase tracking-widest ${isUrgent ? "text-rose-400" : "text-amber-400"}`}
+							className={`text-[10px] font-semibold uppercase tracking-widest ${isUrgent ? "text-rose-500" : "text-amber-500"}`}
 						>
 							Teacher Flag
 						</span>
 					</div>
 					<div className="px-4 pb-4 space-y-1">
-						<p className="text-white font-semibold text-lg leading-snug">
+						<p className="text-[#1D1D1F] font-semibold text-lg leading-snug">
 							{isUrgent ? "Struggling across multiple topics" : `Difficulty with ${topic}`}
 						</p>
-						<p className="text-sm text-zinc-300 leading-relaxed">
+						<p className="text-sm text-[#86868B] leading-relaxed">
 							{isUrgent
 								? "A pattern across several math areas has been flagged. Extra support is recommended."
 								: `Seen in ${flag.sessionCount} recent class session${flag.sessionCount !== 1 ? "s" : ""}. A little practice at home makes a big difference.`}
 						</p>
 						{currentTopic && (
-							<p className="text-xs text-zinc-500 pt-1">
-								Class is on: <span className="text-zinc-400">{currentTopic.title}</span>
+							<p className="text-xs text-[#86868B] pt-1">
+								Class is on: <span className="text-[#1D1D1F]">{currentTopic.title}</span>
 							</p>
 						)}
 					</div>
@@ -287,7 +354,7 @@ export default async function ReportPage({ params }: PageProps) {
 
 				{/* Actions */}
 				<div className="space-y-2 pt-1">
-					<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+					<p className="text-[10px] font-semibold text-[#86868B] uppercase tracking-widest">
 						What to do right now
 					</p>
 
@@ -297,69 +364,45 @@ export default async function ReportPage({ params }: PageProps) {
 								href={ixlSkill.url}
 								target="_blank"
 								rel="noopener noreferrer"
-								className="rounded-xl border border-sky-500 bg-sky-500/10 px-3 py-3.5 flex flex-col gap-3 no-underline active:opacity-75"
+								className="rounded-2xl bg-white shadow-sm border border-black/5 px-3 py-3.5 flex flex-col gap-3 no-underline active:opacity-75"
 							>
-								<ExternalLink size={16} className="text-sky-400" />
+								<ExternalLink size={16} className="text-sky-500" />
 								<div>
-									<p className="text-[10px] font-bold text-sky-400 uppercase tracking-wide">
+									<p className="text-[10px] font-semibold text-sky-500 uppercase tracking-wide">
 										IXL Practice
 									</p>
-									<p className="text-sm font-bold text-white leading-snug mt-0.5">
+									<p className="text-sm font-semibold text-[#1D1D1F] leading-snug mt-0.5">
 										{ixlSkill.name}
 									</p>
-									<p className="text-[10px] text-sky-500 mt-1">Tap to open →</p>
+									<p className="text-[10px] text-[#86868B] mt-1">Tap to open →</p>
 								</div>
 							</a>
 						)}
 						<a
-							href={`https://www.khanacademy.org/search?page_search_query=${encodeURIComponent(topic + " grade 5 math")}`}
+							href={`https://www.khanacademy.org/search?page_search_query=${encodeURIComponent(`${topic} grade 5 math`)}`}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="rounded-xl border border-teal-500 bg-teal-500/10 px-3 py-3.5 flex flex-col gap-3 no-underline active:opacity-75"
+							className="rounded-2xl bg-white shadow-sm border border-black/5 px-3 py-3.5 flex flex-col gap-3 no-underline active:opacity-75"
 						>
-							<GraduationCap size={16} className="text-teal-400" />
+							<GraduationCap size={16} className="text-teal-500" />
 							<div>
-								<p className="text-[10px] font-bold text-teal-400 uppercase tracking-wide">
+								<p className="text-[10px] font-semibold text-teal-500 uppercase tracking-wide">
 									Khan Academy
 								</p>
-								<p className="text-sm font-bold text-white leading-snug mt-0.5">{topic}</p>
-								<p className="text-[10px] text-teal-500 mt-1">Free · Tap to open →</p>
+								<p className="text-sm font-semibold text-[#1D1D1F] leading-snug mt-0.5">{topic}</p>
+								<p className="text-[10px] text-[#86868B] mt-1">Free · Tap to open →</p>
 							</div>
 						</a>
 					</div>
 
-					<div className="rounded-xl border border-fuchsia-500 bg-fuchsia-500/10 px-4 py-3.5">
+					<div className="rounded-2xl bg-white shadow-sm border border-black/5 px-4 py-3.5">
 						<div className="flex items-center gap-2 mb-2">
-							<MessageCircle size={13} className="text-fuchsia-400 shrink-0" />
-							<p className="text-[10px] font-bold text-fuchsia-400 uppercase tracking-widest">
+							<MessageCircle size={13} className="text-fuchsia-500 shrink-0" />
+							<p className="text-[10px] font-semibold text-fuchsia-500 uppercase tracking-widest">
 								Ask them tonight
 							</p>
 						</div>
-						<p className="text-sm text-zinc-100 leading-relaxed italic">{conversationStarter}</p>
-					</div>
-				</div>
-
-				{/* Behavior strip */}
-				<div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 flex items-center justify-between">
-					<div className="flex items-center gap-2.5">
-						<span
-							className={`w-2 h-2 rounded-full shrink-0 ${behaviorOk ? "bg-emerald-500" : step >= 5 ? "bg-rose-500" : "bg-amber-500"}`}
-						/>
-						<div>
-							<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">
-								Behavior
-							</p>
-							<p className="text-sm font-medium text-zinc-200">{behaviorLabel}</p>
-						</div>
-					</div>
-					<div className="text-right">
-						<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">RAM Bucks</p>
-						<p className="text-sm font-medium text-zinc-200">
-							{balance} pts
-							{weekEarned > 0 && (
-								<span className="text-emerald-400 text-xs ml-1">+{weekEarned} wk</span>
-							)}
-						</p>
+						<p className="text-sm text-[#1D1D1F] leading-relaxed italic">{conversationStarter}</p>
 					</div>
 				</div>
 
@@ -367,7 +410,7 @@ export default async function ReportPage({ params }: PageProps) {
 					<PrintButton />
 				</div>
 
-				<p className="text-[10px] text-zinc-700 text-center leading-relaxed">
+				<p className="text-[10px] text-[#86868B] text-center leading-relaxed">
 					Class Pulse · Initials + ID only per FERPA · Link expires in 30 days
 				</p>
 			</div>
