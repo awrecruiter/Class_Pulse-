@@ -18,10 +18,19 @@ vi.mock("@/lib/db", () => ({
 	db: {
 		select: () => ({
 			from: () => ({
-				where: () => selectWhereMock(),
-				orderBy: () => ({
-					limit: () => selectWhereMock(),
-				}),
+				// where() must support two call patterns:
+				//   1. db.select().from().where()                    — awaited directly
+				//   2. db.select().from().where().orderBy().limit()  — sendLatestPush chain
+				where: () => {
+					const result = selectWhereMock();
+					// Attach orderBy so the sendLatestPush chain doesn't throw
+					if (result && typeof result === "object") {
+						(result as Record<string, unknown>).orderBy = () => ({
+							limit: () => selectWhereMock(),
+						});
+					}
+					return result;
+				},
 			}),
 		}),
 	},

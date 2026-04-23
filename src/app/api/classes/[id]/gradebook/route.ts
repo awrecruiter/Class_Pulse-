@@ -167,11 +167,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 		if (account) {
 			const AWARD_AMOUNT = 5;
+			// Atomic balance update — avoids read-modify-write race under concurrent CFU posts.
 			await db
 				.update(ramBuckAccounts)
 				.set({
-					balance: account.balance + AWARD_AMOUNT,
-					lifetimeEarned: account.lifetimeEarned + AWARD_AMOUNT,
+					balance: sql`GREATEST(0, ${ramBuckAccounts.balance} + ${AWARD_AMOUNT})`,
+					lifetimeEarned: sql`${ramBuckAccounts.lifetimeEarned} + ${AWARD_AMOUNT}`,
 					updatedAt: new Date(),
 				})
 				.where(

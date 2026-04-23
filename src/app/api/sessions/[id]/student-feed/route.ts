@@ -10,6 +10,7 @@ import {
 	teacherSettings,
 } from "@/lib/db/schema";
 import { getNoiseLevel } from "@/lib/noise-store";
+import type { StudentFeedNoiseEvent } from "@/types";
 
 const SESSION_POLL_MS = 5000;
 
@@ -206,11 +207,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			// Forward teacher mic amplitude to student waveform every 200ms
 			noiseInterval = setInterval(() => {
 				if (closed) return;
-				const level = getNoiseLevel(sessionId);
+				const noiseEvent: StudentFeedNoiseEvent = {
+					type: "noise",
+					level: getNoiseLevel(sessionId),
+				};
 				try {
-					controller.enqueue(
-						encoder.encode(`data: ${JSON.stringify({ type: "noise", level })}\n\n`),
-					);
+					controller.enqueue(encoder.encode(`data: ${JSON.stringify(noiseEvent)}\n\n`));
 				} catch {
 					safeClose();
 				}

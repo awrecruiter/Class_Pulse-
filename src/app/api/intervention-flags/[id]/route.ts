@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
@@ -70,8 +68,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	}
 
 	// action === "send"
-	if (!smsRateLimiter.check(ip).success)
-		return NextResponse.json({ error: "SMS rate limit" }, { status: 429 });
 
 	// Fetch roster entry (initials + studentId only — FERPA)
 	const [roster] = await db
@@ -98,6 +94,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		);
 
 	if (!contact) return NextResponse.json({ error: "No parent contact on file" }, { status: 422 });
+
+	// Rate-limit per teacher IP + recipient phone to prevent burst-sending to many parents
+	if (!smsRateLimiter.check(`${ip}:${contact.phone}`).success)
+		return NextResponse.json({ error: "SMS rate limit" }, { status: 429 });
 
 	// Generate report token
 	const token = crypto.randomBytes(24).toString("hex");

@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -8,6 +6,7 @@ import { db } from "@/lib/db";
 import { ambientAlerts, classSessions } from "@/lib/db/schema";
 import { setNoiseLevel } from "@/lib/noise-store";
 import { ambientScanLimiter } from "@/lib/rate-limit";
+import type { NoiseFrame } from "@/types";
 
 const HIGH_NOISE_THRESHOLD = 75;
 
@@ -37,18 +36,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 
-	const { level } = result.data;
-	setNoiseLevel(sessionId, level);
+	// Build a typed NoiseFrame — level is already validated to [0, 100] by noiseSchema.
+	const frame: NoiseFrame = { level: result.data.level, timestamp: Date.now() };
+	setNoiseLevel(sessionId, frame.level);
 
 	// Log alert only for high-noise events
-	if (level >= HIGH_NOISE_THRESHOLD) {
+	if (frame.level >= HIGH_NOISE_THRESHOLD) {
 		await db.insert(ambientAlerts).values({
 			sessionId,
 			alertType: "noise",
 			severity: "high",
-			details: `Noise level: ${level}`,
+			details: `Noise level: ${frame.level}`,
 		});
 	}
 
-	return NextResponse.json({ ok: true, level });
+	return NextResponse.json({ ok: true, level: frame.level });
 }

@@ -53,8 +53,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
 	if (!sessionRateLimiter.check(ip).success)
 		return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-	if (!smsRateLimiter.check(ip).success)
-		return NextResponse.json({ error: "SMS rate limit exceeded" }, { status: 429 });
 
 	const { data } = await auth.getSession();
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -83,6 +81,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		);
 
 	if (!contact) return NextResponse.json({ error: "No parent contact on file" }, { status: 404 });
+
+	// Rate-limit per teacher IP + recipient phone to prevent burst-sending to many parents
+	if (!smsRateLimiter.check(`${ip}:${contact.phone}`).success)
+		return NextResponse.json({ error: "SMS rate limit exceeded" }, { status: 429 });
 
 	const smsResult = await sendSms(contact.phone, messageBody);
 

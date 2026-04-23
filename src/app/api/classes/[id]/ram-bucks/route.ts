@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
@@ -96,15 +96,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 	if (!account) return NextResponse.json({ error: "Failed to get account" }, { status: 500 });
 
-	// Update balance
-	const newBalance = Math.max(0, account.balance + amount);
-	const lifetimeDelta = amount > 0 ? amount : 0;
-
+	// Atomic balance update — single SQL statement avoids read-modify-write race conditions.
+	// GREATEST(0, ...) is the SQL equivalent of Math.max(0, ...).
 	const [updated] = await db
 		.update(ramBuckAccounts)
 		.set({
-			balance: newBalance,
-			lifetimeEarned: account.lifetimeEarned + lifetimeDelta,
+			balance: sql`GREATEST(0, ${ramBuckAccounts.balance} + ${amount})`,
+			lifetimeEarned: sql`${ramBuckAccounts.lifetimeEarned} + ${amount > 0 ? amount : 0}`,
 			updatedAt: new Date(),
 		})
 		.where(and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)))

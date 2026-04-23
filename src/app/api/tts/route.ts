@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { type NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth/server";
 import { ttsRateLimiter } from "@/lib/rate-limit";
 
 const execFileAsync = promisify(execFile);
@@ -24,13 +25,14 @@ const ALLOWED_VOICES = new Set([
 	"en-US-RogerNeural",
 ]);
 
-export const dynamic = "force-dynamic";
-
 export async function POST(request: NextRequest) {
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
 	if (!ttsRateLimiter.check(ip).success) {
 		return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 	}
+
+	const { data } = await auth.getSession();
+	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
 	let body: { text?: string; voice?: string };
 	try {

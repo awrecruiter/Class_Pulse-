@@ -53,4 +53,25 @@ describe("noise-store", () => {
 		expect(getNoiseLevel("session-a")).toBe(0);
 		expect(getNoiseLevel("session-b")).toBe(80);
 	});
+
+	// ── NoiseFrame contract: clamping ──────────────────────────────────────────
+
+	it("setNoiseLevel clamps level > 100 to 100", async () => {
+		const { setNoiseLevel, getNoiseLevel } = await import("../noise-store");
+		setNoiseLevel("session-clamp-high", 150);
+		expect(getNoiseLevel("session-clamp-high")).toBe(100);
+	});
+
+	it("setNoiseLevel clamps level < 0 to 0", async () => {
+		const { setNoiseLevel, getNoiseLevel } = await import("../noise-store");
+		setNoiseLevel("session-clamp-low", -5);
+		expect(getNoiseLevel("session-clamp-low")).toBe(0);
+	});
+
+	it("getNoiseLevel returns 0 (not undefined or null) when no data has been posted", async () => {
+		const { getNoiseLevel } = await import("../noise-store");
+		const result = getNoiseLevel("session-never-posted");
+		expect(result).toBe(0);
+		expect(typeof result).toBe("number");
+	});
 });

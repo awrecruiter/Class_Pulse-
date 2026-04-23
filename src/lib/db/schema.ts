@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
 	boolean,
 	index,
@@ -217,6 +217,11 @@ export const classSessions = pgTable(
 		index("idx_class_sessions_teacher_id").on(table.teacherId),
 		uniqueIndex("idx_class_sessions_join_code").on(table.joinCode),
 		index("idx_class_sessions_status").on(table.status),
+		// Partial unique index: at most one active session per class (C8 constraint).
+		// Matches the migration in drizzle/0011_one_active_session_per_class.sql.
+		uniqueIndex("idx_one_active_session_per_class")
+			.on(table.classId)
+			.where(sql`${table.status} = 'active'`),
 	],
 );
 

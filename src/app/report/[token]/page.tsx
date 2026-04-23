@@ -1,21 +1,34 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gt, gte, sql } from "drizzle-orm";
+import {
+	BookOpen,
+	ExternalLink,
+	GraduationCap,
+	MessageCircle,
+	ShieldAlert,
+	Siren,
+	TriangleAlert,
+} from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { FL_BEST_STANDARDS } from "@/data/fl-best-standards";
+import { IXL_SKILL_MAP } from "@/data/ixl-skill-map";
 import { db } from "@/lib/db";
 import {
+	behaviorProfiles,
 	classAssignments,
 	classes,
+	classSessions,
+	comprehensionSignals,
 	interventionFlags,
 	parentReportTokens,
+	ramBuckAccounts,
+	ramBuckTransactions,
 	rosterEntries,
 } from "@/lib/db/schema";
 import { getTopicForDate } from "@/lib/pacing";
 import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
-
-export const metadata: Metadata = { title: "Academic Support Summary — Class Pulse" };
+export const metadata: Metadata = { title: "Student Summary — Class Pulse" };
 
 interface PageProps {
 	params: Promise<{ token: string }>;
@@ -57,284 +70,306 @@ export default async function ReportPage({ params }: PageProps) {
 
 	if (!flag) notFound();
 
-	const [roster] = await db
-		.select({
-			firstInitial: rosterEntries.firstInitial,
-			lastInitial: rosterEntries.lastInitial,
-			studentId: rosterEntries.studentId,
-		})
-		.from(rosterEntries)
-		.where(eq(rosterEntries.id, flag.rosterId));
+	const { classId, rosterId } = flag;
 
-	const [cls] = await db
-		.select({ label: classes.label, gradeLevel: classes.gradeLevel })
-		.from(classes)
-		.where(eq(classes.id, flag.classId));
+	const weekStart = new Date();
+	weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+	weekStart.setHours(0, 0, 0, 0);
 
-	// Fetch the assignment for the date the flag was detected
-	const flagDate = flag.detectedAt.toISOString().slice(0, 10);
-	const [assignmentRow] = await db
-		.select({ content: classAssignments.content })
-		.from(classAssignments)
-		.where(and(eq(classAssignments.classId, flag.classId), eq(classAssignments.date, flagDate)));
+	const [lastSession] = await db
+		.select({ id: classSessions.id })
+		.from(classSessions)
+		.where(and(eq(classSessions.classId, classId), eq(classSessions.status, "ended")))
+		.orderBy(desc(classSessions.endedAt))
+		.limit(1);
 
-	const standard = FL_BEST_STANDARDS.find((s) => s.code === flag.standardCode);
+	const [roster, cls, behaviorRow, buckRow, assignmentRow, weekEarnedRow, signalRow] =
+		await Promise.all([
+			db
+				.select({
+					firstInitial: rosterEntries.firstInitial,
+					lastInitial: rosterEntries.lastInitial,
+					studentId: rosterEntries.studentId,
+				})
+				.from(rosterEntries)
+				.where(eq(rosterEntries.id, rosterId))
+				.then((r) => r[0]),
+			db
+				.select({ label: classes.label, gradeLevel: classes.gradeLevel })
+				.from(classes)
+				.where(eq(classes.id, classId))
+				.then((r) => r[0]),
+			db
+				.select({ currentStep: behaviorProfiles.currentStep })
+				.from(behaviorProfiles)
+				.where(and(eq(behaviorProfiles.classId, classId), eq(behaviorProfiles.rosterId, rosterId)))
+				.then((r) => r[0]),
+			db
+				.select({ balance: ramBuckAccounts.balance })
+				.from(ramBuckAccounts)
+				.where(and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)))
+				.then((r) => r[0]),
+			db
+				.select({ content: classAssignments.content })
+				.from(classAssignments)
+				.where(
+					and(
+						eq(classAssignments.classId, classId),
+						eq(classAssignments.date, flag.detectedAt.toISOString().slice(0, 10)),
+					),
+				)
+				.then((r) => r[0]),
+			db
+				.select({ total: sql<number>`coalesce(sum(${ramBuckTransactions.amount}), 0)` })
+				.from(ramBuckTransactions)
+				.where(
+					and(
+						eq(ramBuckTransactions.classId, classId),
+						eq(ramBuckTransactions.rosterId, rosterId),
+						gt(ramBuckTransactions.amount, 0),
+						gte(ramBuckTransactions.createdAt, weekStart),
+					),
+				)
+				.then((r) => r[0]),
+			lastSession
+				? db
+						.select({ signal: comprehensionSignals.signal })
+						.from(comprehensionSignals)
+						.where(
+							and(
+								eq(comprehensionSignals.sessionId, lastSession.id),
+								eq(comprehensionSignals.rosterId, rosterId),
+							),
+						)
+						.then((r) => r[0])
+				: Promise.resolve(undefined),
+		]);
+
 	const currentTopic = getTopicForDate(new Date().toISOString().slice(0, 10));
-	const studentDisplay = roster
-		? `${roster.firstInitial}.${roster.lastInitial}. (ID: ${roster.studentId})`
-		: "Your student";
+	const ixlSkill = IXL_SKILL_MAP[flag.standardCode];
+	const topic = ixlSkill?.name ?? "Math";
 
-	const tierTitle =
-		flag.tier === "tier3"
-			? "Persistent Difficulty — Multiple Standards"
-			: "Repeated Difficulty — Same Standard";
-
-	const tierExplain =
-		flag.tier === "tier3"
-			? `Your student has struggled across multiple math standards over the past several weeks. This pattern suggests they may benefit from additional support to build foundational understanding.`
-			: `Your student has shown difficulty with the same math standard in ${flag.sessionCount} class sessions. This suggests the concept may need reinforcement at home.`;
-
-	const homeStrategies = [
-		`Practice ${flag.standardCode} using free resources on Khan Academy Kids or IXL Math.`,
-		"Ask your child to explain what they are learning — teaching out loud helps retention.",
-		"Look for real-life examples: fractions in cooking, measurement around the house, multiplication when shopping.",
-		"Set aside 10–15 minutes 3× per week for focused math practice.",
-		"Reach out to the teacher to ask about specific areas to target.",
-	];
-
+	// Name: show first initial only if last initial is missing
+	const initials = [roster?.firstInitial, roster?.lastInitial].filter(Boolean).join(".");
+	const studentDisplay = initials ? `${initials}.` : "Student";
+	const studentId = roster?.studentId ?? "";
 	const dateStr = flag.detectedAt.toLocaleDateString("en-US", {
-		year: "numeric",
+		weekday: "long",
 		month: "long",
 		day: "numeric",
 	});
 
-	const tierColor = flag.tier === "tier3" ? "#991b1b" : "#92400e";
-	const tierBg = flag.tier === "tier3" ? "#fee2e2" : "#fef3c7";
+	const signal = signalRow?.signal as "got-it" | "almost" | "lost" | undefined;
+
+	const compConfig = {
+		"got-it": {
+			emoji: "✅",
+			headline: "Got it today",
+			sub: "Your child signaled confidence during class.",
+			border: "border-emerald-500",
+			bg: "bg-emerald-500/10",
+			label: "text-emerald-400",
+		},
+		almost: {
+			emoji: "🟡",
+			headline: "Getting there",
+			sub: "Your child needed a little more support today.",
+			border: "border-amber-500",
+			bg: "bg-amber-500/10",
+			label: "text-amber-400",
+		},
+		lost: {
+			emoji: "🆘",
+			headline: "Struggled today",
+			sub: "Your child signaled they were lost in class.",
+			border: "border-rose-500",
+			bg: "bg-rose-500/10",
+			label: "text-rose-400",
+		},
+	} as const;
+
+	const comp = signal ? compConfig[signal] : null;
+	const isUrgent = flag.tier === "tier3";
+
+	const step = behaviorRow?.currentStep ?? 0;
+	const balance = buckRow?.balance ?? 0;
+	const weekEarned = Number(weekEarnedRow?.total ?? 0);
+	const behaviorOk = step <= 2;
+	const behaviorLabel =
+		step === 0 ? "No incidents" : step <= 2 ? `Step ${step} of 8 — minor` : `Step ${step} of 8`;
+
+	const conversationStarter =
+		signal === "lost" || signal === "almost"
+			? `"Can you show me one problem you worked on today? I want to practice ${topic} with you."`
+			: `"What's one thing you learned about ${topic} today? Teach it to me!"`;
 
 	return (
-		<div
-			style={{
-				fontFamily: "Georgia, 'Times New Roman', serif",
-				background: "#fff",
-				color: "#1a1a1a",
-				padding: "1.5rem",
-				maxWidth: "680px",
-				margin: "0 auto",
-			}}
-		>
-			<style>{`
-        @media (min-width: 480px) { .report-wrap { padding: 2.5rem !important; } }
-        @media print {
-          .no-print { display: none !important; }
-          body { background: #fff; }
-        }
-      `}</style>
+		<div className="min-h-screen bg-[#0c0c14]">
+			<style>{`@media print { .no-print { display: none !important; } }`}</style>
 
-			{/* Header */}
-			<div
-				style={{ borderBottom: "2px solid #1a1a1a", paddingBottom: "1rem", marginBottom: "1.5rem" }}
-			>
-				<h1 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "0.25rem" }}>
-					Academic Support Summary
-				</h1>
-				<div style={{ fontSize: "0.85rem", color: "#555" }}>
-					{cls ? `${cls.label} · Grade ${cls.gradeLevel}` : ""}
-					{" · "}
-					{dateStr}
-				</div>
-			</div>
-
-			{/* Student */}
-			<div style={{ marginBottom: "1.5rem" }}>
-				<h2
-					style={{
-						fontSize: "0.8rem",
-						textTransform: "uppercase",
-						letterSpacing: "0.08em",
-						color: "#555",
-						marginBottom: "0.5rem",
-					}}
-				>
-					Student
-				</h2>
-				<p style={{ fontWeight: "bold", fontSize: "1.05rem", marginBottom: "0.5rem" }}>
-					{studentDisplay}
-				</p>
-				<span
-					style={{
-						display: "inline-block",
-						padding: "0.2rem 0.65rem",
-						borderRadius: "999px",
-						fontSize: "0.72rem",
-						fontWeight: "bold",
-						textTransform: "uppercase",
-						letterSpacing: "0.05em",
-						background: tierBg,
-						color: tierColor,
-					}}
-				>
-					{tierTitle}
-				</span>
-			</div>
-
-			{/* Observation */}
-			<div style={{ marginBottom: "1.5rem" }}>
-				<h2
-					style={{
-						fontSize: "0.8rem",
-						textTransform: "uppercase",
-						letterSpacing: "0.08em",
-						color: "#555",
-						marginBottom: "0.5rem",
-					}}
-				>
-					What Was Observed
-				</h2>
-				<p style={{ lineHeight: 1.65, marginBottom: "0.75rem" }}>{tierExplain}</p>
-				<div
-					style={{
-						background: "#f5f5f5",
-						borderLeft: "4px solid #1a1a1a",
-						padding: "0.75rem 1rem",
-						borderRadius: "2px",
-						marginBottom: "0.75rem",
-					}}
-				>
-					<div style={{ fontFamily: "monospace", fontWeight: "bold", fontSize: "1rem" }}>
-						{flag.standardCode}
+			<div className="max-w-sm mx-auto px-4 pt-8 pb-10 space-y-3">
+				{/* Identity */}
+				<div className="pb-2">
+					<p className="flex items-center gap-1.5 text-[10px] text-zinc-600 font-semibold uppercase tracking-widest mb-2">
+						<span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+						Class Pulse · {cls?.label}
+					</p>
+					<div className="flex items-end justify-between">
+						<h1 className="text-3xl font-bold text-white">{studentDisplay}</h1>
+						<p className="text-xs text-zinc-600 pb-1">{dateStr}</p>
 					</div>
-					{standard && (
-						<div
-							style={{ fontSize: "0.9rem", marginTop: "0.25rem", color: "#333", lineHeight: 1.5 }}
-						>
-							{standard.description}
-						</div>
-					)}
+					{studentId && <p className="text-xs text-zinc-600 mt-0.5">ID {studentId}</p>}
 				</div>
-				<p style={{ lineHeight: 1.65 }}>
-					This standard was observed as a difficulty point in{" "}
-					<strong>
-						{flag.sessionCount} class session{flag.sessionCount !== 1 ? "s" : ""}
-					</strong>
-					.
-				</p>
-			</div>
 
-			{/* Home strategies */}
-			<div style={{ marginBottom: "1.5rem" }}>
-				<h2
-					style={{
-						fontSize: "0.8rem",
-						textTransform: "uppercase",
-						letterSpacing: "0.08em",
-						color: "#555",
-						marginBottom: "0.5rem",
-					}}
-				>
-					How You Can Help at Home
-				</h2>
-				<ul style={{ paddingLeft: "1.25rem" }}>
-					{homeStrategies.map((s) => (
-						<li key={s} style={{ lineHeight: 1.65, marginBottom: "0.35rem" }}>
-							{s}
-						</li>
-					))}
-				</ul>
-			</div>
-
-			{/* Tonight's assignment — shown if teacher set one for the session date */}
-			{assignmentRow?.content && (
-				<div style={{ marginBottom: "1.5rem" }}>
-					<h2
-						style={{
-							fontSize: "0.8rem",
-							textTransform: "uppercase",
-							letterSpacing: "0.08em",
-							color: "#555",
-							marginBottom: "0.5rem",
-						}}
-					>
-						Tonight&apos;s Practice
-					</h2>
-					<div
-						style={{
-							background: "#eef2ff",
-							borderLeft: "4px solid #4f46e5",
-							padding: "0.75rem 1rem",
-							borderRadius: "2px",
-						}}
-					>
-						<p style={{ lineHeight: 1.65, margin: 0, fontFamily: "system-ui, sans-serif" }}>
+				{/* Homework — only when assigned */}
+				{assignmentRow?.content && (
+					<div className="rounded-2xl border border-violet-500 bg-violet-500/10 overflow-hidden">
+						<div className="flex items-center gap-2 px-4 pt-3.5 pb-1.5">
+							<BookOpen size={13} className="text-violet-400 shrink-0" />
+							<span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">
+								Tonight's Homework
+							</span>
+						</div>
+						<p className="px-4 pb-4 text-white text-lg font-semibold leading-snug">
 							{assignmentRow.content}
 						</p>
 					</div>
-				</div>
-			)}
+				)}
 
-			{/* What the class is working on right now */}
-			{currentTopic && (
-				<div style={{ marginBottom: "1.5rem" }}>
-					<h2
-						style={{
-							fontSize: "0.8rem",
-							textTransform: "uppercase",
-							letterSpacing: "0.08em",
-							color: "#555",
-							marginBottom: "0.5rem",
-						}}
-					>
-						Currently in Class
-					</h2>
-					<p style={{ lineHeight: 1.65, fontFamily: "system-ui, sans-serif", fontSize: "0.9rem" }}>
-						Topic {currentTopic.roman}: <strong>{currentTopic.title}</strong>
-						{currentTopic.standardCodes.length > 0 && (
-							<span style={{ color: "#777", fontSize: "0.8rem" }}>
-								{" "}
-								({currentTopic.standardCodes.slice(0, 2).join(", ")}
-								{currentTopic.standardCodes.length > 2 ? "…" : ""})
-							</span>
-						)}
-					</p>
-				</div>
-			)}
+				{/* Comprehension — only when student signalled */}
+				{comp && (
+					<div className={`rounded-2xl border ${comp.border} ${comp.bg} px-4 py-3.5`}>
+						<p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${comp.label}`}>
+							How They Did Today
+						</p>
+						<div className="flex items-start gap-3">
+							<span className="text-2xl leading-none">{comp.emoji}</span>
+							<div>
+								<p className="text-white font-semibold">{comp.headline}</p>
+								<p className="text-sm text-zinc-400 mt-0.5">{comp.sub}</p>
+							</div>
+						</div>
+					</div>
+				)}
 
-			{/* Next steps */}
-			<div style={{ marginBottom: "2rem" }}>
-				<h2
-					style={{
-						fontSize: "0.8rem",
-						textTransform: "uppercase",
-						letterSpacing: "0.08em",
-						color: "#555",
-						marginBottom: "0.5rem",
-					}}
+				{/* Teacher flag */}
+				<div
+					className={`rounded-2xl border overflow-hidden ${isUrgent ? "border-rose-500 bg-rose-500/10" : "border-amber-500 bg-amber-500/10"}`}
 				>
-					Next Steps
-				</h2>
-				<p style={{ lineHeight: 1.65 }}>
-					Your child&apos;s teacher will continue to provide targeted support in class. If you have
-					questions or would like to discuss additional resources, please reach out directly.
+					<div className="flex items-center gap-2 px-4 pt-3.5 pb-1.5">
+						{isUrgent ? (
+							<Siren size={13} className="text-rose-400 shrink-0" />
+						) : (
+							<TriangleAlert size={13} className="text-amber-400 shrink-0" />
+						)}
+						<span
+							className={`text-[10px] font-bold uppercase tracking-widest ${isUrgent ? "text-rose-400" : "text-amber-400"}`}
+						>
+							Teacher Flag
+						</span>
+					</div>
+					<div className="px-4 pb-4 space-y-1">
+						<p className="text-white font-semibold text-lg leading-snug">
+							{isUrgent ? "Struggling across multiple topics" : `Difficulty with ${topic}`}
+						</p>
+						<p className="text-sm text-zinc-300 leading-relaxed">
+							{isUrgent
+								? "A pattern across several math areas has been flagged. Extra support is recommended."
+								: `Seen in ${flag.sessionCount} recent class session${flag.sessionCount !== 1 ? "s" : ""}. A little practice at home makes a big difference.`}
+						</p>
+						{currentTopic && (
+							<p className="text-xs text-zinc-500 pt-1">
+								Class is on: <span className="text-zinc-400">{currentTopic.title}</span>
+							</p>
+						)}
+					</div>
+				</div>
+
+				{/* Actions */}
+				<div className="space-y-2 pt-1">
+					<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+						What to do right now
+					</p>
+
+					<div className="grid grid-cols-2 gap-2">
+						{ixlSkill && (
+							<a
+								href={ixlSkill.url}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="rounded-xl border border-sky-500 bg-sky-500/10 px-3 py-3.5 flex flex-col gap-3 no-underline active:opacity-75"
+							>
+								<ExternalLink size={16} className="text-sky-400" />
+								<div>
+									<p className="text-[10px] font-bold text-sky-400 uppercase tracking-wide">
+										IXL Practice
+									</p>
+									<p className="text-sm font-bold text-white leading-snug mt-0.5">
+										{ixlSkill.name}
+									</p>
+									<p className="text-[10px] text-sky-500 mt-1">Tap to open →</p>
+								</div>
+							</a>
+						)}
+						<a
+							href={`https://www.khanacademy.org/search?page_search_query=${encodeURIComponent(topic + " grade 5 math")}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="rounded-xl border border-teal-500 bg-teal-500/10 px-3 py-3.5 flex flex-col gap-3 no-underline active:opacity-75"
+						>
+							<GraduationCap size={16} className="text-teal-400" />
+							<div>
+								<p className="text-[10px] font-bold text-teal-400 uppercase tracking-wide">
+									Khan Academy
+								</p>
+								<p className="text-sm font-bold text-white leading-snug mt-0.5">{topic}</p>
+								<p className="text-[10px] text-teal-500 mt-1">Free · Tap to open →</p>
+							</div>
+						</a>
+					</div>
+
+					<div className="rounded-xl border border-fuchsia-500 bg-fuchsia-500/10 px-4 py-3.5">
+						<div className="flex items-center gap-2 mb-2">
+							<MessageCircle size={13} className="text-fuchsia-400 shrink-0" />
+							<p className="text-[10px] font-bold text-fuchsia-400 uppercase tracking-widest">
+								Ask them tonight
+							</p>
+						</div>
+						<p className="text-sm text-zinc-100 leading-relaxed italic">{conversationStarter}</p>
+					</div>
+				</div>
+
+				{/* Behavior strip */}
+				<div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 flex items-center justify-between">
+					<div className="flex items-center gap-2.5">
+						<span
+							className={`w-2 h-2 rounded-full shrink-0 ${behaviorOk ? "bg-emerald-500" : step >= 5 ? "bg-rose-500" : "bg-amber-500"}`}
+						/>
+						<div>
+							<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">
+								Behavior
+							</p>
+							<p className="text-sm font-medium text-zinc-200">{behaviorLabel}</p>
+						</div>
+					</div>
+					<div className="text-right">
+						<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">RAM Bucks</p>
+						<p className="text-sm font-medium text-zinc-200">
+							{balance} pts
+							{weekEarned > 0 && (
+								<span className="text-emerald-400 text-xs ml-1">+{weekEarned} wk</span>
+							)}
+						</p>
+					</div>
+				</div>
+
+				<div className="no-print pt-1">
+					<PrintButton />
+				</div>
+
+				<p className="text-[10px] text-zinc-700 text-center leading-relaxed">
+					Class Pulse · Initials + ID only per FERPA · Link expires in 30 days
 				</p>
-			</div>
-
-			{/* Print button */}
-			<div className="no-print" style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-				<PrintButton />
-			</div>
-
-			{/* Footer */}
-			<div
-				style={{
-					paddingTop: "1rem",
-					borderTop: "1px solid #ddd",
-					fontSize: "0.78rem",
-					color: "#999",
-					lineHeight: 1.5,
-				}}
-			>
-				This report was generated by Class Pulse and is intended for the parent/guardian of the
-				student listed above. Student information is limited to initials and school ID in accordance
-				with FERPA guidelines. This link expires in 30 days.
 			</div>
 		</div>
 	);

@@ -5,18 +5,9 @@ export function PrintButton() {
 		<button
 			type="button"
 			onClick={() => window.print()}
-			style={{
-				padding: "0.6rem 1.5rem",
-				background: "#1a1a1a",
-				color: "#fff",
-				border: "none",
-				borderRadius: "4px",
-				cursor: "pointer",
-				fontFamily: "inherit",
-				fontSize: "0.9rem",
-			}}
+			className="w-full py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
 		>
-			Save as PDF / Print
+			Save as PDF · Print
 		</button>
 	);
 }

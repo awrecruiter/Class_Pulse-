@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -279,12 +277,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		parentMessage = { message: parentNotificationMessage, notificationId: parentNotificationId };
 
 		try {
-			const smsAllowed = smsRateLimiter.check(ip).success;
-			if (!smsAllowed) {
-				console.warn(
-					"[incident] smsRateLimiter exceeded skipping auto SMS for incident",
-					incident.id,
+			const [contact] = await db
+				.select({ phone: parentContacts.phone })
+				.from(parentContacts)
+				.where(
+					and(
+						eq(parentContacts.classId, classId),
+						eq(parentContacts.rosterId, rosterId),
+						eq(parentContacts.isActive, true),
+					),
 				);
+
+			if (!contact) {
 				await db.insert(parentMessages).values({
 					classId,
 					rosterId,
@@ -292,23 +296,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 					phone: "",
 					body: parentNotificationMessage,
 					triggeredBy: "incident",
-					status: "failed",
+					status: "no_number",
 					smsSid: null,
 				});
-				smsAutoResult = { sent: false, reason: "rate_limited" };
+				smsAutoResult = { sent: false, reason: "no_number" };
 			} else {
-				const [contact] = await db
-					.select({ phone: parentContacts.phone })
-					.from(parentContacts)
-					.where(
-						and(
-							eq(parentContacts.classId, classId),
-							eq(parentContacts.rosterId, rosterId),
-							eq(parentContacts.isActive, true),
-						),
+				// Rate-limit per teacher IP + recipient phone to prevent burst-sending to many parents
+				const smsAllowed = smsRateLimiter.check(`${ip}:${contact.phone}`).success;
+				if (!smsAllowed) {
+					console.warn(
+						"[incident] smsRateLimiter exceeded skipping auto SMS for incident",
+						incident.id,
 					);
-
-				if (!contact) {
 					await db.insert(parentMessages).values({
 						classId,
 						rosterId,
@@ -316,10 +315,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 						phone: "",
 						body: parentNotificationMessage,
 						triggeredBy: "incident",
-						status: "no_number",
+						status: "failed",
 						smsSid: null,
 					});
-					smsAutoResult = { sent: false, reason: "no_number" };
+					smsAutoResult = { sent: false, reason: "rate_limited" };
 				} else {
 					const smsResult = await sendSms(contact.phone, parentNotificationMessage);
 					if (!smsResult.ok) {

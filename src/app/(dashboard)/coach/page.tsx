@@ -40,6 +40,7 @@ import { ScheduleSidebarPanel } from "@/components/schedule/schedule-sidebar-pan
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import { useLectureTranscript } from "@/hooks/use-lecture-transcript";
 import { useMicSlot } from "@/hooks/use-mic-manager";
+import { useSessionLifecycle } from "@/hooks/use-session-lifecycle";
 import type { CoachResponse } from "@/lib/ai/coach";
 import { playActivationChime } from "@/lib/chime";
 import { getTodayPacing } from "@/lib/pacing";
@@ -458,6 +459,7 @@ export default function CoachPage() {
 		setGroupsOpen,
 		setParentCommsPreselect,
 	});
+
 	// Auto command mode — activates when lecture mic is off
 	const autoCommandRef = useRef(false);
 	const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -467,6 +469,25 @@ export default function CoachPage() {
 	const startOrbRef = useRef<() => void>(() => {});
 	// Only auto-enable command mode after teacher has used lecture recording at least once
 	const _hasEverListenedRef = useRef(false);
+
+	// Session lifecycle — go-live / end-session actions + sessionStorage day-gating
+	const { goLive, endSession } = useSessionLifecycle({
+		classId: selectedClassId || null,
+		sessionStandardCode,
+		setActiveSessionId,
+		setActiveJoinCode,
+		onSessionEnded: () => {
+			if (startMicTimerRef.current) {
+				clearTimeout(startMicTimerRef.current);
+				startMicTimerRef.current = null;
+			}
+			// Suppress auto-command orb restart that fires 700ms after mic stops
+			autoCommandRef.current = false;
+			hasEverListenedRef.current = false;
+			stopListening();
+			setSignalMap({});
+		},
+	});
 
 	// Throttled amplitude poster — streams teacher mic level to students via noise route
 	const lastNoisePushRef = useRef(0);
@@ -533,52 +554,11 @@ export default function CoachPage() {
 	}
 
 	async function handleSessionToggle() {
+		// Delegates to useSessionLifecycle — all sessionStorage and API logic lives there.
 		if (activeSessionId) {
-			// End session
-			try {
-				const res = await fetch(`/api/sessions/${activeSessionId}/end`, { method: "PUT" });
-				if (res.ok) {
-					setActiveSessionId(undefined);
-					setActiveJoinCode(undefined);
-					sessionStorage.removeItem("activeSessionId");
-					if (startMicTimerRef.current) {
-						clearTimeout(startMicTimerRef.current);
-						startMicTimerRef.current = null;
-					}
-					// Suppress auto-command orb restart that fires 700ms after mic stops
-					autoCommandRef.current = false;
-					hasEverListenedRef.current = false;
-					stopListening();
-					setSignalMap({});
-				}
-			} catch {
-				// ignore
-			}
+			await endSession(activeSessionId);
 		} else {
-			// Start session
-			const classId = selectedClassId;
-			if (!classId) return;
-			try {
-				const res = await fetch("/api/sessions", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						classId,
-						...(sessionStandardCode ? { standardCode: sessionStandardCode } : {}),
-					}),
-				});
-				const data = await res.json().catch(() => ({}));
-				if (res.ok) {
-					const s = (data as { session?: { id?: string; joinCode?: string } }).session;
-					setActiveSessionId(s?.id);
-					setActiveJoinCode(s?.joinCode);
-					if (s?.id) {
-						sessionStorage.setItem("activeSessionId", s.id);
-					}
-				}
-			} catch {
-				// ignore
-			}
+			await goLive();
 		}
 	}
 
@@ -899,8 +879,8 @@ export default function CoachPage() {
 		},
 		sendAcademic: sendAcademicRef,
 		setInputMode,
-		setActiveSessionId,
-		setActiveJoinCode,
+		goLive,
+		endSession,
 	});
 
 	useEffect(() => {

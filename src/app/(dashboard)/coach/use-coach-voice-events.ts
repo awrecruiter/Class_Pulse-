@@ -16,8 +16,10 @@ interface UseCoachVoiceEventsOptions {
 	disableAutoCommand: () => void;
 	sendAcademic: RefObject<(question: string) => void | Promise<void>>;
 	setInputMode: (mode: "behavior" | "ask" | "di") => void;
-	setActiveSessionId: (sessionId: string | undefined) => void;
-	setActiveJoinCode: (joinCode: string | undefined) => void;
+	/** goLive from useSessionLifecycle — starts a session for selectedClassIdRef.current */
+	goLive: () => Promise<void>;
+	/** endSession from useSessionLifecycle — ends the given session */
+	endSession: (sessionId: string) => Promise<void>;
 }
 
 export function useCoachVoiceEvents({
@@ -32,8 +34,8 @@ export function useCoachVoiceEvents({
 	disableAutoCommand,
 	sendAcademic,
 	setInputMode,
-	setActiveSessionId,
-	setActiveJoinCode,
+	goLive,
+	endSession,
 }: UseCoachVoiceEventsOptions) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: sendAcademic is a stable ref — .current must never be a dep
 	useEffect(() => {
@@ -45,19 +47,8 @@ export function useCoachVoiceEvents({
 			}
 			if (activeSessionIdRef.current) return;
 			try {
-				const res = await fetch("/api/sessions", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ classId }),
-				});
-				const data = await res.json().catch(() => ({}));
-				if (!res.ok)
-					throw new Error((data as { error?: string }).error ?? "Failed to start session");
-				const s = (data as { session?: { id?: string; joinCode?: string } }).session;
-				setActiveSessionId(s?.id);
-				setActiveJoinCode(s?.joinCode);
-				// Write to sessionStorage so page reloads don't treat this as a zombie session
-				if (s?.id) sessionStorage.setItem("activeSessionId", s.id);
+				// goLive handles the API call, sessionStorage write, and setActiveSessionId/setActiveJoinCode
+				await goLive();
 				// Auto-start lecture mic — mirrors the manual Go Live button behavior
 				stopCommandsNow();
 				setIsOrbRecording(false);
@@ -71,12 +62,8 @@ export function useCoachVoiceEvents({
 			const sessionId = activeSessionIdRef.current;
 			if (!sessionId) return;
 			try {
-				const res = await fetch(`/api/sessions/${sessionId}/end`, { method: "PUT" });
-				const data = await res.json().catch(() => ({}));
-				if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to end session");
-				setActiveSessionId(undefined);
-				setActiveJoinCode(undefined);
-				sessionStorage.removeItem("activeSessionId");
+				// endSession handles the API call, sessionStorage clear, and setActiveSessionId/setActiveJoinCode
+				await endSession(sessionId);
 				// Stop lecture mic and reset auto-command state — mirrors the manual Stop Session button
 				stopListening();
 				clearOrbRestartTimer();
@@ -123,10 +110,10 @@ export function useCoachVoiceEvents({
 		activeSessionIdRef,
 		clearOrbRestartTimer,
 		disableAutoCommand,
+		endSession,
+		goLive,
 		isListening,
 		selectedClassIdRef,
-		setActiveJoinCode,
-		setActiveSessionId,
 		setInputMode,
 		setIsOrbRecording,
 		startListening,

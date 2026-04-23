@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { QueueItem } from "@/contexts/voice-queue";
+import { clearSessionFromStorage, clearStaleSessionStorage } from "@/hooks/use-session-lifecycle";
 import { playActivationChime } from "@/lib/chime";
 
 export type ClassRow = { id: string; label: string; gradeLevel?: string; activeSessionId?: string };
@@ -46,7 +47,9 @@ export function useCoachClassroom({
 	// Restore from sessionStorage before the first paint so the waveform meter
 	// stays mounted on mid-session page reloads (useState initializer runs on the
 	// server where sessionStorage is unavailable, so we use useLayoutEffect instead).
+	// Day-gate: evict any entry from a previous calendar day before reading.
 	useLayoutEffect(() => {
+		clearStaleSessionStorage();
 		const stored = sessionStorage.getItem("activeSessionId");
 		if (stored) setActiveSessionId(stored);
 	}, []);
@@ -75,7 +78,7 @@ export function useCoachClassroom({
 		fetch("/api/classes")
 			.then((r) => {
 				if (r.status === 401) {
-					sessionStorage.removeItem("activeSessionId");
+					clearSessionFromStorage();
 					window.location.href = "/login";
 					return null;
 				}
@@ -118,7 +121,7 @@ export function useCoachClassroom({
 		fetch(`/api/classes/${selectedClassId}`)
 			.then(async (r) => {
 				if (r.status === 401) {
-					sessionStorage.removeItem("activeSessionId");
+					clearSessionFromStorage();
 					window.location.href = "/login";
 					return;
 				}
@@ -128,7 +131,7 @@ export function useCoachClassroom({
 					if (activeSessionReqRef.current !== reqId) return;
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
-					sessionStorage.removeItem("activeSessionId");
+					clearSessionFromStorage();
 					return;
 				}
 				const j = await r.json();
@@ -151,7 +154,7 @@ export function useCoachClassroom({
 					}
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
-					sessionStorage.removeItem("activeSessionId");
+					clearSessionFromStorage();
 				}
 			})
 			.catch(() => {});

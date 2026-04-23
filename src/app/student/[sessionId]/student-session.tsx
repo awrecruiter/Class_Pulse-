@@ -8,6 +8,7 @@ import { StudentManipulative } from "@/components/coach/manipulatives/student";
 import { CorrectionRequest } from "@/components/coach/manipulatives/student/correction-request";
 import { StudentStore } from "@/components/coach/manipulatives/student/student-store";
 import type { CoachResponse } from "@/lib/ai/coach";
+import type { StudentFeedNoiseEvent } from "@/types";
 
 gsap.registerPlugin(useGSAP);
 
@@ -342,7 +343,8 @@ export function StudentSession({
 					return;
 				}
 				if (parsed.type === "noise") {
-					setTeacherLevel(typeof parsed.level === "number" ? parsed.level : 0);
+					const noiseEvent = parsed as unknown as StudentFeedNoiseEvent;
+					setTeacherLevel(typeof noiseEvent.level === "number" ? noiseEvent.level : 0);
 					return;
 				}
 				if (parsed.type === "purchase-update") {

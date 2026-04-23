@@ -1,13 +1,16 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getRequiredEnv } from "@/lib/env";
 
 function getStudentCookieSecret(): string {
-	// In development, fall back to a local-only secret when NEON_AUTH_COOKIE_SECRET
-	// is not set (e.g. when using ALLOW_DEV_AUTH_BYPASS=true without full Neon creds).
-	if (process.env.NODE_ENV === "development") {
-		return process.env.NEON_AUTH_COOKIE_SECRET ?? "dev-student-secret-local-only";
+	if (process.env.NODE_ENV === "production") {
+		// Hard fail at startup in production — a missing secret would allow token forgery.
+		if (!process.env.NEON_AUTH_COOKIE_SECRET) {
+			throw new Error("NEON_AUTH_COOKIE_SECRET must be set in production");
+		}
+		return process.env.NEON_AUTH_COOKIE_SECRET;
 	}
-	return getRequiredEnv("NEON_AUTH_COOKIE_SECRET");
+	// In non-production environments (development, test), fall back to a local-only
+	// secret when NEON_AUTH_COOKIE_SECRET is not set (e.g. ALLOW_DEV_AUTH_BYPASS=true).
+	return process.env.NEON_AUTH_COOKIE_SECRET ?? "dev-student-secret-local-only";
 }
 
 export const STUDENT_COOKIE = "student_session";

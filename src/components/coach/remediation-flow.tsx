@@ -2,6 +2,7 @@
 
 import { Volume2Icon, VolumeXIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { IXL_SKILL_MAP } from "@/data/ixl-skill-map";
 import { DrawCanvas } from "@/components/coach/draw-canvas";
 import { StudentAreaModel } from "@/components/coach/manipulatives/student/area-model";
 import { StudentFractionBar } from "@/components/coach/manipulatives/student/fraction-bar";
@@ -221,14 +222,12 @@ function SuggestedResources({
 
 	const ytQ = encodeURIComponent(`${shortTerms} ${gradeLabel} math`);
 
-	// IXL: use standard code only when it matches the current grade; otherwise fall back to grade-aware terms
-	const codeGrade = standardCode ? parseInt(standardCode.split(".")[1] ?? "0", 10) : null;
-	const ixlSearchTerm =
-		standardCode && codeGrade === grade
-			? standardCode
-			: `${shortTerms} grade ${grade === 0 ? "K" : grade} florida math`;
-	const ixlQ = encodeURIComponent(ixlSearchTerm);
-	const ixlUrl = `https://www.ixl.com/search?q=${ixlQ}`;
+	// IXL: use the skill map for a direct skill link; fall back to search if unmapped
+	const ixlMapped = standardCode ? IXL_SKILL_MAP[standardCode] : undefined;
+	const ixlUrl = ixlMapped
+		? ixlMapped.url
+		: `https://www.ixl.com/search?q=${encodeURIComponent(`${shortTerms} grade ${grade === 0 ? "K" : grade} florida math`)}`;
+	const ixlTitle = ixlMapped ? ixlMapped.name : shortTerms;
 
 	// Khan: Google site-search is far more reliable than Khan's own search for FL BEST terms
 	const khanQ = encodeURIComponent(`site:khanacademy.org ${shortTerms} ${gradeLabel} math`);
@@ -240,12 +239,11 @@ function SuggestedResources({
 	const resources: ResourceLink[] = [
 		{
 			platform: "ixl",
-			title: `IXL — Search: ${ixlSearchTerm}`,
+			title: `IXL — ${ixlTitle}`,
 			url: ixlUrl,
-			description:
-				standardCode && codeGrade === grade
-					? `Searches IXL for skills aligned to ${standardCode}`
-					: `Searches IXL for ${gradeLabel} skills matching this concept`,
+			description: ixlMapped
+				? `Direct link to IXL skill: ${ixlMapped.name}`
+				: `Searches IXL for ${gradeLabel} skills matching this concept`,
 		},
 		{
 			platform: "khan",
