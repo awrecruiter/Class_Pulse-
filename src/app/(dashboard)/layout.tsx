@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AiPresenceBorder } from "@/components/coach/ai-presence-border";
 import { NavBar } from "@/components/nav-bar";
 import { ScheduleOverlay } from "@/components/schedule/schedule-overlay";
+import { Toaster } from "@/components/ui/sonner";
 import { VoiceCommandProvider } from "@/components/voice/voice-command-provider";
 import { auth } from "@/lib/auth/server";
 
@@ -17,6 +18,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 				<main>{children}</main>
 			</VoiceCommandProvider>
 			<ScheduleOverlay />
+			<Toaster />
 		</div>
 	);
 }

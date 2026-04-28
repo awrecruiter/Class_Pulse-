@@ -12,7 +12,7 @@ import {
 	X,
 } from "lucide-react";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { IXL_SKILL_MAP } from "@/data/ixl-skill-map";
 import { db } from "@/lib/db";
 import {
@@ -51,13 +51,6 @@ export default async function ReportPage({ params }: PageProps) {
 		.where(eq(parentReportTokens.token, token));
 
 	if (!tokenRow || tokenRow.expiresAt < new Date()) notFound();
-
-	if (!tokenRow.viewedAt) {
-		db.update(parentReportTokens)
-			.set({ viewedAt: new Date() })
-			.where(eq(parentReportTokens.id, tokenRow.id))
-			.catch(() => {});
-	}
 
 	const [flag] = await db
 		.select({
@@ -156,6 +149,63 @@ export default async function ReportPage({ params }: PageProps) {
 	const initials = [roster?.firstInitial, roster?.lastInitial].filter(Boolean).join(".");
 	const studentDisplay = initials ? `${initials}.` : "Student";
 	const studentId = roster?.studentId ?? "";
+
+	if (!tokenRow.viewedAt) {
+		async function confirmReceipt() {
+			"use server";
+			await db
+				.update(parentReportTokens)
+				.set({ viewedAt: new Date() })
+				.where(eq(parentReportTokens.id, tokenRow.id));
+			redirect(`/report/${token}`);
+		}
+
+		return (
+			<div className="min-h-screen bg-[#F5F5F7] flex flex-col items-center justify-center px-6">
+				<div className="w-full max-w-sm space-y-6">
+					<div className="text-center space-y-1">
+						<p className="text-[10px] font-semibold text-[#86868B] uppercase tracking-widest">
+							Class Pulse
+						</p>
+						<h1 className="text-2xl font-bold text-[#1D1D1F]">You have a school update</h1>
+						<p className="text-sm text-[#86868B] leading-relaxed pt-1">
+							Your child's teacher sent you a report. Tap below to view it and confirm receipt.
+						</p>
+					</div>
+
+					<div className="rounded-2xl bg-white shadow-sm border border-black/5 px-5 py-4 flex items-center justify-between">
+						<div>
+							<p className="text-[10px] font-semibold text-[#86868B] uppercase tracking-widest">
+								Student
+							</p>
+							<p className="text-lg font-bold text-[#1D1D1F]">{studentDisplay}</p>
+						</div>
+						{cls?.label && (
+							<div className="text-right">
+								<p className="text-[10px] font-semibold text-[#86868B] uppercase tracking-widest">
+									Class
+								</p>
+								<p className="text-sm font-semibold text-[#1D1D1F]">{cls.label}</p>
+							</div>
+						)}
+					</div>
+
+					<form action={confirmReceipt}>
+						<button
+							type="submit"
+							className="w-full py-4 rounded-2xl bg-[#1D1D1F] text-white text-base font-semibold tracking-tight active:opacity-80 transition-opacity"
+						>
+							View Report
+						</button>
+					</form>
+
+					<p className="text-[10px] text-[#86868B] text-center leading-relaxed">
+						Class Pulse · Initials + ID only per FERPA · Link expires in 30 days
+					</p>
+				</div>
+			</div>
+		);
+	}
 	const dateStr = flag.detectedAt.toLocaleDateString("en-US", {
 		weekday: "long",
 		month: "long",

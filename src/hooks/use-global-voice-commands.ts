@@ -46,11 +46,20 @@ export function useGlobalVoiceCommands({
 	const audioStreamRef = useRef<MediaStream | null>(null);
 	const pitchBufferRef = useRef<Array<{ pitch: number; ts: number }>>([]);
 	const pitchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	// Cancellation flag: set true by stopPitchAnalyser so that a pending getUserMedia
+	// promise (still awaiting after stop is called) can release the stream immediately.
+	const pitchCancelledRef = useRef(false);
 
 	const startPitchAnalyser = useCallback(async () => {
 		if (audioCtxRef.current) return; // already running
+		pitchCancelledRef.current = false;
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+			// stopPitchAnalyser was called while getUserMedia was pending — release immediately.
+			if (pitchCancelledRef.current) {
+				for (const t of stream.getTracks()) t.stop();
+				return;
+			}
 			const ctx = new AudioContext();
 			const source = ctx.createMediaStreamSource(stream);
 			const analyser = ctx.createAnalyser();
@@ -74,6 +83,7 @@ export function useGlobalVoiceCommands({
 	}, []);
 
 	const stopPitchAnalyser = useCallback(() => {
+		pitchCancelledRef.current = true; // signal any pending getUserMedia to release its stream
 		if (pitchTimerRef.current) {
 			clearInterval(pitchTimerRef.current);
 			pitchTimerRef.current = null;

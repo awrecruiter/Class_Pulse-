@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
-import { Toaster } from "@/components/ui/sonner";
 import { VoiceQueueProvider } from "@/contexts/voice-queue";
 import "./globals.css";
 
@@ -40,7 +39,6 @@ export default function RootLayout({
 				<VoiceQueueProvider>
 					<AuthProvider>{children}</AuthProvider>
 				</VoiceQueueProvider>
-				<Toaster />
 			</body>
 		</html>
 	);

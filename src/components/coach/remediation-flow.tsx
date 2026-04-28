@@ -2,7 +2,6 @@
 
 import { Volume2Icon, VolumeXIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { IXL_SKILL_MAP } from "@/data/ixl-skill-map";
 import { DrawCanvas } from "@/components/coach/draw-canvas";
 import { StudentAreaModel } from "@/components/coach/manipulatives/student/area-model";
 import { StudentFractionBar } from "@/components/coach/manipulatives/student/fraction-bar";
@@ -15,6 +14,7 @@ import {
 	ScaffoldQuiz,
 	StillConfusedPanel,
 } from "@/components/coach/scaffold-card";
+import { IXL_SKILL_MAP } from "@/data/ixl-skill-map";
 import { useNarration } from "@/hooks/use-narration";
 import type { CoachResponse } from "@/lib/ai/coach";
 

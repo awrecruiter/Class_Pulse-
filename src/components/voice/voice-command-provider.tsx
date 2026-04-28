@@ -1050,6 +1050,9 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	const { isListening, stop: stopGlobalNow } = useGlobalVoiceCommands({
 		onBoardCommand: handleBoardCommand,
 		onError: (error) => {
+			// Guard: provider is unmounting (e.g. navigating to student page) — recognition.stop()
+			// triggers onerror("aborted") which must not fire toasts on the incoming page.
+			if (!mountedRef.current) return;
 			if (error === "no-speech") return;
 			if (error === "aborted") {
 				setCommandsEnabled(false);
