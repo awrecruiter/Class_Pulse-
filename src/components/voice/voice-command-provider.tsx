@@ -601,7 +601,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	// ── Voice agent caller ────────────────────────────────────────────────────────
 
 	const callVoiceAgent = useCallback(
-		async (transcript: string) => {
+		async (transcript: string, fromOrb = false) => {
 			const classId = activeClassIdRef.current;
 
 			// Fast-path: navigate commands don't need AI — regex is instant, reliable, and not rate-limited
@@ -814,6 +814,15 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 					return;
 				}
 
+				// ask_coach requires deliberate orb press — ambient mic picks up student speech
+				// and the AI (biased toward action) misclassifies it as a teacher question.
+				if (action.type === "ask_coach" && !fromOrb) {
+					if (readBooleanPreference(VOICE_DEBUG_FEEDBACK_ENABLED_KEY, false)) {
+						toast.info("Academic question? Hold the Command button and ask again");
+					}
+					return;
+				}
+
 				// Fan out comma-separated studentName into one command per student
 				if (
 					"studentName" in action &&
@@ -849,7 +858,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	useEffect(() => {
 		function handleOrbTranscript(e: Event) {
 			const transcript = (e as CustomEvent<{ transcript: string }>).detail.transcript;
-			callVoiceAgentRef.current(transcript);
+			callVoiceAgentRef.current(transcript, true); // fromOrb=true — allows ask_coach
 		}
 		window.addEventListener("orb-transcript", handleOrbTranscript);
 		return () => window.removeEventListener("orb-transcript", handleOrbTranscript);
