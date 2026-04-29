@@ -9,6 +9,7 @@ import {
 	ClipboardIcon,
 	CopyIcon,
 	MicIcon,
+	QrCodeIcon,
 	RadioIcon,
 	SendIcon,
 	SquareIcon,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import QRCode from "react-qr-code";
 import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { BehaviorResponse } from "@/app/api/coach/behavior/route";
@@ -409,6 +411,15 @@ export default function CoachPage() {
 
 	// Ref to cancel the deferred startListening timer if Stop Session fires first
 	const startMicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// QR code modal
+	const [showQr, setShowQr] = useState(false);
+	useEffect(() => {
+		if (!showQr) return;
+		const onKey = (e: KeyboardEvent) => e.key === "Escape" && setShowQr(false);
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, [showQr]);
 
 	// Orb + input state
 	const [inputMode, setInputMode] = useState<"behavior" | "ask" | "di">("ask");
@@ -1295,6 +1306,14 @@ export default function CoachPage() {
 											>
 												<CopyIcon className="h-3.5 w-3.5" />
 											</button>
+											<button
+												type="button"
+												onClick={() => setShowQr(true)}
+												title="Show QR code"
+												className="text-slate-600 hover:text-amber-400 transition-colors"
+											>
+												<QrCodeIcon className="h-3.5 w-3.5" />
+											</button>
 										</div>
 									)}
 								</div>
@@ -1709,6 +1728,44 @@ export default function CoachPage() {
 					classId={selectedClassId}
 					onClose={() => setLedgerStudent(null)}
 				/>
+			)}
+
+			{/* QR code modal */}
+			{showQr && activeJoinCode && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+					<dialog
+						open
+						className="relative rounded-2xl bg-white p-6 shadow-2xl flex flex-col items-center gap-4 max-w-xs w-full mx-4 border-0"
+					>
+						<button
+							type="button"
+							onClick={() => setShowQr(false)}
+							className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 transition-colors"
+						>
+							<XIcon className="h-4 w-4" />
+						</button>
+						<p className="text-sm font-semibold text-slate-700">Scan to join</p>
+						<div className="rounded-xl bg-white p-2 ring-1 ring-slate-200">
+							<QRCode
+								value={`${typeof window !== "undefined" ? window.location.origin : ""}/student?code=${activeJoinCode}`}
+								size={200}
+								bgColor="#ffffff"
+								fgColor="#0f172a"
+							/>
+						</div>
+						<div className="flex flex-col items-center gap-1">
+							<span className="font-mono font-black tracking-[0.35em] text-2xl text-amber-500">
+								{activeJoinCode}
+							</span>
+							<p className="text-xs text-slate-500 text-center">
+								Scan the QR code or go to{" "}
+								<span className="font-medium text-slate-700">
+									{typeof window !== "undefined" ? window.location.host : ""}/student
+								</span>
+							</p>
+						</div>
+					</dialog>
+				</div>
 			)}
 		</>
 	);

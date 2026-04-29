@@ -104,7 +104,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 	await db.insert(parentReportTokens).values({ token, flagId: id, expiresAt });
 
-	const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://classpulse.app";
+	// NEXT_PUBLIC_APP_URL → VERCEL_URL (auto-set by Vercel, hostname only) → fallback
+	const baseUrl =
+		process.env.NEXT_PUBLIC_APP_URL ??
+		(process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://classpulse.app");
 	const reportUrl = `${baseUrl}/report/${token}`;
 
 	const tierLabel = flag.tier === "tier3" ? "ongoing" : "repeated";

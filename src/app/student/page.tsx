@@ -2,7 +2,7 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 
 gsap.registerPlugin(useGSAP);
@@ -56,8 +56,14 @@ function RamLogo({ size = 56 }: { size?: number }) {
 
 export default function StudentJoinPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const prefillCode =
+		searchParams
+			.get("code")
+			?.toUpperCase()
+			.replace(/[^A-Z0-9]/g, "") ?? "";
 	const [phase, setPhase] = useState<Phase>("enter-code");
-	const [code, setCode] = useState("");
+	const [code, setCode] = useState(prefillCode);
 	const [studentId, setStudentId] = useState("");
 	const [sessionId, setSessionId] = useState("");
 	const [sessionLabel, setSessionLabel] = useState("");
