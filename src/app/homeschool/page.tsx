@@ -99,10 +99,152 @@ function PainItem({ children }: { children: React.ReactNode }) {
 
 // ─── Device frames ────────────────────────────────────────────────────────────
 
-function IPhoneFrame({ src, alt }: { src: string; alt: string }) {
+const IPHONE_COLORS = {
+	black: { frame: "#1c1c1e", side: "#2c2c2e", highlight: "rgba(255,255,255,0.07)", label: "Black" },
+	white: { frame: "#e8e8e2", side: "#d8d8d2", highlight: "rgba(255,255,255,0.55)", label: "White" },
+	pink: { frame: "#d9849e", side: "#c97490", highlight: "rgba(255,255,255,0.22)", label: "Pink" },
+	blue: {
+		frame: "#3a5cb0",
+		side: "#2a4ca0",
+		highlight: "rgba(255,255,255,0.13)",
+		label: "Ultramarine",
+	},
+	teal: { frame: "#38836e", side: "#28735e", highlight: "rgba(255,255,255,0.11)", label: "Teal" },
+} as const;
+
+function IPhone17e({
+	src,
+	alt,
+	color = "black",
+	width = 200,
+}: {
+	src: string;
+	alt: string;
+	color?: keyof typeof IPHONE_COLORS;
+	width?: number;
+}) {
+	const c = IPHONE_COLORS[color];
 	return (
-		<div className="relative mx-auto w-[260px] sm:w-[300px] drop-shadow-2xl">
-			<Image src={src} alt={alt} width={1024} height={1024} className="w-full h-auto" unoptimized />
+		<div className="relative mx-auto select-none" style={{ width }}>
+			{/* Volume up */}
+			<div
+				className="absolute"
+				style={{
+					left: -4,
+					top: 86,
+					width: 4,
+					height: 26,
+					background: c.side,
+					borderRadius: "3px 0 0 3px",
+					boxShadow: `inset 1px 0 0 ${c.highlight}`,
+				}}
+			/>
+			{/* Volume down */}
+			<div
+				className="absolute"
+				style={{
+					left: -4,
+					top: 122,
+					width: 4,
+					height: 26,
+					background: c.side,
+					borderRadius: "3px 0 0 3px",
+					boxShadow: `inset 1px 0 0 ${c.highlight}`,
+				}}
+			/>
+			{/* Power */}
+			<div
+				className="absolute"
+				style={{
+					right: -4,
+					top: 106,
+					width: 4,
+					height: 42,
+					background: c.side,
+					borderRadius: "0 3px 3px 0",
+					boxShadow: `inset -1px 0 0 ${c.highlight}`,
+				}}
+			/>
+			{/* Body */}
+			<div
+				style={{
+					backgroundColor: c.frame,
+					backgroundImage: `linear-gradient(145deg, ${c.highlight} 0%, transparent 55%)`,
+					borderRadius: 44,
+					padding: "13px 10px 11px",
+					boxShadow: `0 28px 65px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.12), inset 0 1px 0 ${c.highlight}`,
+				}}
+			>
+				{/* Screen */}
+				<div
+					className="relative overflow-hidden bg-black"
+					style={{ borderRadius: 34, aspectRatio: "9/19.5" }}
+				>
+					{/* Dynamic Island */}
+					<div
+						className="absolute z-10"
+						style={{
+							top: 11,
+							left: "50%",
+							transform: "translateX(-50%)",
+							width: "42%",
+							height: "3.2%",
+							background: "#000",
+							borderRadius: 99,
+						}}
+					/>
+					<Image
+						src={src}
+						alt={alt}
+						width={390}
+						height={844}
+						className="w-full h-full object-cover object-top"
+						unoptimized
+					/>
+				</div>
+				{/* Home bar */}
+				<div className="flex justify-center mt-2">
+					<div
+						style={{ width: 48, height: 4, borderRadius: 2, background: c.side, opacity: 0.55 }}
+					/>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function TabletFrame({ src, alt }: { src: string; alt: string }) {
+	return (
+		<div className="relative mx-auto select-none" style={{ maxWidth: 380 }}>
+			<div
+				style={{
+					backgroundColor: "#1c1c1e",
+					borderRadius: 28,
+					padding: "28px 14px 18px",
+					boxShadow:
+						"0 30px 80px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.07)",
+				}}
+			>
+				{/* Front camera */}
+				<div className="flex justify-center mb-2.5">
+					<div style={{ width: 7, height: 7, borderRadius: "50%", background: "#2c2c2e" }} />
+				</div>
+				{/* Screen */}
+				<div className="overflow-hidden" style={{ borderRadius: 14 }}>
+					<Image
+						src={src}
+						alt={alt}
+						width={768}
+						height={1024}
+						className="w-full h-auto block"
+						unoptimized
+					/>
+				</div>
+				{/* Home bar */}
+				<div className="flex justify-center mt-3">
+					<div style={{ width: 36, height: 4, borderRadius: 2, background: "#3a3a3c" }} />
+				</div>
+			</div>
 		</div>
 	);
 }
@@ -115,7 +257,7 @@ function BrowserFrame({ src, alt }: { src: string; alt: string }) {
 				<span className="h-2.5 w-2.5 rounded-full bg-yellow-500/80" />
 				<span className="h-2.5 w-2.5 rounded-full bg-green-500/80" />
 				<span className="ml-2 flex-1 rounded-md bg-white/5 px-3 py-1 text-xs text-white/30 font-mono">
-					class-pulse.vercel.app
+					class-pulse.app/student
 				</span>
 			</div>
 			<Image src={src} alt={alt} width={1440} height={900} className="w-full h-auto" unoptimized />
@@ -224,7 +366,7 @@ export default function HomeschoolPage() {
 								system.
 							</p>
 							<p className="text-sm text-white/50 mb-8">
-								Step Up · Florida ESA · Arizona ESA · ClassWallet eligible · from $3.99/mo
+								Step Up · Florida ESA · Arizona ESA · ClassWallet eligible · from $29/mo
 							</p>
 							<div className="flex flex-wrap gap-3">
 								<CTAButton href={SIGNUP_URL}>Start Free Trial</CTAButton>
@@ -235,10 +377,26 @@ export default function HomeschoolPage() {
 						</div>
 						{/* Right: iPhone mockup */}
 						<div className="flex justify-center lg:justify-end pb-0">
-							<IPhoneFrame
-								src="/screenshots/student-session-pulse.png"
-								alt="Student session showing Got It, Almost, and I'm Lost comprehension signal with 310 RAM Bucks balance"
-							/>
+							<div className="flex items-end justify-center gap-3">
+								<IPhone17e
+									src="/screenshots/student-session-pulse.png"
+									alt="Student pulse on Black iPhone 17e"
+									color="black"
+									width={132}
+								/>
+								<IPhone17e
+									src="/screenshots/student-session-pulse.png"
+									alt="Student pulse on Pink iPhone 17e"
+									color="pink"
+									width={158}
+								/>
+								<IPhone17e
+									src="/screenshots/student-session-pulse.png"
+									alt="Student pulse on Teal iPhone 17e"
+									color="teal"
+									width={132}
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -402,10 +560,24 @@ export default function HomeschoolPage() {
 			{/* ── Feature: Student Experience ─────────────────────────────────── */}
 			<Section className="bg-white">
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-					<div className="order-2 lg:order-1 flex justify-center">
-						<IPhoneFrame
+					<div className="order-2 lg:order-1 flex justify-center items-end gap-3 sm:gap-5">
+						<IPhone17e
 							src="/screenshots/student-session-pulse.png"
-							alt="Student session on iPhone showing Got It, Almost, Need Help, and I'm Lost buttons with 310 RAM Bucks balance"
+							alt="Student pulse screen on Black iPhone 17e"
+							color="black"
+							width={148}
+						/>
+						<IPhone17e
+							src="/screenshots/student-session-pulse.png"
+							alt="Student pulse screen on Pink iPhone 17e"
+							color="pink"
+							width={172}
+						/>
+						<IPhone17e
+							src="/screenshots/student-session-pulse.png"
+							alt="Student pulse screen on Ultramarine iPhone 17e"
+							color="blue"
+							width={148}
 						/>
 					</div>
 					<div className="order-1 lg:order-2">
@@ -433,6 +605,57 @@ export default function HomeschoolPage() {
 					</div>
 				</div>
 			</Section>
+
+			{/* ── Multi-device access ────────────────────────────────────────── */}
+			<section className="bg-[#0f1117] py-14 sm:py-20">
+				<div className="mx-auto max-w-5xl px-4 sm:px-6 text-center">
+					<SectionLabel light>Works Everywhere</SectionLabel>
+					<h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-3">
+						Your child joins from any device — no app to install
+					</h2>
+					<p className="text-white/50 text-sm mb-12">
+						iPhone · iPad · Any browser · Chromebook · PC
+					</p>
+					<div className="flex flex-col lg:flex-row items-center lg:items-end justify-center gap-8 lg:gap-10">
+						{/* iPhone 17e — Pink */}
+						<div className="flex flex-col items-center gap-3">
+							<IPhone17e
+								src="/screenshots/student-session-pulse.png"
+								alt="Student session on Pink iPhone 17e"
+								color="pink"
+								width={160}
+							/>
+							<span className="text-xs text-white/30 font-medium">iPhone 17e · Pink</span>
+						</div>
+						{/* iPad tablet */}
+						<div className="flex flex-col items-center gap-3 w-full max-w-[300px] lg:max-w-[320px]">
+							<TabletFrame
+								src="/screenshots/student-session-pulse.png"
+								alt="Student session on iPad"
+							/>
+							<span className="text-xs text-white/30 font-medium">iPad</span>
+						</div>
+						{/* Desktop browser */}
+						<div className="flex flex-col items-center gap-3 w-full max-w-[320px] lg:max-w-[360px]">
+							<BrowserFrame
+								src="/screenshots/student-join.png"
+								alt="Student join page in desktop browser"
+							/>
+							<span className="text-xs text-white/30 font-medium">Any Browser</span>
+						</div>
+						{/* iPhone 17e — Teal */}
+						<div className="flex flex-col items-center gap-3">
+							<IPhone17e
+								src="/screenshots/student-session-pulse.png"
+								alt="Student session on Teal iPhone 17e"
+								color="teal"
+								width={160}
+							/>
+							<span className="text-xs text-white/30 font-medium">iPhone 17e · Teal</span>
+						</div>
+					</div>
+				</div>
+			</section>
 
 			{/* ── Feature: Parent Report ──────────────────────────────────────── */}
 			<section className="bg-gray-50 py-16 sm:py-24">
@@ -513,10 +736,20 @@ export default function HomeschoolPage() {
 							</ul>
 						</div>
 						<div className="flex flex-col gap-6">
-							<IPhoneFrame
-								src="/screenshots/student-store.png"
-								alt="Student store view showing 310 RAM Bucks balance and Store is Closed message"
-							/>
+							<div className="flex items-end justify-center gap-3">
+								<IPhone17e
+									src="/screenshots/student-store.png"
+									alt="Student store on White iPhone 17e"
+									color="white"
+									width={148}
+								/>
+								<IPhone17e
+									src="/screenshots/student-store.png"
+									alt="Student store on Blue iPhone 17e"
+									color="blue"
+									width={170}
+								/>
+							</div>
 						</div>
 					</div>
 					<div className="mt-12">
@@ -729,11 +962,11 @@ export default function HomeschoolPage() {
 								Annual
 							</p>
 							<div className="flex items-baseline gap-1 mb-1">
-								<span className="text-5xl font-extrabold text-white">$29</span>
+								<span className="text-5xl font-extrabold text-white">$249</span>
 								<span className="text-base text-white/50">/ year</span>
 							</div>
 							<p className="text-xs text-amber-400 mb-6">
-								Save 39% vs monthly · one payment · scholarship eligible
+								Save $99 vs monthly · one payment · scholarship eligible
 							</p>
 							<ul className="flex flex-col gap-2 mb-8 flex-1">
 								{[
