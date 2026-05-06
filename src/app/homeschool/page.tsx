@@ -101,25 +101,8 @@ function PainItem({ children }: { children: React.ReactNode }) {
 
 function IPhoneFrame({ src, alt }: { src: string; alt: string }) {
 	return (
-		<div className="relative mx-auto w-[240px] sm:w-[280px]">
-			<div className="rounded-[2.5rem] border-[8px] border-[#2a2d3a] shadow-2xl ring-1 ring-white/10 bg-[#0f1117]">
-				<div className="flex justify-center pt-2 pb-0.5">
-					<div className="h-3.5 w-20 rounded-full bg-[#2a2d3a]" />
-				</div>
-				<div className="overflow-hidden rounded-[1.5rem]">
-					<Image
-						src={src}
-						alt={alt}
-						width={390}
-						height={844}
-						className="w-full h-auto"
-						unoptimized
-					/>
-				</div>
-				<div className="flex justify-center py-2">
-					<div className="h-1 w-16 rounded-full bg-white/20" />
-				</div>
-			</div>
+		<div className="relative mx-auto w-[260px] sm:w-[300px] drop-shadow-2xl">
+			<Image src={src} alt={alt} width={1024} height={1024} className="w-full h-auto" unoptimized />
 		</div>
 	);
 }
@@ -241,7 +224,7 @@ export default function HomeschoolPage() {
 								system.
 							</p>
 							<p className="text-sm text-white/50 mb-8">
-								Step Up · Florida ESA · Arizona ESA · ClassWallet eligible · $299/year per student
+								Step Up · Florida ESA · Arizona ESA · ClassWallet eligible · from $3.99/mo
 							</p>
 							<div className="flex flex-wrap gap-3">
 								<CTAButton href={SIGNUP_URL}>Start Free Trial</CTAButton>
@@ -479,13 +462,19 @@ export default function HomeschoolPage() {
 							</ul>
 						</div>
 						<div>
-							<div className="rounded-2xl overflow-hidden border border-gray-200 shadow-xl">
+							<div className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/10 bg-[#1a1d27]">
+								<div className="flex items-center justify-between px-4 py-2.5 border-b border-white/8">
+									<span className="text-[10px] font-mono text-white/30">
+										class-pulse.app/report/…
+									</span>
+									<span className="text-[10px] text-white/20">🔒</span>
+								</div>
 								<Image
 									src="/screenshots/parent-report.png"
 									alt="Parent report showing A.D. with green Behavior and Academics tiles, Got It comprehension signal, Teacher Flag for Multiply Fractions, IXL and Khan Academy practice links"
 									width={1440}
 									height={900}
-									className="w-full h-auto"
+									className="w-full h-auto block"
 									unoptimized
 								/>
 							</div>
@@ -692,43 +681,83 @@ export default function HomeschoolPage() {
 
 			{/* ── Pricing ─────────────────────────────────────────────────────── */}
 			<section id="pricing" className="bg-[#0f1117] py-16 sm:py-24">
-				<div className="mx-auto max-w-2xl px-4 sm:px-6 text-center">
+				<div className="mx-auto max-w-3xl px-4 sm:px-6 text-center">
 					<SectionLabel light>Pricing</SectionLabel>
 					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
 						Class Pulse Homeschool Subscription
 					</h2>
-					<div className="mt-8 mb-6 rounded-2xl border border-white/10 bg-white/5 p-8">
-						<div className="flex items-baseline justify-center gap-1 mb-2">
-							<span className="text-6xl font-extrabold text-white">$299</span>
-							<span className="text-xl text-white/50">/ year per student</span>
-						</div>
-						<p className="text-sm text-white/60 mb-6 leading-relaxed">
-							Everything above. One student. One year. Full platform access. Unlimited curriculum
-							uploads. Every feature included.
-						</p>
-						<div className="flex flex-wrap items-center justify-center gap-2 mb-8">
-							{[
-								"Step Up for Students",
-								"Florida ESA",
-								"Arizona ESA",
-								"ClassWallet",
-								"and more",
-							].map((p) => (
-								<span
-									key={p}
-									className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400"
-								>
-									{p}
-								</span>
-							))}
-						</div>
-						<div className="flex flex-col sm:flex-row gap-3 justify-center">
-							<CTAButton href={SIGNUP_URL}>Purchase with Scholarship</CTAButton>
+					<p className="text-white/50 text-sm mb-8">
+						One student. Full platform access. Every feature included.
+					</p>
+
+					<div className="grid sm:grid-cols-2 gap-5 mt-2 mb-6">
+						{/* Monthly card */}
+						<div className="rounded-2xl border border-white/10 bg-white/5 p-8 flex flex-col text-left">
+							<p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-4">
+								Monthly
+							</p>
+							<div className="flex items-baseline gap-1 mb-1">
+								<span className="text-5xl font-extrabold text-white">$3.99</span>
+								<span className="text-base text-white/50">/ mo</span>
+							</div>
+							<p className="text-xs text-white/40 mb-6">Billed month to month · cancel anytime</p>
+							<ul className="flex flex-col gap-2 mb-8 flex-1">
+								{[
+									"Unlimited curriculum uploads",
+									"AI instructional coach",
+									"Comprehension pulse",
+									"Mastery tracking & reports",
+									"Parent-ready progress reports",
+								].map((f) => (
+									<li key={f} className="flex items-center gap-2 text-sm text-white/70">
+										<span className="text-amber-400">✓</span>
+										{f}
+									</li>
+								))}
+							</ul>
 							<CTAButton href={SIGNUP_URL} variant="outline">
-								Purchase Out-of-Pocket
+								Start Monthly
 							</CTAButton>
 						</div>
+
+						{/* Annual card */}
+						<div className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-8 flex flex-col text-left relative">
+							<span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-1 text-xs font-bold text-black tracking-wide">
+								BEST VALUE
+							</span>
+							<p className="text-xs font-semibold uppercase tracking-widest text-amber-400/70 mb-4">
+								Annual
+							</p>
+							<div className="flex items-baseline gap-1 mb-1">
+								<span className="text-5xl font-extrabold text-white">$29</span>
+								<span className="text-base text-white/50">/ year</span>
+							</div>
+							<p className="text-xs text-amber-400 mb-6">
+								Save 39% vs monthly · one payment · scholarship eligible
+							</p>
+							<ul className="flex flex-col gap-2 mb-8 flex-1">
+								{[
+									"Everything in Monthly",
+									"Scholarship reimbursement eligible",
+									"Step Up · Florida ESA · Arizona ESA",
+									"ClassWallet & more",
+									"Priority support",
+								].map((f) => (
+									<li key={f} className="flex items-center gap-2 text-sm text-white/70">
+										<span className="text-amber-400">✓</span>
+										{f}
+									</li>
+								))}
+							</ul>
+							<div className="flex flex-col gap-2">
+								<CTAButton href={SIGNUP_URL}>Purchase with Scholarship</CTAButton>
+								<CTAButton href={SIGNUP_URL} variant="outline">
+									Purchase Out-of-Pocket
+								</CTAButton>
+							</div>
+						</div>
 					</div>
+
 					<p className="text-sm text-white/40">
 						Multiple children? Each needs their own subscription for individual proficiency
 						tracking, but you manage everyone from the same dashboard.
