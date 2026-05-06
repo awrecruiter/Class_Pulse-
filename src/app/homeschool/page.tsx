@@ -109,65 +109,65 @@ function IPhone17e({ src, alt, width = 220 }: { src: string; alt: string; width?
 			<div
 				className="absolute"
 				style={{
-					left: -4,
-					top: 86,
-					width: 4,
-					height: 26,
+					left: -3,
+					top: 72,
+					width: 3,
+					height: 18,
 					background: btn,
-					borderRadius: "3px 0 0 3px",
-					boxShadow: "inset 1px 0 0 rgba(255,255,255,0.35), inset -1px 0 0 rgba(0,0,0,0.2)",
+					borderRadius: "2px 0 0 2px",
+					boxShadow: "inset 1px 0 0 rgba(255,255,255,0.3), inset -1px 0 0 rgba(0,0,0,0.15)",
 				}}
 			/>
 			{/* Volume down */}
 			<div
 				className="absolute"
 				style={{
-					left: -4,
-					top: 122,
-					width: 4,
-					height: 26,
+					left: -3,
+					top: 100,
+					width: 3,
+					height: 18,
 					background: btn,
-					borderRadius: "3px 0 0 3px",
-					boxShadow: "inset 1px 0 0 rgba(255,255,255,0.35), inset -1px 0 0 rgba(0,0,0,0.2)",
+					borderRadius: "2px 0 0 2px",
+					boxShadow: "inset 1px 0 0 rgba(255,255,255,0.3), inset -1px 0 0 rgba(0,0,0,0.15)",
 				}}
 			/>
 			{/* Power */}
 			<div
 				className="absolute"
 				style={{
-					right: -4,
-					top: 106,
-					width: 4,
-					height: 42,
+					right: -3,
+					top: 88,
+					width: 3,
+					height: 30,
 					background: btn,
-					borderRadius: "0 3px 3px 0",
-					boxShadow: "inset -1px 0 0 rgba(255,255,255,0.35), inset 1px 0 0 rgba(0,0,0,0.2)",
+					borderRadius: "0 2px 2px 0",
+					boxShadow: "inset -1px 0 0 rgba(255,255,255,0.3), inset 1px 0 0 rgba(0,0,0,0.15)",
 				}}
 			/>
 			{/* Body */}
 			<div
 				style={{
 					background: steel,
-					borderRadius: 44,
-					padding: "13px 10px 11px",
+					borderRadius: 36,
+					padding: "7px 6px 6px",
 					boxShadow:
-						"0 28px 65px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.5)",
+						"0 20px 50px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(255,255,255,0.2), inset 0 1px 0 rgba(255,255,255,0.4)",
 				}}
 			>
 				{/* Screen */}
 				<div
 					className="relative overflow-hidden bg-black"
-					style={{ borderRadius: 34, aspectRatio: "9/19.5" }}
+					style={{ borderRadius: 30, aspectRatio: "9/19.5" }}
 				>
 					{/* Dynamic Island */}
 					<div
 						className="absolute z-10"
 						style={{
-							top: 11,
+							top: 9,
 							left: "50%",
 							transform: "translateX(-50%)",
-							width: "42%",
-							height: "3.2%",
+							width: "38%",
+							height: "3%",
 							background: "#000",
 							borderRadius: 99,
 						}}
@@ -182,8 +182,8 @@ function IPhone17e({ src, alt, width = 220 }: { src: string; alt: string; width?
 					/>
 				</div>
 				{/* Home bar */}
-				<div className="flex justify-center mt-2">
-					<div style={{ width: 48, height: 4, borderRadius: 2, background: "rgba(0,0,0,0.15)" }} />
+				<div className="flex justify-center mt-1.5">
+					<div style={{ width: 36, height: 3, borderRadius: 2, background: "rgba(0,0,0,0.12)" }} />
 				</div>
 			</div>
 		</div>
