@@ -23,13 +23,13 @@ function MarketingNav() {
 						How It Works
 					</a>
 					<a
-						href="#pricing"
+						href="https://class-pulse-nine.vercel.app/signup"
 						className="hidden sm:block text-sm text-gray-600 hover:text-gray-900 transition-colors"
 					>
 						Pricing
 					</a>
 					<a
-						href="#pricing"
+						href="https://class-pulse-nine.vercel.app/signup"
 						className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
 					>
 						Get Started
@@ -284,7 +284,9 @@ export default function HomeschoolPage() {
 						searching. No guessing. No spreadsheets.
 					</p>
 					<div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-						<CTAButton href="#pricing">Get Class Pulse — Scholarship Eligible</CTAButton>
+						<CTAButton href="https://class-pulse-nine.vercel.app/signup">
+							Get Class Pulse — Scholarship Eligible
+						</CTAButton>
 						<a
 							href="#solution"
 							className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
@@ -653,8 +655,10 @@ export default function HomeschoolPage() {
 							))}
 						</div>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center">
-							<CTAButton href="#scholarship">Purchase with Scholarship</CTAButton>
-							<CTAButton href="#pricing" variant="outline">
+							<CTAButton href="https://class-pulse-nine.vercel.app/signup">
+								Purchase with Scholarship
+							</CTAButton>
+							<CTAButton href="https://class-pulse-nine.vercel.app/signup" variant="outline">
 								Purchase Out-of-Pocket
 							</CTAButton>
 						</div>
@@ -704,7 +708,7 @@ export default function HomeschoolPage() {
 						)}
 					</div>
 					<a
-						href="#pricing"
+						href="https://class-pulse-nine.vercel.app/signup"
 						className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-4 transition-colors"
 					>
 						Check Scholarship Eligibility
@@ -781,7 +785,7 @@ export default function HomeschoolPage() {
 						$299/year per student. Scholarship eligible.
 					</p>
 					<a
-						href="#pricing"
+						href="https://class-pulse-nine.vercel.app/signup"
 						className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-8 py-4 text-base font-bold text-white hover:bg-blue-500 transition-colors"
 					>
 						Get Class Pulse Now
