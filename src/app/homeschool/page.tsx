@@ -622,23 +622,12 @@ export default function HomeschoolPage() {
 								))}
 							</ul>
 						</div>
-						<div>
-							<div className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/10 bg-[#1a1d27]">
-								<div className="flex items-center justify-between px-4 py-2.5 border-b border-white/8">
-									<span className="text-[10px] font-mono text-white/30">
-										class-pulse.app/report/…
-									</span>
-									<span className="text-[10px] text-white/20">🔒</span>
-								</div>
-								<Image
-									src="/screenshots/parent-report.png"
-									alt="Parent report showing A.D. with green Behavior and Academics tiles, Got It comprehension signal, Teacher Flag for Multiply Fractions, IXL and Khan Academy practice links"
-									width={1440}
-									height={900}
-									className="w-full h-auto block"
-									unoptimized
-								/>
-							</div>
+						<div className="flex justify-center">
+							<IPhone17e
+								src="/screenshots/parent-report.png"
+								alt="Parent report showing behavior and academics tiles on iPhone"
+								width={220}
+							/>
 						</div>
 					</div>
 				</div>
@@ -859,7 +848,7 @@ export default function HomeschoolPage() {
 								Monthly
 							</p>
 							<div className="flex items-baseline gap-1 mb-1">
-								<span className="text-5xl font-extrabold text-white">$3.99</span>
+								<span className="text-5xl font-extrabold text-white">$29</span>
 								<span className="text-base text-white/50">/ mo</span>
 							</div>
 							<p className="text-xs text-white/40 mb-6">Billed month to month · cancel anytime</p>
