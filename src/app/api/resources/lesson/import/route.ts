@@ -26,12 +26,12 @@ function parseRows(rawRows: string[][]): { rows: ParsedResource[]; errors: strin
 	if (rawRows.length < 2) return { rows, errors: ["File has no data rows"] };
 
 	const headerRow = rawRows[0]?.map(normalizeHeader) ?? [];
-	const topicIdx = headerRow.findIndex((h) => h === "topicnumber");
-	const lessonIdx = headerRow.findIndex((h) => h === "lessonnumber");
-	const typeIdx = headerRow.findIndex((h) => h === "resourcetype");
-	const labelIdx = headerRow.findIndex((h) => h === "label");
-	const urlIdx = headerRow.findIndex((h) => h === "url");
-	const sortIdx = headerRow.findIndex((h) => h === "sortorder");
+	const topicIdx = headerRow.indexOf("topicnumber");
+	const lessonIdx = headerRow.indexOf("lessonnumber");
+	const typeIdx = headerRow.indexOf("resourcetype");
+	const labelIdx = headerRow.indexOf("label");
+	const urlIdx = headerRow.indexOf("url");
+	const sortIdx = headerRow.indexOf("sortorder");
 
 	if (topicIdx < 0 || lessonIdx < 0 || typeIdx < 0 || labelIdx < 0 || urlIdx < 0) {
 		return {
