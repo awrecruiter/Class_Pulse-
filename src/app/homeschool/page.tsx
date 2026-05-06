@@ -199,30 +199,38 @@ function TabletFrame({ src, alt, width = 380 }: { src: string; alt: string; widt
 			<div
 				style={{
 					backgroundColor: "#1c1c1e",
-					borderRadius: 28,
-					padding: "28px 14px 18px",
+					borderRadius: 36,
+					padding: "22px 12px 16px",
 					boxShadow:
-						"0 30px 80px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.07)",
+						"0 40px 100px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.08)",
 				}}
 			>
 				{/* Front camera */}
-				<div className="flex justify-center mb-2.5">
-					<div style={{ width: 7, height: 7, borderRadius: "50%", background: "#2c2c2e" }} />
+				<div className="flex justify-center mb-2">
+					<div
+						style={{
+							width: 8,
+							height: 8,
+							borderRadius: "50%",
+							background: "#2c2c2e",
+							boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
+						}}
+					/>
 				</div>
-				{/* Screen */}
-				<div className="overflow-hidden" style={{ borderRadius: 14 }}>
+				{/* Screen — 3:4 portrait iPad ratio */}
+				<div className="overflow-hidden" style={{ borderRadius: 10, aspectRatio: "3/4" }}>
 					<Image
 						src={src}
 						alt={alt}
 						width={768}
 						height={1024}
-						className="w-full h-auto block"
+						className="w-full h-full object-cover object-top"
 						unoptimized
 					/>
 				</div>
 				{/* Home bar */}
-				<div className="flex justify-center mt-3">
-					<div style={{ width: 36, height: 4, borderRadius: 2, background: "#3a3a3c" }} />
+				<div className="flex justify-center mt-2.5">
+					<div style={{ width: 40, height: 4, borderRadius: 2, background: "#3a3a3c" }} />
 				</div>
 			</div>
 		</div>
@@ -318,6 +326,188 @@ function CTAButton({
 		<a href={href} className={styles}>
 			{children}
 		</a>
+	);
+}
+
+// ─── Fake Coach Screen (inline mock for marketing) ───────────────────────────
+
+const FAKE_SCHEDULE = [
+	{
+		time: "8:00 – 9:30 AM",
+		label: "Math · Fractions",
+		sub: "MA.5.FR.2.1",
+		color: "emerald",
+		active: true,
+	},
+	{
+		time: "9:45 – 10:30 AM",
+		label: "Language Arts",
+		sub: "Writing workshop",
+		color: "sky",
+		active: false,
+	},
+	{
+		time: "10:30 – 11:00 AM",
+		label: "Science",
+		sub: "Lab notebook",
+		color: "violet",
+		active: false,
+	},
+	{
+		time: "11:00 – 11:30 AM",
+		label: "Morning Meeting",
+		sub: "Social-emotional",
+		color: "pink",
+		active: false,
+	},
+	{ time: "12:00 – 12:30 PM", label: "Lunch", sub: "", color: "slate", active: false },
+	{
+		time: "1:30 – 2:30 PM",
+		label: "iReady Practice",
+		sub: "Adaptive reading",
+		color: "amber",
+		active: false,
+	},
+	{
+		time: "2:45 – 3:15 PM",
+		label: "Writing",
+		sub: "Opinion essay",
+		color: "orange",
+		active: false,
+	},
+];
+
+const SCHED_BG: Record<string, string> = {
+	emerald: "bg-emerald-500/15 border-emerald-500/30",
+	sky: "bg-sky-500/10 border-sky-500/20",
+	violet: "bg-violet-500/10 border-violet-500/20",
+	pink: "bg-pink-500/10 border-pink-500/20",
+	slate: "bg-white/5 border-white/10",
+	amber: "bg-amber-500/10 border-amber-500/20",
+	orange: "bg-orange-500/10 border-orange-500/20",
+};
+const SCHED_TEXT: Record<string, string> = {
+	emerald: "text-emerald-300",
+	sky: "text-sky-300",
+	violet: "text-violet-300",
+	pink: "text-pink-300",
+	slate: "text-white/50",
+	amber: "text-amber-300",
+	orange: "text-orange-300",
+};
+const SCHED_MUTED: Record<string, string> = {
+	emerald: "text-emerald-400/60",
+	sky: "text-sky-400/50",
+	violet: "text-violet-400/50",
+	pink: "text-pink-400/50",
+	slate: "text-white/30",
+	amber: "text-amber-400/50",
+	orange: "text-orange-400/50",
+};
+
+function FakeCoachFrame() {
+	return (
+		<div className="rounded-xl overflow-hidden border border-white/10 shadow-2xl ring-1 ring-black/20">
+			{/* Browser chrome */}
+			<div className="flex items-center gap-1.5 bg-[#1a1d27] px-4 py-2.5 border-b border-white/8">
+				<span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
+				<span className="h-2.5 w-2.5 rounded-full bg-yellow-500/80" />
+				<span className="h-2.5 w-2.5 rounded-full bg-green-500/80" />
+				<span className="ml-2 flex-1 rounded-md bg-white/5 px-3 py-1 text-xs text-white/30 font-mono">
+					class-pulse.app/coach
+				</span>
+			</div>
+			{/* Mock app body */}
+			<div className="flex bg-[#0d1525] overflow-hidden" style={{ minHeight: 420 }}>
+				{/* Schedule sidebar */}
+				<div className="w-48 shrink-0 border-r border-white/8 bg-[#0a1020] flex flex-col">
+					<div className="px-3 py-2.5 border-b border-white/8">
+						<p className="text-[11px] font-bold text-white/70 uppercase tracking-wider">Schedule</p>
+						<p className="text-[10px] text-white/35">Wednesday, May 6</p>
+					</div>
+					<div className="flex-1 overflow-y-auto px-2 py-2 space-y-1.5">
+						{FAKE_SCHEDULE.map((block) => (
+							<div
+								key={block.label}
+								className={cn(
+									"rounded-md px-2.5 py-2 border",
+									SCHED_BG[block.color],
+									block.active ? "ring-1 ring-emerald-500/40" : "opacity-70",
+								)}
+							>
+								<p className={cn("text-[9px] leading-tight mb-0.5", SCHED_MUTED[block.color])}>
+									{block.time}
+								</p>
+								<p
+									className={cn("text-[11px] font-semibold leading-tight", SCHED_TEXT[block.color])}
+								>
+									{block.label}
+								</p>
+								{block.sub && (
+									<p className={cn("text-[9px] leading-tight mt-0.5", SCHED_MUTED[block.color])}>
+										{block.sub}
+									</p>
+								)}
+							</div>
+						))}
+					</div>
+				</div>
+
+				{/* Coach main area */}
+				<div className="flex-1 flex flex-col overflow-hidden px-4 py-4 gap-3">
+					{/* Standard tag */}
+					<div className="flex items-center gap-2">
+						<span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-[10px] font-bold text-amber-400 tracking-wide">
+							MA.5.FR.2.1 — Equivalent Fractions
+						</span>
+						<span className="text-[10px] text-white/30">· Today's topic</span>
+					</div>
+
+					{/* Scaffold card grid */}
+					<div className="grid grid-cols-2 gap-2.5 flex-1">
+						{/* Script */}
+						<div className="rounded-lg bg-white/5 border border-white/8 p-3 flex flex-col gap-1.5">
+							<p className="text-[9px] font-bold uppercase tracking-widest text-amber-400">
+								Script to Say
+							</p>
+							<p className="text-[11px] text-white/70 leading-relaxed">
+								"Think of this fraction as a division problem. The top number is being cut into
+								equal pieces. How many pieces make the whole?"
+							</p>
+						</div>
+						{/* Visual */}
+						<div className="rounded-lg bg-white/5 border border-white/8 p-3 flex flex-col gap-1.5">
+							<p className="text-[9px] font-bold uppercase tracking-widest text-sky-400">Visual</p>
+							<p className="text-[11px] text-white/70 leading-relaxed">
+								Draw a fraction bar split into 4 equal parts. Shade 3 parts. Ask: what is another
+								way to write ¾ using 8 parts?
+							</p>
+						</div>
+						{/* Prereq gap */}
+						<div className="rounded-lg bg-orange-500/8 border border-orange-500/20 p-3 flex flex-col gap-1.5">
+							<p className="text-[9px] font-bold uppercase tracking-widest text-orange-400">
+								Prerequisite Gap
+							</p>
+							<p className="text-[11px] font-semibold text-orange-300">MA.4.FR.1.2</p>
+							<p className="text-[10px] text-orange-400/70 leading-relaxed">
+								Ordering fractions with unlike denominators — likely not mastered in Gr 4
+							</p>
+						</div>
+						{/* Guiding questions */}
+						<div className="rounded-lg bg-white/5 border border-white/8 p-3 flex flex-col gap-1.5">
+							<p className="text-[9px] font-bold uppercase tracking-widest text-violet-400">
+								Guiding Questions
+							</p>
+							<ul className="text-[10px] text-white/60 space-y-1 leading-relaxed">
+								<li>· What does the denominator tell us?</li>
+								<li>· If I double the denominator, what happens to the numerator?</li>
+								<li>· Are these two fractions the same amount?</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 	);
 }
 
@@ -493,10 +683,7 @@ export default function HomeschoolPage() {
 							exact prerequisite gap if the confusion traces to an earlier grade level.
 						</p>
 					</div>
-					<BrowserFrame
-						src="/screenshots/coach-scaffold.png"
-						alt="Class Pulse AI scaffold card showing teacher script, guiding questions, and prerequisite gap for MA.5.FR.2.1 fractions"
-					/>
+					<FakeCoachFrame />
 					<div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-6">
 						{[
 							{
@@ -560,45 +747,66 @@ export default function HomeschoolPage() {
 			</Section>
 
 			{/* ── Multi-device access ────────────────────────────────────────── */}
-			<section className="bg-[#0f1117] py-14 sm:py-20">
-				<div className="mx-auto max-w-5xl px-4 sm:px-6 text-center">
+			<section
+				className="py-20 sm:py-32"
+				style={{
+					background:
+						"radial-gradient(ellipse 80% 60% at 50% 100%, #1d2235 0%, #0a0c12 60%, #000 100%)",
+				}}
+			>
+				<div className="mx-auto max-w-6xl px-4 sm:px-6 text-center">
 					<SectionLabel light>Works Everywhere</SectionLabel>
 					<h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-3">
 						Your child joins from any device — no app to install
 					</h2>
-					<p className="text-white/50 text-sm mb-12">
-						iPhone · iPad · Any browser · Chromebook · PC
+					<p className="text-white/40 text-sm mb-16">
+						iPhone · Tablet · Any browser · Chromebook · PC
 					</p>
-					<div className="flex flex-col lg:flex-row items-end justify-center gap-10 lg:gap-14">
-						{/* iPhone 17e */}
-						<div className="flex flex-col items-center gap-3">
-							<IPhone17e
-								src="/screenshots/student-session-pulse.png"
-								alt="Student session on iPhone 17e"
-								width={200}
-							/>
-							<span className="text-xs text-white/60 font-semibold tracking-wide uppercase">
+					<div className="flex flex-col lg:flex-row items-end justify-center gap-12 lg:gap-16">
+						{/* iPhone — initial student join screen */}
+						<div className="flex flex-col items-center gap-4">
+							<div className="relative">
+								<div className="absolute inset-x-2 bottom-2 top-8 -z-0 rounded-3xl blur-2xl bg-sky-500/10" />
+								<div className="relative z-10">
+									<IPhone17e
+										src="/screenshots/student-join.png"
+										alt="Student join screen on iPhone"
+										width={210}
+									/>
+								</div>
+							</div>
+							<span className="text-xs text-white/50 font-semibold tracking-widest uppercase">
 								iPhone
 							</span>
 						</div>
-						{/* iPad tablet */}
-						<div className="flex flex-col items-center gap-3">
-							<TabletFrame
-								src="/screenshots/student-session-pulse.png"
-								alt="Student session on iPad"
-								width={200}
-							/>
-							<span className="text-xs text-white/60 font-semibold tracking-wide uppercase">
-								iPad
+						{/* Tablet — student session in progress */}
+						<div className="flex flex-col items-center gap-4">
+							<div className="relative">
+								<div className="absolute inset-x-4 bottom-4 top-10 -z-0 rounded-3xl blur-2xl bg-violet-500/12" />
+								<div className="relative z-10">
+									<TabletFrame
+										src="/screenshots/student-session-pulse.png"
+										alt="Student session on tablet"
+										width={300}
+									/>
+								</div>
+							</div>
+							<span className="text-xs text-white/50 font-semibold tracking-widest uppercase">
+								Tablet
 							</span>
 						</div>
-						{/* Desktop browser */}
-						<div className="flex flex-col items-center gap-3" style={{ width: 340 }}>
-							<BrowserFrame
-								src="/screenshots/student-join.png"
-								alt="Student join page in desktop browser"
-							/>
-							<span className="text-xs text-white/60 font-semibold tracking-wide uppercase">
+						{/* Desktop — school store */}
+						<div className="flex flex-col items-center gap-4" style={{ width: 380 }}>
+							<div className="relative w-full">
+								<div className="absolute inset-x-6 bottom-2 top-10 -z-0 rounded-2xl blur-2xl bg-amber-500/8" />
+								<div className="relative z-10">
+									<BrowserFrame
+										src="/screenshots/store-seeded.png"
+										alt="School store in desktop browser showing RAM Buck reward items"
+									/>
+								</div>
+							</div>
+							<span className="text-xs text-white/50 font-semibold tracking-widest uppercase">
 								Any Browser
 							</span>
 						</div>
