@@ -4,34 +4,35 @@ import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-// ─── Minimal nav for public marketing page ───────────────────────────────────
+const SIGNUP_URL = "https://class-pulse-nine.vercel.app/signup";
+
+// ─── Nav ──────────────────────────────────────────────────────────────────────
 
 function MarketingNav() {
 	return (
-		<nav className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+		<nav className="sticky top-0 z-40 bg-[#0f1117]/95 backdrop-blur border-b border-white/8">
 			<div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-				<Link href="/homeschool" className="text-lg font-bold text-gray-900 tracking-tight">
+				<Link href="/homeschool" className="text-lg font-bold text-white tracking-tight">
 					Class Pulse
 				</Link>
 				<div className="flex items-center gap-3">
 					<a
-						href="#solution"
-						className="hidden sm:block text-sm text-gray-600 hover:text-gray-900 transition-colors"
+						href="#features"
+						className="hidden sm:block text-sm text-white/60 hover:text-white transition-colors"
 					>
-						How It Works
+						Features
 					</a>
 					<a
-						href="https://class-pulse-nine.vercel.app/signup"
-						className="hidden sm:block text-sm text-gray-600 hover:text-gray-900 transition-colors"
+						href="#pricing"
+						className="hidden sm:block text-sm text-white/60 hover:text-white transition-colors"
 					>
 						Pricing
 					</a>
 					<a
-						href="https://class-pulse-nine.vercel.app/signup"
-						className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+						href={SIGNUP_URL}
+						className="inline-flex items-center justify-center rounded-lg bg-amber-500 hover:bg-amber-400 px-4 py-2 text-sm font-bold text-black transition-colors"
 					>
 						Get Started
 					</a>
@@ -41,25 +42,7 @@ function MarketingNav() {
 	);
 }
 
-// ─── Trust badge row ─────────────────────────────────────────────────────────
-
-function TrustBadges() {
-	const badges = ["Step Up for Students", "Florida ESA", "Arizona ESA", "FL BEST Aligned"];
-	return (
-		<div className="flex flex-wrap items-center justify-center gap-2 mt-6">
-			{badges.map((b) => (
-				<span
-					key={b}
-					className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
-				>
-					{b}
-				</span>
-			))}
-		</div>
-	);
-}
-
-// ─── Section wrapper ──────────────────────────────────────────────────────────
+// ─── Layout helpers ───────────────────────────────────────────────────────────
 
 function Section({
 	id,
@@ -77,26 +60,33 @@ function Section({
 	);
 }
 
-// ─── Section label ────────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, light }: { children: React.ReactNode; light?: boolean }) {
 	return (
-		<p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-3">{children}</p>
+		<p
+			className={cn(
+				"text-xs font-bold uppercase tracking-widest mb-3",
+				light ? "text-amber-400" : "text-amber-500",
+			)}
+		>
+			{children}
+		</p>
 	);
 }
 
-// ─── Check item ───────────────────────────────────────────────────────────────
+// ─── List items ───────────────────────────────────────────────────────────────
 
-function CheckItem({ children }: { children: React.ReactNode }) {
+function CheckItem({ children, light }: { children: React.ReactNode; light?: boolean }) {
 	return (
 		<li className="flex items-start gap-2.5">
-			<CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-			<span className="text-gray-700 text-sm leading-relaxed">{children}</span>
+			<CheckIcon
+				className={cn("mt-0.5 h-4 w-4 shrink-0", light ? "text-amber-400" : "text-amber-500")}
+			/>
+			<span className={cn("text-sm leading-relaxed", light ? "text-white/80" : "text-gray-700")}>
+				{children}
+			</span>
 		</li>
 	);
 }
-
-// ─── Pain item (X mark) ───────────────────────────────────────────────────────
 
 function PainItem({ children }: { children: React.ReactNode }) {
 	return (
@@ -107,7 +97,50 @@ function PainItem({ children }: { children: React.ReactNode }) {
 	);
 }
 
-// ─── Accordion item ───────────────────────────────────────────────────────────
+// ─── Device frames ────────────────────────────────────────────────────────────
+
+function IPhoneFrame({ src, alt }: { src: string; alt: string }) {
+	return (
+		<div className="relative mx-auto w-[240px] sm:w-[280px]">
+			<div className="rounded-[2.5rem] border-[8px] border-[#2a2d3a] shadow-2xl ring-1 ring-white/10 bg-[#0f1117]">
+				<div className="flex justify-center pt-2 pb-0.5">
+					<div className="h-3.5 w-20 rounded-full bg-[#2a2d3a]" />
+				</div>
+				<div className="overflow-hidden rounded-[1.5rem]">
+					<Image
+						src={src}
+						alt={alt}
+						width={390}
+						height={844}
+						className="w-full h-auto"
+						unoptimized
+					/>
+				</div>
+				<div className="flex justify-center py-2">
+					<div className="h-1 w-16 rounded-full bg-white/20" />
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function BrowserFrame({ src, alt }: { src: string; alt: string }) {
+	return (
+		<div className="rounded-xl overflow-hidden border border-white/10 shadow-2xl ring-1 ring-black/20">
+			<div className="flex items-center gap-1.5 bg-[#1a1d27] px-4 py-2.5 border-b border-white/8">
+				<span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
+				<span className="h-2.5 w-2.5 rounded-full bg-yellow-500/80" />
+				<span className="h-2.5 w-2.5 rounded-full bg-green-500/80" />
+				<span className="ml-2 flex-1 rounded-md bg-white/5 px-3 py-1 text-xs text-white/30 font-mono">
+					class-pulse.vercel.app
+				</span>
+			</div>
+			<Image src={src} alt={alt} width={1440} height={900} className="w-full h-auto" unoptimized />
+		</div>
+	);
+}
+
+// ─── Accordions ───────────────────────────────────────────────────────────────
 
 function AccordionItem({ question, answer }: { question: string; answer: string }) {
 	const [open, setOpen] = useState(false);
@@ -116,7 +149,7 @@ function AccordionItem({ question, answer }: { question: string; answer: string 
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-center justify-between py-4 text-left text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors gap-4"
+				className="flex w-full items-center justify-between py-4 text-left text-sm font-semibold text-gray-900 hover:text-amber-600 transition-colors gap-4"
 			>
 				<span>{question}</span>
 				<ChevronDownIcon
@@ -131,8 +164,6 @@ function AccordionItem({ question, answer }: { question: string; answer: string 
 	);
 }
 
-// ─── Full feature accordion group ─────────────────────────────────────────────
-
 function FeatureGroup({ title, items }: { title: string; items: string[] }) {
 	const [open, setOpen] = useState(false);
 	return (
@@ -140,7 +171,7 @@ function FeatureGroup({ title, items }: { title: string; items: string[] }) {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-center justify-between py-4 text-left text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors gap-4"
+				className="flex w-full items-center justify-between py-4 text-left text-sm font-bold text-gray-900 hover:text-amber-600 transition-colors gap-4"
 			>
 				<span>{title}</span>
 				<ChevronDownIcon
@@ -161,81 +192,7 @@ function FeatureGroup({ title, items }: { title: string; items: string[] }) {
 	);
 }
 
-// ─── Feature card (for Features section) ─────────────────────────────────────
-
-function FeatureCard({
-	title,
-	tagline,
-	body,
-	checks,
-	closing,
-	numbered,
-}: {
-	title: string;
-	tagline?: string;
-	body?: string;
-	checks?: string[];
-	closing?: string;
-	numbered?: string[];
-}) {
-	return (
-		<div className="rounded-2xl border border-gray-200 bg-white p-6 sm:p-8">
-			<h3 className="text-lg font-bold text-gray-900 mb-1">{title}</h3>
-			{tagline && <p className="text-sm text-blue-600 font-medium mb-3">{tagline}</p>}
-			{body && <p className="text-sm text-gray-600 leading-relaxed mb-4">{body}</p>}
-			{checks && checks.length > 0 && (
-				<ul className="space-y-2 mb-4">
-					{checks.map((c) => (
-						<CheckItem key={c}>{c}</CheckItem>
-					))}
-				</ul>
-			)}
-			{numbered && numbered.length > 0 && (
-				<ol className="space-y-2 mb-4 list-none">
-					{numbered.map((item, i) => (
-						<li key={item} className="flex items-start gap-2.5">
-							<span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-								{i + 1}
-							</span>
-							<span className="text-gray-700 text-sm leading-relaxed">{item}</span>
-						</li>
-					))}
-				</ol>
-			)}
-			{closing && (
-				<p className="text-sm text-gray-500 italic border-t border-gray-100 pt-4 mt-2 leading-relaxed">
-					{closing}
-				</p>
-			)}
-		</div>
-	);
-}
-
-// ─── Step card ────────────────────────────────────────────────────────────────
-
-function StepCard({
-	number,
-	label,
-	description,
-}: {
-	number: string;
-	label: string;
-	description: string;
-}) {
-	return (
-		<div className="flex flex-col items-center text-center gap-3 px-4">
-			<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-bold">
-				{number}
-			</div>
-			<div>
-				<p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-1">{label}</p>
-				<p className="text-sm text-gray-600 leading-relaxed">{description}</p>
-			</div>
-		</div>
-	);
-}
-
-// ─── CTA button ───────────────────────────────────────────────────────────────
+// ─── CTA ──────────────────────────────────────────────────────────────────────
 
 function CTAButton({
 	href,
@@ -247,42 +204,15 @@ function CTAButton({
 	variant?: "primary" | "outline";
 }) {
 	const base =
-		"inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold transition-colors";
+		"inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-bold transition-colors";
 	const styles =
 		variant === "primary"
-			? `${base} bg-blue-600 text-white hover:bg-blue-700`
-			: `${base} border border-gray-300 bg-white text-gray-800 hover:bg-gray-50`;
+			? `${base} bg-amber-500 text-black hover:bg-amber-400`
+			: `${base} border border-white/20 bg-white/5 text-white hover:bg-white/10`;
 	return (
 		<a href={href} className={styles}>
 			{children}
 		</a>
-	);
-}
-
-// ─── Screenshot browser frame ─────────────────────────────────────────────────
-
-function ScreenshotFrame({ src, alt }: { src: string; alt: string }) {
-	return (
-		<div className="mt-6 rounded-xl overflow-hidden border border-gray-200 shadow-lg">
-			<div className="flex items-center gap-1.5 bg-gray-100 px-4 py-2.5 border-b border-gray-200">
-				<span className="h-3 w-3 rounded-full bg-red-400" />
-				<span className="h-3 w-3 rounded-full bg-yellow-400" />
-				<span className="h-3 w-3 rounded-full bg-green-400" />
-				<span className="ml-2 flex-1 rounded bg-white/80 px-3 py-1 text-xs text-gray-400 font-mono">
-					class-pulse.vercel.app
-				</span>
-			</div>
-			<div className="relative w-full">
-				<Image
-					src={src}
-					alt={alt}
-					width={1400}
-					height={875}
-					className="w-full h-auto object-cover"
-					unoptimized
-				/>
-			</div>
-		</div>
 	);
 }
 
@@ -293,297 +223,395 @@ export default function HomeschoolPage() {
 		<div className="min-h-screen bg-white text-gray-900">
 			<MarketingNav />
 
-			{/* ── Hero ──────────────────────────────────────────────────────────── */}
-			<Section className="bg-gradient-to-b from-blue-50 to-white pt-20 sm:pt-28 pb-20 sm:pb-28">
-				<div className="text-center max-w-3xl mx-auto">
-					<div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 mb-6">
-						Built for Homeschool Families · FL BEST Math Aligned
+			{/* ── Hero ────────────────────────────────────────────────────────── */}
+			<section className="bg-[#0f1117] pt-20 sm:pt-28 pb-0">
+				<div className="mx-auto max-w-5xl px-4 sm:px-6">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+						{/* Left: copy */}
+						<div>
+							<div className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400 mb-6">
+								Built for Homeschool Families · FL BEST Math Aligned
+							</div>
+							<h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight mb-5">
+								The Classroom Experience, At Home
+							</h1>
+							<p className="text-base sm:text-lg text-white/70 leading-relaxed mb-4">
+								Your child answers on their device. Class Pulse grades it, tracks it, flags gaps,
+								and generates practice activities—automatically. You teach. The platform runs the
+								system.
+							</p>
+							<p className="text-sm text-white/50 mb-8">
+								Step Up · Florida ESA · Arizona ESA · ClassWallet eligible · $299/year per student
+							</p>
+							<div className="flex flex-wrap gap-3">
+								<CTAButton href={SIGNUP_URL}>Start Free Trial</CTAButton>
+								<CTAButton href="#features" variant="outline">
+									See How It Works
+								</CTAButton>
+							</div>
+						</div>
+						{/* Right: iPhone mockup */}
+						<div className="flex justify-center lg:justify-end pb-0">
+							<IPhoneFrame
+								src="/screenshots/student-session-pulse.png"
+								alt="Student session showing Got It, Almost, and I'm Lost comprehension signal with 310 RAM Bucks balance"
+							/>
+						</div>
 					</div>
-					<h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-gray-900 leading-tight mb-5">
-						The Platform That Runs Your Math Instruction While You Focus on Teaching
-					</h1>
-					<p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-4">
-						Upload your curriculum. Class Pulse auto-serves checks for understanding to your child
-						like a clicker system—they work in their book, submit answers on their device, and every
-						response is automatically graded, tracked, and reported.
-					</p>
-					<p className="text-base text-gray-500 mb-8">
-						When your child struggles, the platform tells you exactly what to practice at home. No
-						searching. No guessing. No spreadsheets.
-					</p>
-					<div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-						<CTAButton href="https://class-pulse-nine.vercel.app/signup">
-							Get Class Pulse — Scholarship Eligible
-						</CTAButton>
-						<a
-							href="#solution"
-							className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-						>
-							See the Platform ↓
-						</a>
-					</div>
-					<TrustBadges />
 				</div>
-			</Section>
+			</section>
 
-			{/* ── Problem ───────────────────────────────────────────────────────── */}
+			{/* ── Problem ─────────────────────────────────────────────────────── */}
 			<Section className="bg-white">
-				<div className="max-w-2xl mx-auto">
+				<div className="max-w-3xl mx-auto">
 					<SectionLabel>The Problem</SectionLabel>
-					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-5">
-						You're Teaching the Lessons. But You're Also Doing Everything Else.
-					</h2>
-					<p className="text-base text-gray-600 mb-6 leading-relaxed">
-						You chose to homeschool so your child gets the instruction they deserve. But you didn't
-						sign up for:
-					</p>
-					<ul className="space-y-3 mb-8">
-						<PainItem>Grading every worksheet by hand</PainItem>
-						<PainItem>
-							Building spreadsheets to track which standards your child has mastered
-						</PainItem>
-						<PainItem>Searching for intervention materials when they don't get something</PainItem>
-						<PainItem>Wondering if you're on pace</PainItem>
-						<PainItem>Trying to remember what they struggled with three weeks ago</PainItem>
-						<PainItem>Having no proof of progress when it's time for portfolio reviews</PainItem>
-					</ul>
-					<div className="rounded-xl bg-gray-50 border border-gray-200 p-5">
-						<p className="text-base text-gray-700 leading-relaxed">
-							You already have a curriculum. You already know how to teach. What you need is a
-							system that handles the grading, the tracking, the pacing, and the intervention
-							alerts—so you can focus on the actual instruction.
-						</p>
-					</div>
-				</div>
-			</Section>
-
-			{/* ── Solution ──────────────────────────────────────────────────────── */}
-			<Section id="solution" className="bg-blue-50">
-				<div className="max-w-2xl mx-auto">
-					<SectionLabel>The Solution</SectionLabel>
 					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-6">
-						Your Curriculum. Your Teaching. Our Platform Runs Everything Else.
+						You're the teacher, the grader, the tracker, and the intervention specialist.
 					</h2>
-					<div className="space-y-5 text-base text-gray-700 leading-relaxed">
-						<p>
-							You upload the resources you already use. Class Pulse ingests them, maps them to FL
-							BEST Math standards, and builds your pacing calendar. Every day, your child opens
-							their device and the day's checks for understanding are waiting for them.
-						</p>
-						<p>
-							They work in their physical book. They submit answers on their device like a clicker.
-							The platform checks every answer against the answer key, logs the result, and updates
-							their proficiency dashboard in real time.
-						</p>
-						<p>
-							If they miss two in a row on the same standard, you get an alert with an at-home
-							practice activity already generated and ready to use.
-						</p>
-					</div>
-					<div className="mt-8 rounded-xl bg-white border border-blue-200 p-5">
-						<p className="text-base font-semibold text-gray-900 text-center">
-							You teach. The platform tracks. Everyone knows exactly where they stand.
-						</p>
-					</div>
+					<p className="text-base text-gray-600 leading-relaxed mb-6">
+						Every day you try to teach a full lesson, figure out what your child understood, grade
+						their work, track proficiency, and decide what needs more practice. That's four separate
+						jobs happening simultaneously.
+					</p>
+					<ul className="space-y-3 mb-6">
+						{[
+							"You can't tell if your child actually understood the lesson—or just got through it",
+							"You're manually grading everything and building spreadsheets to track standards",
+							"You know you should be differentiating, but you don't know where the gap is or how to fill it",
+							"When they're stuck, you have to become a math tutor on the spot with no resources",
+							"Portfolio reviews require scrambling to reconstruct what they actually learned",
+						].map((p) => (
+							<PainItem key={p}>{p}</PainItem>
+						))}
+					</ul>
+					<p className="text-base font-semibold text-gray-800">
+						Class Pulse was built to handle those four jobs so you can focus on the one that
+						matters: teaching.
+					</p>
 				</div>
 			</Section>
 
-			{/* ── How It Works ──────────────────────────────────────────────────── */}
-			<Section className="bg-white">
+			{/* ── How It Works ────────────────────────────────────────────────── */}
+			<Section id="features" className="bg-gray-50">
 				<div className="text-center mb-12">
 					<SectionLabel>How It Works</SectionLabel>
 					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900">
-						Four Steps. One System.
+						Upload Once. It Runs the System.
 					</h2>
 				</div>
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-					<StepCard
-						number="1"
-						label="Upload"
-						description="Upload your curriculum PDFs, bell ringers, CFU sets, and pacing guide one time"
-					/>
-					<StepCard
-						number="2"
-						label="Teach"
-						description="You teach the lesson from your book. The platform serves the checks at the right moments"
-					/>
-					<StepCard
-						number="3"
-						label="Respond"
-						description="Your child answers CFUs on their device like a clicker. Auto-graded. Auto-logged."
-					/>
-					<StepCard
-						number="4"
-						label="Review"
-						description="Open your dashboard. See exactly what they mastered and where they need support"
-					/>
-				</div>
-				{/* Connector line — desktop only */}
-				<div className="hidden lg:flex items-center justify-center mt-2 relative">
-					<div className="absolute top-[-5rem] left-[12.5%] right-[12.5%] h-px bg-blue-200" />
+					{[
+						{
+							n: "1",
+							label: "Upload",
+							desc: "Upload your curriculum — bell ringers, CFU sets, exit tickets, pacing guides. CSV or PDF.",
+						},
+						{
+							n: "2",
+							label: "Teach",
+							desc: "Your child works in their book. Prompts appear on their device at the right moment. They submit answers.",
+						},
+						{
+							n: "3",
+							label: "Track",
+							desc: "Every answer auto-graded, logged by standard, and charted. You see proficiency in real time.",
+						},
+						{
+							n: "4",
+							label: "Intervene",
+							desc: "When a gap appears, the platform flags it, generates a practice activity, and tells you exactly what to do.",
+						},
+					].map((s) => (
+						<div key={s.n} className="flex flex-col items-center text-center gap-3">
+							<div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500 text-black text-sm font-bold shadow-lg">
+								{s.n}
+							</div>
+							<p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+								{s.label}
+							</p>
+							<p className="text-sm text-gray-600 leading-relaxed">{s.desc}</p>
+						</div>
+					))}
 				</div>
 			</Section>
 
-			{/* ── Features ──────────────────────────────────────────────────────── */}
-			<Section className="bg-gray-50">
-				<div className="text-center mb-12">
-					<SectionLabel>Features</SectionLabel>
-					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900">
-						Everything You Need. Nothing You Don't.
-					</h2>
+			{/* ── Feature: Comprehension Pulse ────────────────────────────────── */}
+			<section className="bg-[#0f1117] py-16 sm:py-24">
+				<div className="mx-auto max-w-5xl px-4 sm:px-6">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+						<div>
+							<SectionLabel light>Live Comprehension</SectionLabel>
+							<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
+								You Know Instantly If Your Child Is Lost
+							</h2>
+							<p className="text-white/70 text-base leading-relaxed mb-6">
+								During instruction, your child taps one of three signals on their device. You see
+								the response immediately. No guessing. No waiting until the test.
+							</p>
+							<ul className="space-y-2.5">
+								{[
+									"Got It — they're following the lesson",
+									"Almost — they need a little more",
+									"I'm Lost — stop and re-teach this concept",
+									"Teacher Is Live indicator shows your child when you're actively speaking",
+									"Waveform visualizer pulses with your voice amplitude in real time",
+								].map((c) => (
+									<CheckItem key={c} light>
+										{c}
+									</CheckItem>
+								))}
+							</ul>
+						</div>
+						<div>
+							<BrowserFrame
+								src="/screenshots/coach-live-pulse.png"
+								alt="Class Pulse teacher dashboard showing live session with 20 students in colorful group chips and comprehension panel"
+							/>
+						</div>
+					</div>
 				</div>
+			</section>
 
-				{/* Group 1: Core Instructional Engine */}
-				<div className="mb-10">
-					<h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">
-						Core Instructional Engine
-					</h3>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-						<FeatureCard
-							title="Upload Your Curriculum Once. It Runs All Year."
-							tagline="You don't switch to our curriculum. We ingest yours."
-							checks={[
-								"Upload Big Ideas Math, Go Math, Eureka Math, Saxon, or any textbook PDFs—the platform extracts lessons, problems, and answers automatically",
-								"Upload your bell ringers, CFU sets, and exit tickets via CSV or PDF",
-								"Upload your pacing guide or use our FL BEST-aligned default",
-								"Edit, reorder, add, or skip anything at any time",
-								"Works with any structured math curriculum",
-							]}
-							closing="Your child keeps their physical book. Class Pulse handles the digital layer."
+			{/* ── Feature: AI Coach ───────────────────────────────────────────── */}
+			<section className="bg-[#1a1d27] py-16 sm:py-24">
+				<div className="mx-auto max-w-5xl px-4 sm:px-6">
+					<div className="text-center max-w-2xl mx-auto mb-10">
+						<SectionLabel light>AI Instructional Coach</SectionLabel>
+						<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
+							A Math Specialist On Call During Every Lesson
+						</h2>
+						<p className="text-white/70 text-base leading-relaxed">
+							Speak or type what your child is struggling with. The AI Coach references today's FL
+							BEST standard, returns a 30-second script to say, a visual to show, and pulls the
+							exact prerequisite gap if the confusion traces to an earlier grade level.
+						</p>
+					</div>
+					<BrowserFrame
+						src="/screenshots/coach-scaffold.png"
+						alt="Class Pulse AI scaffold card showing teacher script, guiding questions, and prerequisite gap for MA.5.FR.2.1 fractions"
+					/>
+					<div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-6">
+						{[
+							{
+								label: "Script to Say",
+								desc: "Exact language to re-explain the concept in a different way",
+							},
+							{
+								label: "Prerequisite Gap",
+								desc: "Identifies if the confusion traces to a grade-level gap from 3rd or 4th grade",
+							},
+							{
+								label: "Practice Resources",
+								desc: "Auto-surfaces aligned IXL skills and Khan Academy videos for the specific standard",
+							},
+						].map((f) => (
+							<div key={f.label} className="rounded-xl bg-white/5 border border-white/8 p-5">
+								<p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">
+									{f.label}
+								</p>
+								<p className="text-white/70 text-sm leading-relaxed">{f.desc}</p>
+							</div>
+						))}
+					</div>
+				</div>
+			</section>
+
+			{/* ── Feature: Student Experience ─────────────────────────────────── */}
+			<Section className="bg-white">
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+					<div className="order-2 lg:order-1 flex justify-center">
+						<IPhoneFrame
+							src="/screenshots/student-session-pulse.png"
+							alt="Student session on iPhone showing Got It, Almost, Need Help, and I'm Lost buttons with 310 RAM Bucks balance"
 						/>
-						<FeatureCard
-							title="CFUs That Work Like a Clicker System"
-							body="During the lesson, checks for understanding appear on your child's device at the intervals you configure. They find the problem in their book, solve it, and submit the answer on screen."
-							checks={[
-								"Bell ringer auto-serves at lesson start",
-								"CFU #1 appears at 15 minutes, CFU #2 at 25 minutes, exit ticket at the end",
-								"Every answer checked against your answer key instantly",
-								"Results logged to the gradebook automatically",
-								"No printing. No grading. No manual entry.",
-							]}
-							closing="Your child gets immediate feedback. You get immediate data."
-						/>
-						<FeatureCard
-							title="Automatic Proficiency Tracking"
-							body="Every standard your child encounters is tracked. You see green, yellow, and red bars that update in real time as they submit answers."
-							checks={[
-								"Proficiency per standard, per unit, per semester",
-								"Historical data builds automatically—proof of progress for portfolio reviews",
-								"Exportable gradebook—CSV download anytime",
-								"Pacing tracker shows if you're on schedule with your curriculum calendar",
-							]}
-							closing="Walk into any portfolio review or district check-in with a complete record of exactly what your child learned and when they learned it."
+					</div>
+					<div className="order-1 lg:order-2">
+						<SectionLabel>Student Experience</SectionLabel>
+						<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-4">
+							Your Child's Device: Engaging, Simple, Child-Appropriate
+						</h2>
+						<p className="text-gray-600 text-base leading-relaxed mb-6">
+							The student side is designed for a 10-year-old. No account to create. No email. No
+							password. Enter a code and they're in.
+						</p>
+						<ul className="space-y-2.5">
+							{[
+								"Comprehension signal: four-button response (Got it · Almost · Need help · I'm Lost)",
+								"RAM Bucks balance displayed at the top — always visible",
+								"Group affiliation with coin balance for group activities",
+								"Interactive manipulatives: fraction bars, area models, number lines",
+								"Mastery loop: adaptive check questions after every manipulative",
+								"Drawing canvas: draw their thinking, submit for AI analysis",
+								"Waveform walkie-talkie: pulses when you're speaking",
+							].map((c) => (
+								<CheckItem key={c}>{c}</CheckItem>
+							))}
+						</ul>
+					</div>
+				</div>
+			</Section>
+
+			{/* ── Feature: Parent Report ──────────────────────────────────────── */}
+			<section className="bg-gray-50 py-16 sm:py-24">
+				<div className="mx-auto max-w-5xl px-4 sm:px-6">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-12">
+						<div>
+							<SectionLabel>Parent Reports</SectionLabel>
+							<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-4">
+								Proof of Progress — Shareable, Always Ready
+							</h2>
+							<p className="text-gray-600 text-base leading-relaxed mb-6">
+								After every session, a visual report is one link away. Send it to your umbrella
+								school, co-parent, or tutor. No scrambling. No spreadsheet. Just tap Share.
+							</p>
+							<ul className="space-y-2.5">
+								{[
+									"Behavior status tile: Good standing or current ladder step",
+									"Academics tile: On Track, Approaching, or Needs Support",
+									"Today's comprehension signal — exactly how they felt in the lesson",
+									"Teacher flag: the specific standard they're struggling with and for how long",
+									"Linked IXL skill and Khan Academy video for at-home practice tonight",
+									"Conversation starter: one question to ask your child at dinner",
+									"FERPA-compliant: initials + ID only, no full names stored",
+								].map((c) => (
+									<CheckItem key={c}>{c}</CheckItem>
+								))}
+							</ul>
+						</div>
+						<div>
+							<div className="rounded-2xl overflow-hidden border border-gray-200 shadow-xl">
+								<Image
+									src="/screenshots/parent-report.png"
+									alt="Parent report showing A.D. with green Behavior and Academics tiles, Got It comprehension signal, Teacher Flag for Multiply Fractions, IXL and Khan Academy practice links"
+									width={1440}
+									height={900}
+									className="w-full h-auto"
+									unoptimized
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			{/* ── Feature: Behavior & Economy ─────────────────────────────────── */}
+			<section className="bg-[#0f1117] py-16 sm:py-24">
+				<div className="mx-auto max-w-5xl px-4 sm:px-6">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+						<div>
+							<SectionLabel light>Behavior &amp; Economy</SectionLabel>
+							<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
+								A Classroom Economy That Motivates — Even in a Classroom of One
+							</h2>
+							<p className="text-white/70 text-base leading-relaxed mb-6">
+								RAM Bucks are your child's currency. They earn them for correct answers, mastery
+								achievements, and positive behavior. They spend them at the Privilege Store on
+								rewards you configure.
+							</p>
+							<ul className="space-y-2.5 mb-6">
+								{[
+									"Balance always visible in the student app — they always know what they've earned",
+									"You award bucks by voice command or touch during the lesson",
+									"Transaction history shows exactly how every buck was earned",
+									"Privilege Store: you set the items and prices — extra screen time, park trip, choose dinner",
+									"Group Coins: sibling groups earn coins together toward shared activities",
+									"Behavior ladder is optional — use what fits your family",
+								].map((c) => (
+									<CheckItem key={c} light>
+										{c}
+									</CheckItem>
+								))}
+							</ul>
+						</div>
+						<div className="flex flex-col gap-6">
+							<IPhoneFrame
+								src="/screenshots/student-store.png"
+								alt="Student store view showing 310 RAM Bucks balance and Store is Closed message"
+							/>
+						</div>
+					</div>
+					<div className="mt-12">
+						<BrowserFrame
+							src="/screenshots/store-seeded.png"
+							alt="Teacher Privilege Store showing 6 reward items with RAM Buck prices and Grant to Student buttons"
 						/>
 					</div>
 				</div>
+			</section>
 
-				{/* Group 2: Intervention Loop */}
-				<div className="mb-10">
-					<h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">
-						The Intervention Loop
-					</h3>
-					<FeatureCard
-						title="The Platform Alerts You the Moment Your Child Struggles"
-						tagline="This is the feature that changes everything for homeschool parents."
-						body="Your child misses two CFU problems on the same standard. The platform:"
-						numbered={[
-							"Flags the standard on your dashboard: 'MA.5.FR.2.2 — Needs Support'",
-							"Auto-generates an at-home practice activity using the AI Instructional Coach—a 5-minute exercise targeting exactly that gap",
-							"Notifies you that an intervention is ready",
-						]}
-						closing="You practice with your child using the generated activity. Next session, the platform serves a verification check on that standard. If they get it, the bar turns green. If not, it escalates for more targeted instruction. You don't wonder what to do. You don't search Pinterest for practice problems. The platform tells you exactly what your child needs and gives you the tool to address it—in the moment it matters."
-					/>
-				</div>
-
-				{/* Group 3: AI Coach */}
-				<div className="mb-10">
-					<h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">
-						AI Instructional Coach
-					</h3>
-					<FeatureCard
-						title="Your AI Instructional Coach—Grounded in Today's Lesson"
-						body="When your child is confused and you need a different way to explain something, the AI Instructional Coach is ready."
-						checks={[
-							"Speak or type what your child is struggling with",
-							"The coach references today's lesson and the specific FL BEST standard",
-							"Returns a 30-second intervention with a script to say, a visual to show, and a manipulative suggestion",
-							"Pulls grade-below scaffolds if the gap traces to a prerequisite standard",
-							"Grounded in the 108 FL BEST Math benchmarks for grades 3–5",
-						]}
-						closing="It's like having a math specialist on call during every lesson. No prep. No searching. Just the exact explanation you need, aligned to exactly what you're teaching right now."
-					/>
-					<ScreenshotFrame
-						src="/screenshots/coach-main.png"
-						alt="Class Pulse AI Instructional Coach dashboard showing FL BEST standards, today's schedule, and the query input panel"
-					/>
-				</div>
-
-				{/* Group 4: Student Experience */}
-				<div className="mb-10">
-					<h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">
-						Student Experience
-					</h3>
-					<FeatureCard
-						title="Your Child's Device: Engaging, Simple, Child-Appropriate"
-						body="The student-facing side of Class Pulse is designed for a 10-year-old."
-						checks={[
-							"Colorful, engaging interface—think Prodigy or Khan Academy Kids energy",
-							"Join with a simple code—no account, no email, no password",
-							"Comprehension signal: three faces to tap (😊 Got It / 🤔 Almost / 😕 Lost)",
-							"Interactive manipulatives: fraction bars, area models, number lines",
-							"Mastery loop: adaptive check questions after manipulatives",
-							"Drawing canvas: your child can draw their thinking and submit it for analysis",
-							"Waveform walkie-talkie: a visual amplitude bar that shows your voice when you're giving instruction",
-						]}
-						closing="This is not a dry quiz interface. It's built to keep kids engaged while they learn."
-					/>
-					<ScreenshotFrame
-						src="/screenshots/student-join.png"
-						alt="Class Pulse student portal — the RAM mascot join screen where students enter their class code"
-					/>
-				</div>
-
-				{/* Group 5: Behavior & Economy */}
-				<div className="mb-10">
-					<h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">
-						Behavior &amp; Economy
-					</h3>
-					<FeatureCard
-						title="A Classroom Economy That Motivates—Even in a Classroom of One"
-						checks={[
-							"Your child earns RAM Bucks for correct CFU answers, mastery achievements, and positive behavior",
-							"You award bucks by voice or touch",
-							"Your child sees their balance, transaction history, and earning guide",
-							"They spend bucks at the Privilege Store on rewards you configure",
-						]}
-						closing="The behavior ladder is optional. Use what works for your family. Ignore what doesn't."
-					/>
-					<ScreenshotFrame
-						src="/screenshots/store-page.png"
-						alt="Class Pulse Privilege Store showing 6 reward items students can redeem with RAM Bucks"
-					/>
-				</div>
-
-				{/* Group 6: Parent Reports */}
-				<div>
-					<h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">
-						Parent Reports
-					</h3>
-					<FeatureCard
-						title="Proof of Progress, Always Ready"
-						body="Your parent dashboard is your command center. But you also get shareable, visual reports you can use for:"
-						checks={[
-							"Portfolio reviews with your umbrella school or district",
-							"Annual evaluations required by your state",
-							"Your own records and planning",
-							"Sharing progress with a co-parent or tutor",
-						]}
-						closing="Reports include proficiency bars by standard, behavior summaries, intervention history, and IXL skill map recommendations. Export as PDF. Share as a link. Always available."
-					/>
+			{/* ── Feature: Intervention Loop ──────────────────────────────────── */}
+			<Section className="bg-white">
+				<div className="max-w-3xl mx-auto">
+					<SectionLabel>The Intervention Loop</SectionLabel>
+					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-4">
+						The Platform Alerts You the Moment Your Child Struggles
+					</h2>
+					<p className="text-gray-600 text-base leading-relaxed mb-6">
+						This is the feature that changes everything for homeschool parents. Your child misses
+						two CFU problems on the same standard. The platform:
+					</p>
+					<ol className="space-y-4 mb-6">
+						{[
+							{
+								label: "Flags the standard",
+								desc: "Your dashboard shows: 'MA.5.FR.2.2 — Needs Support'",
+							},
+							{
+								label: "Generates the activity",
+								desc: "Auto-creates a 5-minute at-home practice exercise targeting exactly that gap using the AI Instructional Coach",
+							},
+							{
+								label: "Notifies you",
+								desc: "An intervention is ready — you know exactly what to do and you have the tool to do it",
+							},
+						].map((s, i) => (
+							<li key={s.label} className="flex items-start gap-4">
+								<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-black text-xs font-bold">
+									{i + 1}
+								</span>
+								<div>
+									<span className="font-semibold text-gray-900">{s.label} — </span>
+									<span className="text-gray-600 text-sm">{s.desc}</span>
+								</div>
+							</li>
+						))}
+					</ol>
+					<p className="text-sm text-gray-500 italic border-t border-gray-100 pt-4 leading-relaxed">
+						You practice with your child using the generated activity. Next session, the platform
+						serves a verification check on that standard. If they get it, the bar turns green. If
+						not, it escalates. You don't wonder what to do. You don't search Pinterest for practice
+						problems. The platform tells you exactly what your child needs and gives you the tool to
+						address it — in the moment it matters.
+					</p>
 				</div>
 			</Section>
 
-			{/* ── Full Feature List ──────────────────────────────────────────────── */}
+			{/* ── Feature: Tracking ───────────────────────────────────────────── */}
+			<Section className="bg-gray-50">
+				<div className="max-w-3xl mx-auto">
+					<SectionLabel>Progress Tracking</SectionLabel>
+					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-4">
+						A Complete Record, Built Automatically
+					</h2>
+					<ul className="space-y-2.5 mb-4">
+						{[
+							"Proficiency dashboard: bars per FL BEST standard, colored green / yellow / red",
+							"Every CFU answer logged by standard and date — no manual entry",
+							"Gradebook with class-wide and individual views",
+							"Export as CSV for your records or portfolio review",
+							"Pacing tracker shows if you're on schedule with your curriculum calendar",
+						].map((c) => (
+							<CheckItem key={c}>{c}</CheckItem>
+						))}
+					</ul>
+					<p className="text-sm text-gray-500 italic">
+						Walk into any portfolio review or district check-in with a complete record of exactly
+						what your child learned and when they learned it.
+					</p>
+				</div>
+			</Section>
+
+			{/* ── Full Feature List ────────────────────────────────────────────── */}
 			<Section className="bg-white">
 				<div className="max-w-2xl mx-auto">
 					<div className="text-center mb-8">
@@ -593,7 +621,7 @@ export default function HomeschoolPage() {
 						</h2>
 						<p className="text-sm text-gray-500 mt-2">Click any category to expand</p>
 					</div>
-					<div className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-200">
+					<div className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-200 px-6">
 						<FeatureGroup
 							title="Instructional Tools"
 							items={[
@@ -662,23 +690,23 @@ export default function HomeschoolPage() {
 				</div>
 			</Section>
 
-			{/* ── Pricing ───────────────────────────────────────────────────────── */}
-			<Section id="pricing" className="bg-blue-50">
-				<div className="max-w-2xl mx-auto text-center">
-					<SectionLabel>Pricing</SectionLabel>
-					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-3">
+			{/* ── Pricing ─────────────────────────────────────────────────────── */}
+			<section id="pricing" className="bg-[#0f1117] py-16 sm:py-24">
+				<div className="mx-auto max-w-2xl px-4 sm:px-6 text-center">
+					<SectionLabel light>Pricing</SectionLabel>
+					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
 						Class Pulse Homeschool Subscription
 					</h2>
-					<div className="mt-6 mb-6 rounded-2xl border border-blue-200 bg-white p-8">
+					<div className="mt-8 mb-6 rounded-2xl border border-white/10 bg-white/5 p-8">
 						<div className="flex items-baseline justify-center gap-1 mb-2">
-							<span className="text-5xl font-extrabold text-gray-900">$299</span>
-							<span className="text-xl text-gray-500">/ year per student</span>
+							<span className="text-6xl font-extrabold text-white">$299</span>
+							<span className="text-xl text-white/50">/ year per student</span>
 						</div>
-						<p className="text-sm text-gray-600 mb-6 leading-relaxed">
+						<p className="text-sm text-white/60 mb-6 leading-relaxed">
 							Everything above. One student. One year. Full platform access. Unlimited curriculum
 							uploads. Every feature included.
 						</p>
-						<div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+						<div className="flex flex-wrap items-center justify-center gap-2 mb-8">
 							{[
 								"Step Up for Students",
 								"Florida ESA",
@@ -688,29 +716,27 @@ export default function HomeschoolPage() {
 							].map((p) => (
 								<span
 									key={p}
-									className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+									className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400"
 								>
 									{p}
 								</span>
 							))}
 						</div>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center">
-							<CTAButton href="https://class-pulse-nine.vercel.app/signup">
-								Purchase with Scholarship
-							</CTAButton>
-							<CTAButton href="https://class-pulse-nine.vercel.app/signup" variant="outline">
+							<CTAButton href={SIGNUP_URL}>Purchase with Scholarship</CTAButton>
+							<CTAButton href={SIGNUP_URL} variant="outline">
 								Purchase Out-of-Pocket
 							</CTAButton>
 						</div>
 					</div>
-					<p className="text-sm text-gray-500">
+					<p className="text-sm text-white/40">
 						Multiple children? Each needs their own subscription for individual proficiency
 						tracking, but you manage everyone from the same dashboard.
 					</p>
 				</div>
-			</Section>
+			</section>
 
-			{/* ── Scholarship Flow ───────────────────────────────────────────────── */}
+			{/* ── Scholarship Flow ─────────────────────────────────────────────── */}
 			<Section id="scholarship" className="bg-white">
 				<div className="max-w-2xl mx-auto">
 					<SectionLabel>Scholarship Dollars</SectionLabel>
@@ -727,7 +753,7 @@ export default function HomeschoolPage() {
 							"Upload your curriculum and start",
 						].map((step, i) => (
 							<li key={step} className="flex items-start gap-3">
-								<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold">
+								<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-black text-xs font-bold">
 									{i + 1}
 								</span>
 								<span className="text-base text-gray-700 leading-relaxed pt-0.5">{step}</span>
@@ -748,15 +774,15 @@ export default function HomeschoolPage() {
 						)}
 					</div>
 					<a
-						href="https://class-pulse-nine.vercel.app/signup"
-						className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-4 transition-colors"
+						href={SIGNUP_URL}
+						className="text-sm font-semibold text-amber-600 hover:text-amber-700 underline underline-offset-4 transition-colors"
 					>
 						Check Scholarship Eligibility
 					</a>
 				</div>
 			</Section>
 
-			{/* ── FAQ ───────────────────────────────────────────────────────────── */}
+			{/* ── FAQ ─────────────────────────────────────────────────────────── */}
 			<Section className="bg-gray-50">
 				<div className="max-w-2xl mx-auto">
 					<div className="text-center mb-10">
@@ -776,7 +802,7 @@ export default function HomeschoolPage() {
 						/>
 						<AccordionItem
 							question="What does my child see on their device?"
-							answer="The student interface is colorful and engaging. They see bell ringers and CFU prompts, a comprehension signal with three faces to express how they're feeling, interactive manipulatives for hands-on practice, their RAM Bucks balance and store, and progress indicators. It's designed for a 10-year-old."
+							answer="The student interface is colorful and engaging. They see bell ringers and CFU prompts, a comprehension signal with four options to express how they're feeling, interactive manipulatives for hands-on practice, their RAM Bucks balance and store, and progress indicators. It's designed for a 10-year-old."
 						/>
 						<AccordionItem
 							question="How is this different from just using a PDF and a spreadsheet?"
@@ -810,40 +836,40 @@ export default function HomeschoolPage() {
 				</div>
 			</Section>
 
-			{/* ── Footer CTA ────────────────────────────────────────────────────── */}
-			<Section className="bg-gray-900 text-white">
-				<div className="text-center max-w-2xl mx-auto">
+			{/* ── Footer CTA ──────────────────────────────────────────────────── */}
+			<section className="bg-[#0f1117] py-16 sm:py-24">
+				<div className="mx-auto max-w-2xl px-4 sm:px-6 text-center">
 					<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
 						Your Curriculum. Your Teaching. One Platform That Runs the System.
 					</h2>
-					<p className="text-base text-gray-300 leading-relaxed mb-6">
+					<p className="text-base text-white/60 leading-relaxed mb-6">
 						Upload your resources. Auto-serve checks for understanding. Track proficiency
-						automatically. Get alerted when your child needs help—with the practice activity already
-						ready.
+						automatically. Get alerted when your child needs help — with the practice activity
+						already ready.
 					</p>
-					<p className="text-sm font-semibold text-blue-400 mb-8">
-						$299/year per student. Scholarship eligible.
+					<p className="text-sm font-semibold text-amber-400 mb-8">
+						$299/year per student · Scholarship eligible
 					</p>
 					<a
-						href="https://class-pulse-nine.vercel.app/signup"
-						className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-8 py-4 text-base font-bold text-white hover:bg-blue-500 transition-colors"
+						href={SIGNUP_URL}
+						className="inline-flex items-center justify-center rounded-lg bg-amber-500 hover:bg-amber-400 px-8 py-4 text-base font-bold text-black transition-colors shadow-lg shadow-amber-500/20"
 					>
 						Get Class Pulse Now
 					</a>
-					<p className="mt-8 text-sm text-gray-400">
+					<p className="mt-8 text-sm text-white/30">
 						Questions? Email:{" "}
 						<a
 							href="mailto:families@classpulse.com"
-							className="text-blue-400 hover:text-blue-300 transition-colors"
+							className="text-amber-400/70 hover:text-amber-400 transition-colors"
 						>
 							families@classpulse.com
 						</a>
 					</p>
-					<p className="mt-4 text-xs text-gray-600">
+					<p className="mt-4 text-xs text-white/20">
 						Step Up for Students · ESA Eligible · FL BEST Math Aligned · Built by a Florida Teacher
 					</p>
 				</div>
-			</Section>
+			</section>
 		</div>
 	);
 }
