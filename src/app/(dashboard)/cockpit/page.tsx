@@ -18,14 +18,12 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
-	cfuEntries,
 	classes,
 	classSessions,
 	groupMemberships,
 	interventionFlags,
 	lessonResources,
 	masteryRecords,
-	ramBuckTransactions,
 	rosterEntries,
 	studentGroups,
 } from "@/lib/db/schema";

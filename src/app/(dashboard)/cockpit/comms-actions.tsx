@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, FileTextIcon, MessageCircleIcon, XIcon } from "lucide-react";
+import { MessageCircleIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -19,15 +19,18 @@ export function CommsActions({
 	standardCode,
 	tier,
 	sessionCount,
-	classId,
 }: CommsCardProps) {
 	const [dismissed, setDismissed] = useState(false);
-	const [loading, setLoading] = useState<"report" | "sms" | "dismiss" | null>(null);
+	const [loading, setLoading] = useState<"send" | "dismiss" | null>(null);
 
 	const handleDismiss = async () => {
 		setLoading("dismiss");
 		try {
-			const res = await fetch(`/api/parent-comms/flags/${flagId}/dismiss`, { method: "POST" });
+			const res = await fetch(`/api/intervention-flags/${flagId}`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ action: "dismiss" }),
+			});
 			if (!res.ok) throw new Error("Failed to dismiss");
 			setDismissed(true);
 			toast.success(`Dismissed flag for ${studentInitials}`);
@@ -38,36 +41,24 @@ export function CommsActions({
 		}
 	};
 
-	const handleGenerateReport = async () => {
-		setLoading("report");
+	const handleSend = async () => {
+		setLoading("send");
 		try {
-			const res = await fetch(`/api/parent-comms/flags/${flagId}/report`, { method: "POST" });
-			if (!res.ok) throw new Error("Failed to generate");
-			const json: { url?: string } = await res.json();
-			if (json.url) {
-				window.open(json.url, "_blank");
-			} else {
-				toast.success("Report generated — check Parent Comms");
-			}
-		} catch {
-			toast.error("Failed to generate report");
-		} finally {
-			setLoading(null);
-		}
-	};
-
-	const handleSendSms = async () => {
-		setLoading("sms");
-		try {
-			const res = await fetch(`/api/parent-comms/flags/${flagId}/sms`, {
+			const res = await fetch(`/api/intervention-flags/${flagId}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ classId }),
+				body: JSON.stringify({ action: "send" }),
 			});
-			if (!res.ok) throw new Error("Failed to send");
-			toast.success(`SMS sent for ${studentInitials}`);
-		} catch {
-			toast.error("Failed to send SMS");
+			if (!res.ok) {
+				const json: { error?: string } = await res.json();
+				throw new Error(json.error ?? "Failed to send");
+			}
+			const json: { reportUrl?: string } = await res.json();
+			toast.success(`Sent to parent for ${studentInitials}`);
+			if (json.reportUrl) window.open(json.reportUrl, "_blank");
+			setDismissed(true);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Failed to send");
 		} finally {
 			setLoading(null);
 		}
@@ -96,21 +87,12 @@ export function CommsActions({
 			<div className="flex gap-2 flex-wrap">
 				<button
 					type="button"
-					onClick={handleGenerateReport}
-					disabled={loading !== null}
-					className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 text-xs font-medium transition-colors disabled:opacity-50"
-				>
-					<FileTextIcon className="h-3.5 w-3.5" />
-					{loading === "report" ? "Generating…" : "Generate Report"}
-				</button>
-				<button
-					type="button"
-					onClick={handleSendSms}
+					onClick={handleSend}
 					disabled={loading !== null}
 					className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 text-xs font-medium transition-colors disabled:opacity-50"
 				>
 					<MessageCircleIcon className="h-3.5 w-3.5" />
-					{loading === "sms" ? "Sending…" : "Send SMS"}
+					{loading === "send" ? "Sending…" : "Send to Parent"}
 				</button>
 				<button
 					type="button"

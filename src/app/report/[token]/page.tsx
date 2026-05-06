@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
 	AlertTriangle,
 	BookOpen,
@@ -23,8 +23,6 @@ import {
 	comprehensionSignals,
 	interventionFlags,
 	parentReportTokens,
-	ramBuckAccounts,
-	ramBuckTransactions,
 	rosterEntries,
 } from "@/lib/db/schema";
 import { getTopicForDate } from "@/lib/pacing";
@@ -79,67 +77,49 @@ export default async function ReportPage({ params }: PageProps) {
 		.orderBy(desc(classSessions.endedAt))
 		.limit(1);
 
-	const [roster, cls, behaviorRow, buckRow, assignmentRow, weekEarnedRow, signalRow] =
-		await Promise.all([
-			db
-				.select({
-					firstInitial: rosterEntries.firstInitial,
-					lastInitial: rosterEntries.lastInitial,
-					studentId: rosterEntries.studentId,
-				})
-				.from(rosterEntries)
-				.where(eq(rosterEntries.id, rosterId))
-				.then((r) => r[0]),
-			db
-				.select({ label: classes.label, gradeLevel: classes.gradeLevel })
-				.from(classes)
-				.where(eq(classes.id, classId))
-				.then((r) => r[0]),
-			db
-				.select({ currentStep: behaviorProfiles.currentStep })
-				.from(behaviorProfiles)
-				.where(and(eq(behaviorProfiles.classId, classId), eq(behaviorProfiles.rosterId, rosterId)))
-				.then((r) => r[0]),
-			db
-				.select({ balance: ramBuckAccounts.balance })
-				.from(ramBuckAccounts)
-				.where(and(eq(ramBuckAccounts.classId, classId), eq(ramBuckAccounts.rosterId, rosterId)))
-				.then((r) => r[0]),
-			db
-				.select({ content: classAssignments.content })
-				.from(classAssignments)
-				.where(
-					and(
-						eq(classAssignments.classId, classId),
-						eq(classAssignments.date, flag.detectedAt.toISOString().slice(0, 10)),
-					),
-				)
-				.then((r) => r[0]),
-			db
-				.select({ total: sql<number>`coalesce(sum(${ramBuckTransactions.amount}), 0)` })
-				.from(ramBuckTransactions)
-				.where(
-					and(
-						eq(ramBuckTransactions.classId, classId),
-						eq(ramBuckTransactions.rosterId, rosterId),
-						gt(ramBuckTransactions.amount, 0),
-						gte(ramBuckTransactions.createdAt, weekStart),
-					),
-				)
-				.then((r) => r[0]),
-			lastSession
-				? db
-						.select({ signal: comprehensionSignals.signal })
-						.from(comprehensionSignals)
-						.where(
-							and(
-								eq(comprehensionSignals.sessionId, lastSession.id),
-								eq(comprehensionSignals.rosterId, rosterId),
-							),
-						)
-						.then((r) => r[0])
-				: Promise.resolve(undefined),
-		]);
+	const [roster, cls, behaviorRow, assignmentRow, signalRow] = await Promise.all([
+		db
+			.select({
+				firstInitial: rosterEntries.firstInitial,
+				lastInitial: rosterEntries.lastInitial,
+				studentId: rosterEntries.studentId,
+			})
+			.from(rosterEntries)
+			.where(eq(rosterEntries.id, rosterId))
+			.then((r) => r[0]),
+		db
+			.select({ label: classes.label, gradeLevel: classes.gradeLevel })
+			.from(classes)
+			.where(eq(classes.id, classId))
+			.then((r) => r[0]),
+		db
+			.select({ currentStep: behaviorProfiles.currentStep })
+			.from(behaviorProfiles)
+			.where(and(eq(behaviorProfiles.classId, classId), eq(behaviorProfiles.rosterId, rosterId)))
+			.then((r) => r[0]),
+		db
+			.select({ content: classAssignments.content })
+			.from(classAssignments)
+			.where(
+				and(
+					eq(classAssignments.classId, classId),
+					eq(classAssignments.date, flag.detectedAt.toISOString().slice(0, 10)),
+				),
+			)
+			.then((r) => r[0]),
+		lastSession
+			? db
+					.select({ signal: comprehensionSignals.signal })
+					.from(comprehensionSignals)
+					.where(
+						and(
+							eq(comprehensionSignals.sessionId, lastSession.id),
+							eq(comprehensionSignals.rosterId, rosterId),
+						),
+					)
+					.then((r) => r[0])
+			: Promise.resolve(undefined),
+	]);
 
 	const currentTopic = getTopicForDate(new Date().toISOString().slice(0, 10));
 	const ixlSkill = IXL_SKILL_MAP[flag.standardCode];
@@ -245,11 +225,6 @@ export default async function ReportPage({ params }: PageProps) {
 	const isUrgent = flag.tier === "tier3";
 
 	const step = behaviorRow?.currentStep ?? 0;
-	const balance = buckRow?.balance ?? 0;
-	const weekEarned = Number(weekEarnedRow?.total ?? 0);
-	const behaviorOk = step <= 2;
-	const behaviorLabel =
-		step === 0 ? "No incidents" : step <= 2 ? `Step ${step} of 8 — minor` : `Step ${step} of 8`;
 
 	const behaviorColor = step <= 2 ? "bg-emerald-500" : step >= 5 ? "bg-rose-500" : "bg-amber-400";
 	const behaviorStatus = step <= 2 ? "Good standing" : step >= 5 ? "Needs attention" : "Monitor";
