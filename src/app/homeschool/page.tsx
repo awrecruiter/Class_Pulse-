@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -258,6 +259,33 @@ function CTAButton({
 	);
 }
 
+// ─── Screenshot browser frame ─────────────────────────────────────────────────
+
+function ScreenshotFrame({ src, alt }: { src: string; alt: string }) {
+	return (
+		<div className="mt-6 rounded-xl overflow-hidden border border-gray-200 shadow-lg">
+			<div className="flex items-center gap-1.5 bg-gray-100 px-4 py-2.5 border-b border-gray-200">
+				<span className="h-3 w-3 rounded-full bg-red-400" />
+				<span className="h-3 w-3 rounded-full bg-yellow-400" />
+				<span className="h-3 w-3 rounded-full bg-green-400" />
+				<span className="ml-2 flex-1 rounded bg-white/80 px-3 py-1 text-xs text-gray-400 font-mono">
+					class-pulse.vercel.app
+				</span>
+			</div>
+			<div className="relative w-full">
+				<Image
+					src={src}
+					alt={alt}
+					width={1400}
+					height={875}
+					className="w-full h-auto object-cover"
+					unoptimized
+				/>
+			</div>
+		</div>
+	);
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function HomeschoolPage() {
@@ -484,6 +512,10 @@ export default function HomeschoolPage() {
 						]}
 						closing="It's like having a math specialist on call during every lesson. No prep. No searching. Just the exact explanation you need, aligned to exactly what you're teaching right now."
 					/>
+					<ScreenshotFrame
+						src="/screenshots/coach-main.png"
+						alt="Class Pulse AI Instructional Coach dashboard showing FL BEST standards, today's schedule, and the query input panel"
+					/>
 				</div>
 
 				{/* Group 4: Student Experience */}
@@ -505,6 +537,10 @@ export default function HomeschoolPage() {
 						]}
 						closing="This is not a dry quiz interface. It's built to keep kids engaged while they learn."
 					/>
+					<ScreenshotFrame
+						src="/screenshots/student-join.png"
+						alt="Class Pulse student portal — the RAM mascot join screen where students enter their class code"
+					/>
 				</div>
 
 				{/* Group 5: Behavior & Economy */}
@@ -521,6 +557,10 @@ export default function HomeschoolPage() {
 							"They spend bucks at the Privilege Store on rewards you configure",
 						]}
 						closing="The behavior ladder is optional. Use what works for your family. Ignore what doesn't."
+					/>
+					<ScreenshotFrame
+						src="/screenshots/store-page.png"
+						alt="Class Pulse Privilege Store showing 6 reward items students can redeem with RAM Bucks"
 					/>
 				</div>
 
