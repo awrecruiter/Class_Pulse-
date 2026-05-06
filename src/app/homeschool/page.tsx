@@ -7,6 +7,9 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const SIGNUP_URL = "https://class-pulse-nine.vercel.app/signup";
+const PRICE_MONTHLY = 29;
+const PRICE_ANNUAL = 249;
+const PRICE_ANNUAL_SAVINGS = PRICE_MONTHLY * 12 - PRICE_ANNUAL;
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
@@ -343,7 +346,8 @@ export default function HomeschoolPage() {
 								system.
 							</p>
 							<p className="text-sm text-white/50 mb-8">
-								Step Up · Florida ESA · Arizona ESA · ClassWallet eligible · from $29/mo
+								Step Up · Florida ESA · Arizona ESA · ClassWallet eligible · from ${PRICE_MONTHLY}
+								/mo
 							</p>
 							<div className="flex flex-wrap gap-3">
 								<CTAButton href={SIGNUP_URL}>Start Free Trial</CTAButton>
@@ -855,7 +859,7 @@ export default function HomeschoolPage() {
 								Monthly
 							</p>
 							<div className="flex items-baseline gap-1 mb-1">
-								<span className="text-5xl font-extrabold text-white">$29</span>
+								<span className="text-5xl font-extrabold text-white">${PRICE_MONTHLY}</span>
 								<span className="text-base text-white/50">/ mo</span>
 							</div>
 							<p className="text-xs text-white/40 mb-6">Billed month to month · cancel anytime</p>
@@ -887,11 +891,11 @@ export default function HomeschoolPage() {
 								Annual
 							</p>
 							<div className="flex items-baseline gap-1 mb-1">
-								<span className="text-5xl font-extrabold text-white">$249</span>
+								<span className="text-5xl font-extrabold text-white">${PRICE_ANNUAL}</span>
 								<span className="text-base text-white/50">/ year</span>
 							</div>
 							<p className="text-xs text-amber-400 mb-6">
-								Save $99 vs monthly · one payment · scholarship eligible
+								Save ${PRICE_ANNUAL_SAVINGS} vs monthly · one payment · scholarship eligible
 							</p>
 							<ul className="flex flex-col gap-2 mb-8 flex-1">
 								{[
@@ -1035,7 +1039,7 @@ export default function HomeschoolPage() {
 						already ready.
 					</p>
 					<p className="text-sm font-semibold text-amber-400 mb-8">
-						$299/year per student · Scholarship eligible
+						${PRICE_ANNUAL}/year per student · Scholarship eligible
 					</p>
 					<a
 						href={SIGNUP_URL}
