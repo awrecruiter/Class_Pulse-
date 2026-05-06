@@ -16,7 +16,11 @@ function Section({
 	id,
 	className,
 	children,
-}: { id?: string; className?: string; children: React.ReactNode }) {
+}: {
+	id?: string;
+	className?: string;
+	children: React.ReactNode;
+}) {
 	return (
 		<section id={id} className={cn("py-16 sm:py-24", className)}>
 			<div className="mx-auto max-w-5xl px-4 sm:px-6">{children}</div>
@@ -108,7 +112,9 @@ function PillBadge({ children }: { children: React.ReactNode }) {
 function DataRow({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="flex flex-col sm:flex-row sm:items-center gap-1 py-3 border-b border-gray-100 last:border-0">
-			<dt className="w-44 shrink-0 text-xs font-bold uppercase tracking-wide text-gray-500">{label}</dt>
+			<dt className="w-44 shrink-0 text-xs font-bold uppercase tracking-wide text-gray-500">
+				{label}
+			</dt>
 			<dd className="text-sm text-gray-900 font-mono">{value}</dd>
 		</div>
 	);
@@ -122,7 +128,10 @@ export default function ITApprovalPage() {
 			{/* Nav */}
 			<nav className="sticky top-0 z-40 bg-[#0f1117]/95 backdrop-blur border-b border-white/8">
 				<div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-					<Link href="/homeschool" className="text-lg font-bold text-white tracking-tight hover:text-white/80 transition-colors">
+					<Link
+						href="/homeschool"
+						className="text-lg font-bold text-white tracking-tight hover:text-white/80 transition-colors"
+					>
 						Class Pulse
 					</Link>
 					<div className="flex items-center gap-4">
@@ -153,9 +162,9 @@ export default function ITApprovalPage() {
 							Class Pulse — Network Access Request
 						</h1>
 						<p className="text-base sm:text-lg text-white/70 leading-relaxed mb-6">
-							Class Pulse is a classroom intelligence platform built for 5th-grade Florida math teachers.
-							This document is submitted for IT review to obtain network access approval for the
-							application domain.
+							Class Pulse is a classroom intelligence platform built for 5th-grade Florida math
+							teachers. This document is submitted for IT review to obtain network access approval
+							for the application domain.
 						</p>
 						<p className="text-sm text-white/40 font-mono">{PROD_URL}</p>
 					</div>
@@ -214,14 +223,16 @@ export default function ITApprovalPage() {
 					AI Provider: Gemini-Compatible by Design
 				</h2>
 				<p className="text-gray-600 text-base leading-relaxed mb-8 max-w-3xl">
-					Class Pulse currently routes AI features through Anthropic's Claude API. Because the district
-					has an active Google Gemini contract, the platform can be reconfigured to use the{" "}
-					<strong>Google Gemini API</strong> instead — avoiding any out-of-pocket AI spend and keeping
-					all AI processing within the district's existing vendor agreement.
+					Class Pulse currently routes AI features through Anthropic's Claude API. Because the
+					district has an active Google Gemini contract, the platform can be reconfigured to use the{" "}
+					<strong>Google Gemini API</strong> instead — avoiding any out-of-pocket AI spend and
+					keeping all AI processing within the district's existing vendor agreement.
 				</p>
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
 					<div className="rounded-2xl border border-gray-200 bg-white p-6">
-						<p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Current Setup</p>
+						<p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">
+							Current Setup
+						</p>
 						<p className="text-sm font-semibold text-gray-900 mb-1">Anthropic Claude Haiku</p>
 						<p className="text-sm text-gray-600 leading-relaxed">
 							Used for instructional coaching, voice command classification, behavior coach chat,
@@ -234,9 +245,9 @@ export default function ITApprovalPage() {
 						</p>
 						<p className="text-sm font-semibold text-blue-900 mb-1">Google Gemini Flash / Pro</p>
 						<p className="text-sm text-blue-800 leading-relaxed">
-							The AI layer can be swapped to use the district's Google Gemini API key. Same features,
-							same PII protections, billed to the district's existing Gemini contract. No extra
-							third-party AI vendor required.
+							The AI layer can be swapped to use the district's Google Gemini API key. Same
+							features, same PII protections, billed to the district's existing Gemini contract. No
+							extra third-party AI vendor required.
 						</p>
 					</div>
 				</div>
@@ -278,8 +289,8 @@ export default function ITApprovalPage() {
 					</h2>
 					<p className="text-white/70 text-base leading-relaxed mb-10 max-w-3xl">
 						Class Pulse was designed from the ground up with a "minimum viable identity" model. The
-						system stores only what is operationally necessary — and the teacher remains the responsible
-						party for any PII entered into the platform.
+						system stores only what is operationally necessary — and the teacher remains the
+						responsible party for any PII entered into the platform.
 					</p>
 
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
@@ -304,7 +315,9 @@ export default function ITApprovalPage() {
 								key={card.title}
 								className="rounded-2xl bg-white/5 border border-white/10 p-6 flex flex-col gap-3"
 							>
-								<p className="text-blue-400 text-xs font-bold uppercase tracking-widest">{card.title}</p>
+								<p className="text-blue-400 text-xs font-bold uppercase tracking-widest">
+									{card.title}
+								</p>
 								<p className="text-white/80 text-sm leading-relaxed">{card.body}</p>
 								<p className="text-white/40 text-xs leading-relaxed border-t border-white/10 pt-3 italic">
 									{card.note}
@@ -320,12 +333,12 @@ export default function ITApprovalPage() {
 						</p>
 						<p className="text-white/60 text-sm leading-relaxed">
 							Class Pulse is a tool, not a data custodian. The platform enforces minimum data
-							collection by design. However, teachers retain responsibility for any student or parent
-							information they choose to enter. The school or district's existing FERPA policies and
-							data governance agreements govern how Class Pulse is used within the institution. It is
-							the teacher's responsibility to comply with district data handling requirements —
-							including the decision of whether to enter real SSIDs, parent phone numbers, or student
-							first names.
+							collection by design. However, teachers retain responsibility for any student or
+							parent information they choose to enter. The school or district's existing FERPA
+							policies and data governance agreements govern how Class Pulse is used within the
+							institution. It is the teacher's responsibility to comply with district data handling
+							requirements — including the decision of whether to enter real SSIDs, parent phone
+							numbers, or student first names.
 						</p>
 					</div>
 				</div>
@@ -456,7 +469,9 @@ export default function ITApprovalPage() {
 							},
 						].map((r) => (
 							<div key={r.role} className="rounded-2xl bg-white/5 border border-white/10 p-6">
-								<p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1">{r.role}</p>
+								<p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1">
+									{r.role}
+								</p>
 								<p className="text-white text-sm font-semibold mb-2">{r.auth}</p>
 								<p className="text-white/60 text-sm leading-relaxed">{r.detail}</p>
 							</div>
