@@ -190,9 +190,9 @@ function IPhone17e({ src, alt, width = 220 }: { src: string; alt: string; width?
 	);
 }
 
-function TabletFrame({ src, alt }: { src: string; alt: string }) {
+function TabletFrame({ src, alt, width = 380 }: { src: string; alt: string; width?: number }) {
 	return (
-		<div className="relative mx-auto select-none" style={{ maxWidth: 380 }}>
+		<div className="relative mx-auto select-none" style={{ width, maxWidth: width }}>
 			<div
 				style={{
 					backgroundColor: "#1c1c1e",
@@ -565,31 +565,38 @@ export default function HomeschoolPage() {
 					<p className="text-white/50 text-sm mb-12">
 						iPhone · iPad · Any browser · Chromebook · PC
 					</p>
-					<div className="flex flex-col lg:flex-row items-center lg:items-end justify-center gap-8 lg:gap-10">
+					<div className="flex flex-col lg:flex-row items-end justify-center gap-10 lg:gap-14">
 						{/* iPhone 17e */}
 						<div className="flex flex-col items-center gap-3">
 							<IPhone17e
 								src="/screenshots/student-session-pulse.png"
 								alt="Student session on iPhone 17e"
-								width={160}
+								width={200}
 							/>
-							<span className="text-xs text-white/30 font-medium">iPhone 17e</span>
+							<span className="text-xs text-white/60 font-semibold tracking-wide uppercase">
+								iPhone
+							</span>
 						</div>
 						{/* iPad tablet */}
-						<div className="flex flex-col items-center gap-3 w-full max-w-[300px] lg:max-w-[320px]">
+						<div className="flex flex-col items-center gap-3">
 							<TabletFrame
 								src="/screenshots/student-session-pulse.png"
 								alt="Student session on iPad"
+								width={200}
 							/>
-							<span className="text-xs text-white/30 font-medium">iPad</span>
+							<span className="text-xs text-white/60 font-semibold tracking-wide uppercase">
+								iPad
+							</span>
 						</div>
 						{/* Desktop browser */}
-						<div className="flex flex-col items-center gap-3 w-full max-w-[320px] lg:max-w-[360px]">
+						<div className="flex flex-col items-center gap-3" style={{ width: 340 }}>
 							<BrowserFrame
 								src="/screenshots/student-join.png"
 								alt="Student join page in desktop browser"
 							/>
-							<span className="text-xs text-white/30 font-medium">Any Browser</span>
+							<span className="text-xs text-white/60 font-semibold tracking-wide uppercase">
+								Any Browser
+							</span>
 						</div>
 					</div>
 				</div>
@@ -626,7 +633,7 @@ export default function HomeschoolPage() {
 							<IPhone17e
 								src="/screenshots/parent-report.png"
 								alt="Parent report showing behavior and academics tiles on iPhone"
-								width={220}
+								width={300}
 							/>
 						</div>
 					</div>
