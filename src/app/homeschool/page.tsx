@@ -99,31 +99,10 @@ function PainItem({ children }: { children: React.ReactNode }) {
 
 // ─── Device frames ────────────────────────────────────────────────────────────
 
-const IPHONE_COLORS = {
-	black: { frame: "#1c1c1e", side: "#2c2c2e", highlight: "rgba(255,255,255,0.07)", label: "Black" },
-	white: { frame: "#e8e8e2", side: "#d8d8d2", highlight: "rgba(255,255,255,0.55)", label: "White" },
-	pink: { frame: "#d9849e", side: "#c97490", highlight: "rgba(255,255,255,0.22)", label: "Pink" },
-	blue: {
-		frame: "#3a5cb0",
-		side: "#2a4ca0",
-		highlight: "rgba(255,255,255,0.13)",
-		label: "Ultramarine",
-	},
-	teal: { frame: "#38836e", side: "#28735e", highlight: "rgba(255,255,255,0.11)", label: "Teal" },
-} as const;
-
-function IPhone17e({
-	src,
-	alt,
-	color = "black",
-	width = 200,
-}: {
-	src: string;
-	alt: string;
-	color?: keyof typeof IPHONE_COLORS;
-	width?: number;
-}) {
-	const c = IPHONE_COLORS[color];
+function IPhone17e({ src, alt, width = 220 }: { src: string; alt: string; width?: number }) {
+	const steel =
+		"linear-gradient(160deg, #d4d2ca 0%, #a8a4a0 18%, #c8c6be 34%, #909090 50%, #bab8b0 66%, #ceccc4 82%, #a4a2a0 100%)";
+	const btn = "#9c9a98";
 	return (
 		<div className="relative mx-auto select-none" style={{ width }}>
 			{/* Volume up */}
@@ -134,9 +113,9 @@ function IPhone17e({
 					top: 86,
 					width: 4,
 					height: 26,
-					background: c.side,
+					background: btn,
 					borderRadius: "3px 0 0 3px",
-					boxShadow: `inset 1px 0 0 ${c.highlight}`,
+					boxShadow: "inset 1px 0 0 rgba(255,255,255,0.35), inset -1px 0 0 rgba(0,0,0,0.2)",
 				}}
 			/>
 			{/* Volume down */}
@@ -147,9 +126,9 @@ function IPhone17e({
 					top: 122,
 					width: 4,
 					height: 26,
-					background: c.side,
+					background: btn,
 					borderRadius: "3px 0 0 3px",
-					boxShadow: `inset 1px 0 0 ${c.highlight}`,
+					boxShadow: "inset 1px 0 0 rgba(255,255,255,0.35), inset -1px 0 0 rgba(0,0,0,0.2)",
 				}}
 			/>
 			{/* Power */}
@@ -160,19 +139,19 @@ function IPhone17e({
 					top: 106,
 					width: 4,
 					height: 42,
-					background: c.side,
+					background: btn,
 					borderRadius: "0 3px 3px 0",
-					boxShadow: `inset -1px 0 0 ${c.highlight}`,
+					boxShadow: "inset -1px 0 0 rgba(255,255,255,0.35), inset 1px 0 0 rgba(0,0,0,0.2)",
 				}}
 			/>
 			{/* Body */}
 			<div
 				style={{
-					backgroundColor: c.frame,
-					backgroundImage: `linear-gradient(145deg, ${c.highlight} 0%, transparent 55%)`,
+					background: steel,
 					borderRadius: 44,
 					padding: "13px 10px 11px",
-					boxShadow: `0 28px 65px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.12), inset 0 1px 0 ${c.highlight}`,
+					boxShadow:
+						"0 28px 65px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.5)",
 				}}
 			>
 				{/* Screen */}
@@ -204,9 +183,7 @@ function IPhone17e({
 				</div>
 				{/* Home bar */}
 				<div className="flex justify-center mt-2">
-					<div
-						style={{ width: 48, height: 4, borderRadius: 2, background: c.side, opacity: 0.55 }}
-					/>
+					<div style={{ width: 48, height: 4, borderRadius: 2, background: "rgba(0,0,0,0.15)" }} />
 				</div>
 			</div>
 		</div>
@@ -377,26 +354,11 @@ export default function HomeschoolPage() {
 						</div>
 						{/* Right: iPhone mockup */}
 						<div className="flex justify-center lg:justify-end pb-0">
-							<div className="flex items-end justify-center gap-3">
-								<IPhone17e
-									src="/screenshots/student-session-pulse.png"
-									alt="Student pulse on Black iPhone 17e"
-									color="black"
-									width={132}
-								/>
-								<IPhone17e
-									src="/screenshots/student-session-pulse.png"
-									alt="Student pulse on Pink iPhone 17e"
-									color="pink"
-									width={158}
-								/>
-								<IPhone17e
-									src="/screenshots/student-session-pulse.png"
-									alt="Student pulse on Teal iPhone 17e"
-									color="teal"
-									width={132}
-								/>
-							</div>
+							<IPhone17e
+								src="/screenshots/student-session-pulse.png"
+								alt="Student session on iPhone 17e"
+								width={220}
+							/>
 						</div>
 					</div>
 				</div>
@@ -560,24 +522,11 @@ export default function HomeschoolPage() {
 			{/* ── Feature: Student Experience ─────────────────────────────────── */}
 			<Section className="bg-white">
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-					<div className="order-2 lg:order-1 flex justify-center items-end gap-3 sm:gap-5">
+					<div className="order-2 lg:order-1 flex justify-center">
 						<IPhone17e
 							src="/screenshots/student-session-pulse.png"
-							alt="Student pulse screen on Black iPhone 17e"
-							color="black"
-							width={148}
-						/>
-						<IPhone17e
-							src="/screenshots/student-session-pulse.png"
-							alt="Student pulse screen on Pink iPhone 17e"
-							color="pink"
-							width={172}
-						/>
-						<IPhone17e
-							src="/screenshots/student-session-pulse.png"
-							alt="Student pulse screen on Ultramarine iPhone 17e"
-							color="blue"
-							width={148}
+							alt="Student session on iPhone 17e showing comprehension signal"
+							width={220}
 						/>
 					</div>
 					<div className="order-1 lg:order-2">
@@ -617,15 +566,14 @@ export default function HomeschoolPage() {
 						iPhone · iPad · Any browser · Chromebook · PC
 					</p>
 					<div className="flex flex-col lg:flex-row items-center lg:items-end justify-center gap-8 lg:gap-10">
-						{/* iPhone 17e — Pink */}
+						{/* iPhone 17e */}
 						<div className="flex flex-col items-center gap-3">
 							<IPhone17e
 								src="/screenshots/student-session-pulse.png"
-								alt="Student session on Pink iPhone 17e"
-								color="pink"
+								alt="Student session on iPhone 17e"
 								width={160}
 							/>
-							<span className="text-xs text-white/30 font-medium">iPhone 17e · Pink</span>
+							<span className="text-xs text-white/30 font-medium">iPhone 17e</span>
 						</div>
 						{/* iPad tablet */}
 						<div className="flex flex-col items-center gap-3 w-full max-w-[300px] lg:max-w-[320px]">
@@ -642,16 +590,6 @@ export default function HomeschoolPage() {
 								alt="Student join page in desktop browser"
 							/>
 							<span className="text-xs text-white/30 font-medium">Any Browser</span>
-						</div>
-						{/* iPhone 17e — Teal */}
-						<div className="flex flex-col items-center gap-3">
-							<IPhone17e
-								src="/screenshots/student-session-pulse.png"
-								alt="Student session on Teal iPhone 17e"
-								color="teal"
-								width={160}
-							/>
-							<span className="text-xs text-white/30 font-medium">iPhone 17e · Teal</span>
 						</div>
 					</div>
 				</div>
@@ -736,20 +674,11 @@ export default function HomeschoolPage() {
 							</ul>
 						</div>
 						<div className="flex flex-col gap-6">
-							<div className="flex items-end justify-center gap-3">
-								<IPhone17e
-									src="/screenshots/student-store.png"
-									alt="Student store on White iPhone 17e"
-									color="white"
-									width={148}
-								/>
-								<IPhone17e
-									src="/screenshots/student-store.png"
-									alt="Student store on Blue iPhone 17e"
-									color="blue"
-									width={170}
-								/>
-							</div>
+							<IPhone17e
+								src="/screenshots/student-store.png"
+								alt="Student store on iPhone 17e"
+								width={220}
+							/>
 						</div>
 					</div>
 					<div className="mt-12">
