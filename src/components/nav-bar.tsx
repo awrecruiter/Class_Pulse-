@@ -5,6 +5,7 @@ import {
 	CalendarDays,
 	FolderOpenIcon,
 	GraduationCapIcon,
+	LayoutDashboardIcon,
 	LogOutIcon,
 	MessageSquareIcon,
 	MicIcon,
@@ -203,6 +204,7 @@ function UserMenu() {
 // ─── Nav links ────────────────────────────────────────────────────────────────
 
 const NAV_LINKS = [
+	{ href: "/cockpit", label: "Cockpit", icon: LayoutDashboardIcon },
 	{ href: "/coach", label: "Coach", icon: GraduationCapIcon },
 	{ href: "/classes", label: "Classes", icon: UsersIcon },
 	{ href: "/pacing", label: "Pacing", icon: CalendarDays },

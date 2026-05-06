@@ -3,6 +3,7 @@ import {
 	boolean,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	text,
 	timestamp,
@@ -937,6 +938,11 @@ export const lessonResources = pgTable(
 		url: text("url").notNull(),
 		isHidden: boolean("is_hidden").notNull().default(false),
 		sortOrder: integer("sort_order").notNull().default(0),
+		// Parsed CSV question/answer data (bell-ringers, CFU sets, exit tickets)
+		// Shape: { rows: Array<{ standard_code, problem, answer, time_minutes?, deliver_at_minute?, is_exit_ticket? }> }
+		resourceData: jsonb("resource_data"),
+		// Date this resource was imported for (YYYY-MM-DD); null = no specific date
+		importDate: text("import_date"),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},

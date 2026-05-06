@@ -33,6 +33,8 @@ export const config = {
 	// HTML login page instead of returning 401, which breaks student routes that
 	// use student-cookie auth instead of Neon Auth.
 	matcher: [
+		"/cockpit",
+		"/cockpit/:path*",
 		"/coach",
 		"/coach/:path*",
 		"/classes",
@@ -47,6 +49,8 @@ export const config = {
 		"/resources/:path*",
 		"/settings",
 		"/board",
+		"/store",
+		"/store/:path*",
 		"/parent-comms",
 		"/parent-comms/:path*",
 	],
