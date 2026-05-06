@@ -2,7 +2,6 @@
 
 import {
 	AlertCircleIcon,
-	CalendarIcon,
 	MicIcon,
 	PlusIcon,
 	ShieldCheckIcon,
@@ -10,9 +9,8 @@ import {
 	XIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
 import { Button } from "@/components/ui/button";
 import { YAAG_TOPICS } from "@/data/yaag-2025-2026";
 import type { ServiceSurface } from "@/lib/subscription";
@@ -79,515 +77,6 @@ const SURFACE_META: Record<ServiceSurface, { label: string; description: string 
 };
 
 // ─── Pacing Guide Card ────────────────────────────────────────────────────────
-
-type PacingEntry = {
-	id: string;
-	weekOf: string;
-	standardCode: string;
-	title: string;
-};
-
-function PacingGuideCard() {
-	const [entries, setEntries] = useState<PacingEntry[]>([]);
-	const [weekOf, setWeekOf] = useState("");
-	const [standardCode, setStandardCode] = useState("");
-	const [title, setTitle] = useState("");
-	const [saving, setSaving] = useState(false);
-	const [topicOverride, setTopicOverride] = useState<number | "">("");
-	const [savingOverride, setSavingOverride] = useState(false);
-
-	const load = useCallback(async () => {
-		try {
-			const res = await fetch("/api/pacing-guide");
-			if (res.ok) {
-				const json = await res.json();
-				setEntries(json.entries ?? []);
-			}
-		} catch {
-			// non-fatal
-		}
-	}, []);
-
-	useEffect(() => {
-		fetch("/api/teacher-settings")
-			.then((r) => (r.ok ? r.json() : { settings: {} }))
-			.then((j) => {
-				if (typeof j.settings?.currentTopicNumber === "number")
-					setTopicOverride(j.settings.currentTopicNumber);
-			})
-			.catch(() => {});
-	}, []);
-
-	async function handleSaveOverride(val: number | "") {
-		setTopicOverride(val);
-		setSavingOverride(true);
-		try {
-			await fetch("/api/teacher-settings", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ currentTopicNumber: val === "" ? null : val }),
-			});
-			toast.success(val === "" ? "Using YAAG auto-schedule" : `Override set to Topic ${val}`);
-		} catch {
-			toast.error("Failed to save");
-		} finally {
-			setSavingOverride(false);
-		}
-	}
-
-	useEffect(() => {
-		load();
-		// Default weekOf to Monday of current week
-		const now = new Date();
-		const day = now.getDay();
-		const monday = new Date(now);
-		monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-		setWeekOf(monday.toISOString().slice(0, 10));
-	}, [load]);
-
-	async function handleAdd() {
-		if (!weekOf || !standardCode.trim()) return;
-		setSaving(true);
-		try {
-			const res = await fetch("/api/pacing-guide", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ weekOf, standardCode: standardCode.trim().toUpperCase(), title }),
-			});
-			if (res.ok) {
-				toast.success("Pacing guide entry saved");
-				setStandardCode("");
-				setTitle("");
-				load();
-			} else {
-				toast.error("Failed to save");
-			}
-		} catch {
-			toast.error("Network error");
-		} finally {
-			setSaving(false);
-		}
-	}
-
-	async function handleDelete(id: string) {
-		try {
-			await fetch(`/api/pacing-guide/${id}`, { method: "DELETE" });
-			setEntries((prev) => prev.filter((e) => e.id !== id));
-		} catch {
-			// non-fatal
-		}
-	}
-
-	function formatWeek(weekOf: string) {
-		const d = new Date(`${weekOf}T12:00:00`);
-		return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-	}
-
-	return (
-		<div className="mt-8 flex flex-col gap-4">
-			<div>
-				<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-					Pacing Guide
-				</h2>
-				<p className="text-xs text-slate-400 mt-0.5">
-					Tag which standard you plan to cover each week — enables cross-session intervention
-					detection
-				</p>
-			</div>
-
-			{/* Current topic override — lets teacher correct when pacing drifts from YAAG dates */}
-			<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-2">
-				<div>
-					<p className="text-xs font-semibold text-slate-300">Current Topic Override</p>
-					<p className="text-[11px] text-slate-500 mt-0.5">
-						If your class is ahead or behind the YAAG schedule, set your actual topic here. Leave
-						blank to auto-detect from today&apos;s date.
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<select
-						value={topicOverride}
-						onChange={(e) =>
-							handleSaveOverride(e.target.value === "" ? "" : Number(e.target.value))
-						}
-						disabled={savingOverride}
-						className="flex-1 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
-					>
-						<option value="">Auto (from YAAG dates)</option>
-						{YAAG_TOPICS.map((t) => (
-							<option key={t.number} value={t.number}>
-								Topic {t.roman}: {t.title}
-							</option>
-						))}
-					</select>
-				</div>
-				{topicOverride !== "" && (
-					<p className="text-[10px] text-amber-400">
-						Override active — schedule sidebar and homework will use Topic {topicOverride}
-					</p>
-				)}
-			</div>
-
-			<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-3">
-				<div className="grid grid-cols-3 gap-2">
-					<div className="flex flex-col gap-1">
-						<label htmlFor="pg-week" className="text-[10px] text-slate-500 uppercase tracking-wide">
-							Week of (Monday)
-						</label>
-						<input
-							id="pg-week"
-							type="date"
-							value={weekOf}
-							onChange={(e) => setWeekOf(e.target.value)}
-							className="rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-ring"
-						/>
-					</div>
-					<div className="flex flex-col gap-1">
-						<label htmlFor="pg-std" className="text-[10px] text-slate-500 uppercase tracking-wide">
-							Standard
-						</label>
-						<input
-							id="pg-std"
-							type="text"
-							value={standardCode}
-							onChange={(e) => setStandardCode(e.target.value)}
-							placeholder="MA.5.FR.1.1"
-							className="rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-ring font-mono"
-						/>
-					</div>
-					<div className="flex flex-col gap-1">
-						<label
-							htmlFor="pg-title"
-							className="text-[10px] text-slate-500 uppercase tracking-wide"
-						>
-							Topic (optional)
-						</label>
-						<input
-							id="pg-title"
-							type="text"
-							value={title}
-							onChange={(e) => setTitle(e.target.value)}
-							placeholder="Adding fractions"
-							className="rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-ring"
-						/>
-					</div>
-				</div>
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					onClick={handleAdd}
-					disabled={saving || !weekOf || !standardCode.trim()}
-					className="w-full"
-				>
-					<PlusIcon className="h-3.5 w-3.5 mr-1" />
-					{saving ? "Saving…" : "Add Entry"}
-				</Button>
-			</div>
-
-			{entries.length > 0 && (
-				<div className="flex flex-col gap-1.5">
-					{entries.map((e) => (
-						<div
-							key={e.id}
-							className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2"
-						>
-							<span className="text-xs text-slate-500 w-16 shrink-0">
-								Wk of {formatWeek(e.weekOf)}
-							</span>
-							<span className="font-mono text-xs text-amber-400 shrink-0">{e.standardCode}</span>
-							{e.title && <span className="text-xs text-slate-400 flex-1 truncate">{e.title}</span>}
-							<button
-								type="button"
-								onClick={() => handleDelete(e.id)}
-								className="ml-auto text-slate-700 hover:text-slate-400 transition-colors"
-							>
-								<XIcon className="h-3.5 w-3.5" />
-							</button>
-						</div>
-					))}
-				</div>
-			)}
-		</div>
-	);
-}
-
-// ─── Schedule Manager ─────────────────────────────────────────────────────────
-
-type ScheduleDocLinkRow = {
-	id: string;
-	label: string;
-	url: string;
-	linkType: string;
-};
-
-type ScheduleBlockRow = {
-	id: string;
-	title: string;
-	color: string;
-	startTime: string;
-	endTime: string;
-	dayOfWeek: number | null;
-	specificDate: string | null;
-	sortOrder: number;
-	docs: ScheduleDocLinkRow[];
-};
-
-type ProposedBlock = {
-	title: string;
-	startTime: string;
-	endTime: string;
-	dayOfWeek: number | null;
-	color: string;
-};
-
-function ScheduleManager() {
-	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
-	const [importing, setImporting] = useState(false);
-	const [extractStatus, setExtractStatus] = useState<{
-		type: "success" | "warning" | "error";
-		msg: string;
-	} | null>(null);
-	const photoInputRef = useRef<HTMLInputElement>(null);
-	const icsInputRef = useRef<HTMLInputElement>(null);
-
-	const fetchBlocks = useCallback(async () => {
-		try {
-			const res = await fetch("/api/schedule");
-			const json = await res.json();
-			const fetched = json.blocks ?? [];
-			setBlocks(fetched);
-		} catch {
-			// silent
-		}
-	}, []);
-
-	useEffect(() => {
-		fetchBlocks();
-	}, [fetchBlocks]);
-
-	function todayWeekday(): number {
-		// 0=Sun,1=Mon...6=Sat — clamp to Mon-Fri
-		const d = new Date().getDay();
-		if (d === 0) return 1; // Sun → Mon
-		if (d === 6) return 5; // Sat → Fri
-		return d;
-	}
-
-	async function handlePhotoImport(e: React.ChangeEvent<HTMLInputElement>) {
-		const file = e.target.files?.[0];
-		if (!file) return;
-		setImporting(true);
-		try {
-			const reader = new FileReader();
-			reader.onload = async (ev) => {
-				try {
-					const dataUrl = ev.target?.result as string;
-					const base64 = dataUrl.split(",")[1];
-					const mimeType = file.type || "image/jpeg";
-					const res = await fetch("/api/schedule/extract", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ type: "image", data: base64, mimeType }),
-					});
-					const json = await res.json();
-					if (!res.ok) throw new Error(json.error || "Extraction failed");
-					const extracted = json.blocks ?? [];
-					if (extracted.length === 0) {
-						setExtractStatus({
-							type: "warning",
-							msg: "No schedule blocks detected — try a different image.",
-						});
-						console.warn("[schedule/extract] 0 blocks. debug:", json.debug ?? "(no debug field)");
-					} else {
-						const today = todayWeekday();
-						const COLORS = [
-							"blue",
-							"indigo",
-							"violet",
-							"green",
-							"emerald",
-							"teal",
-							"cyan",
-							"red",
-							"orange",
-							"amber",
-							"pink",
-							"slate",
-						] as const;
-						const allSameColor = extracted.every(
-							(b: ProposedBlock) => b.color === extracted[0]?.color,
-						);
-						const bulkRes = await fetch("/api/schedule/bulk", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								blocks: extracted.map((b: ProposedBlock, i: number) => ({
-									...b,
-									dayOfWeek: b.dayOfWeek ?? today,
-									color: allSameColor ? COLORS[i % COLORS.length] : (b.color ?? "blue"),
-								})),
-							}),
-						});
-						if (!bulkRes.ok) {
-							const bulkErr = await bulkRes.json();
-							throw new Error(bulkErr.error || "Bulk save failed");
-						}
-						await fetchBlocks();
-						setExtractStatus({
-							type: "success",
-							msg: `Added ${extracted.length} block${extracted.length === 1 ? "" : "s"} to your calendar`,
-						});
-					}
-				} catch (err) {
-					const msg = err instanceof Error ? err.message : String(err);
-					console.error("[schedule/extract] error:", msg);
-					setExtractStatus({ type: "error", msg: `Error: ${msg}` });
-					toast.error(`Extract failed: ${msg}`);
-				} finally {
-					setImporting(false);
-				}
-			};
-			reader.readAsDataURL(file);
-		} catch {
-			toast.error("Could not read image file");
-			setImporting(false);
-		}
-	}
-
-	async function handleIcsImport(e: React.ChangeEvent<HTMLInputElement>) {
-		const file = e.target.files?.[0];
-		if (!file) return;
-		setImporting(true);
-		try {
-			const text = await file.text();
-			const res = await fetch("/api/schedule/extract", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ type: "ics", content: text }),
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Extraction failed");
-			const extracted = json.blocks ?? [];
-			if (extracted.length === 0) {
-				setExtractStatus({ type: "warning", msg: "No events found in this calendar file." });
-			} else {
-				const today = todayWeekday();
-				const COLORS = [
-					"blue",
-					"indigo",
-					"violet",
-					"green",
-					"emerald",
-					"teal",
-					"cyan",
-					"red",
-					"orange",
-					"amber",
-					"pink",
-					"slate",
-				] as const;
-				const allSameColor = extracted.every((b: ProposedBlock) => b.color === extracted[0]?.color);
-				const bulkRes = await fetch("/api/schedule/bulk", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						blocks: extracted.map((b: ProposedBlock, i: number) => ({
-							...b,
-							dayOfWeek: b.dayOfWeek ?? today,
-							color: allSameColor ? COLORS[i % COLORS.length] : (b.color ?? "blue"),
-						})),
-					}),
-				});
-				if (!bulkRes.ok) {
-					const bulkErr = await bulkRes.json();
-					throw new Error(bulkErr.error || "Bulk save failed");
-				}
-				await fetchBlocks();
-				setExtractStatus({
-					type: "success",
-					msg: `Added ${extracted.length} block${extracted.length === 1 ? "" : "s"} to your calendar`,
-				});
-			}
-		} catch {
-			setExtractStatus({ type: "error", msg: "Could not parse calendar file." });
-		} finally {
-			setImporting(false);
-		}
-	}
-
-	return (
-		<div className="flex flex-col gap-4">
-			{/* Import buttons */}
-			<div className="flex gap-2">
-				<input
-					ref={photoInputRef}
-					type="file"
-					accept="image/*"
-					onChange={handlePhotoImport}
-					className="hidden"
-				/>
-				<input
-					ref={icsInputRef}
-					type="file"
-					accept=".ics"
-					onChange={handleIcsImport}
-					className="hidden"
-				/>
-				<button
-					type="button"
-					onClick={() => photoInputRef.current?.click()}
-					disabled={importing}
-					className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
-				>
-					<CalendarIcon className="h-3.5 w-3.5" />
-					{importing ? "Extracting…" : "Upload Photo"}
-				</button>
-				<button
-					type="button"
-					onClick={() => icsInputRef.current?.click()}
-					disabled={importing}
-					className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
-				>
-					<CalendarIcon className="h-3.5 w-3.5" />
-					Import .ics
-				</button>
-				{blocks.length > 0 && (
-					<button
-						type="button"
-						onClick={async () => {
-							if (!confirm(`Clear all ${blocks.length} schedule blocks?`)) return;
-							await fetch("/api/schedule", { method: "DELETE" });
-							setBlocks([]);
-						}}
-						className="flex items-center gap-1.5 rounded-lg border border-red-900/50 px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:border-red-700 transition-colors ml-auto"
-					>
-						<XIcon className="h-3.5 w-3.5" />
-						Clear all
-					</button>
-				)}
-			</div>
-
-			{/* Extract status */}
-			{extractStatus && (
-				<div
-					className={`rounded-lg border px-3 py-2 text-xs flex items-center gap-2 ${
-						extractStatus.type === "success"
-							? "border-green-500/30 bg-green-500/10 text-green-300"
-							: extractStatus.type === "warning"
-								? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-								: "border-red-500/30 bg-red-500/10 text-red-300"
-					}`}
-				>
-					<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
-					{extractStatus.msg}
-				</div>
-			)}
-
-			<ScheduleCalendar blocks={blocks} onBlocksChange={setBlocks} />
-		</div>
-	);
-}
 
 export default function SettingsPage() {
 	const [settings, setSettings] = useState<Settings | null>(null);
@@ -872,7 +361,7 @@ export default function SettingsPage() {
 
 	if (loading) {
 		return (
-			<div className="mx-auto max-w-lg px-4 py-8 flex flex-col gap-4">
+			<div className="mx-auto max-w-4xl px-4 py-8 flex flex-col gap-4">
 				{[1, 2, 3].map((i) => (
 					<div key={i} className="h-16 rounded-lg bg-slate-800/30 animate-pulse" />
 				))}
@@ -882,7 +371,7 @@ export default function SettingsPage() {
 
 	if (loadError || !settings) {
 		return (
-			<div className="mx-auto max-w-lg px-4 py-16 flex flex-col items-center gap-4 text-center">
+			<div className="mx-auto max-w-4xl px-4 py-16 flex flex-col items-center gap-4 text-center">
 				<AlertCircleIcon className="h-10 w-10 text-slate-400/50" />
 				<div>
 					<p className="text-sm font-medium text-slate-200">Couldn't load settings</p>
@@ -901,7 +390,7 @@ export default function SettingsPage() {
 	}
 
 	return (
-		<div className="mx-auto max-w-lg px-4 py-8">
+		<div className="mx-auto max-w-4xl px-4 py-8">
 			<div className="mb-6">
 				<h1 className="text-xl font-bold text-slate-200">Settings</h1>
 				<p className="text-sm text-slate-400 mt-0.5">Configure your classroom preferences</p>
@@ -920,7 +409,6 @@ export default function SettingsPage() {
 						["voice", "Voice"],
 						["groups", "Groups"],
 						["fees", "Fees"],
-						["schedule", "Schedule"],
 					] as [string, string][]
 				).map(([id, label]) => (
 					<a
@@ -933,7 +421,7 @@ export default function SettingsPage() {
 				))}
 			</nav>
 
-			<form onSubmit={handleSave} className="flex flex-col gap-6">
+			<form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-8 gap-6">
 				<section id="surfaces" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						Product Surfaces
@@ -1264,7 +752,191 @@ export default function SettingsPage() {
 					</div>
 				</section>
 
-				<Button type="submit" disabled={saving} className="w-full">
+				{/* ── Voice Behavior ──────────────────────────────── */}
+				<section id="voice-behavior" className="flex flex-col gap-4">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Voice Behavior
+					</h2>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="text-sm font-medium text-slate-200">Document open mode</p>
+								<p className="text-xs text-slate-500 mt-0.5">
+									How schedule doc links open when tapped or triggered by voice
+								</p>
+							</div>
+							<select
+								value={settings.scheduleDocOpenMode ?? "toast"}
+								onChange={(e) =>
+									setSettings((s) =>
+										s ? { ...s, scheduleDocOpenMode: e.target.value as "toast" | "new-tab" } : s,
+									)
+								}
+								className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+							>
+								<option value="toast">Tappable toast (confirm first)</option>
+								<option value="new-tab">Open immediately in new tab</option>
+							</select>
+						</div>
+					</div>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="text-sm font-medium text-slate-200">Voice navigation</p>
+								<p className="text-xs text-slate-500 mt-0.5">
+									How voice commands like "go to classes" behave
+								</p>
+							</div>
+							<select
+								value={settings.voiceNavMode ?? "toast"}
+								onChange={async (e) => {
+									const v = e.target.value as "immediate" | "toast";
+									setSettings((s) => (s ? { ...s, voiceNavMode: v } : s));
+									localStorage.setItem("voiceSettings.voiceNavMode", v);
+									window.dispatchEvent(
+										new CustomEvent("voice-nav-mode-changed", { detail: { voiceNavMode: v } }),
+									);
+									await fetch("/api/teacher-settings", {
+										method: "PUT",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({ voiceNavMode: v }),
+									});
+								}}
+								className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+							>
+								<option value="toast">Tappable toast (confirm first)</option>
+								<option value="immediate">Navigate immediately</option>
+							</select>
+						</div>
+					</div>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="text-sm font-medium text-slate-200">Voice app opens</p>
+								<p className="text-xs text-slate-500 mt-0.5">
+									How "open Pinnacle / iReady / Schoology…" behaves
+								</p>
+							</div>
+							<select
+								value={settings.voiceAppOpenMode ?? "immediate"}
+								onChange={async (e) => {
+									const v = e.target.value as "immediate" | "confirm";
+									setSettings((s) => (s ? { ...s, voiceAppOpenMode: v } : s));
+									localStorage.setItem("voiceSettings.voiceAppOpenMode", v);
+									window.dispatchEvent(
+										new CustomEvent("voice-app-open-mode-changed", {
+											detail: { voiceAppOpenMode: v },
+										}),
+									);
+									await fetch("/api/teacher-settings", {
+										method: "PUT",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({ voiceAppOpenMode: v }),
+									});
+								}}
+								className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+							>
+								<option value="immediate">Open immediately (same tab)</option>
+								<option value="confirm">Tap to open (new tab)</option>
+							</select>
+						</div>
+					</div>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="text-sm font-medium text-slate-200">Global voice only</p>
+								<p className="text-xs text-slate-500 mt-0.5">
+									Keeps lecture recording, dictation, and orb capture off so only background global
+									voice commands can use the mic
+								</p>
+							</div>
+							<select
+								value={settings.globalVoiceOnlyMode ? "on" : "off"}
+								onChange={(e) => {
+									const enabled = e.target.value === "on";
+									setSettings((s) => (s ? { ...s, globalVoiceOnlyMode: enabled } : s));
+									localStorage.setItem(GLOBAL_VOICE_ONLY_MODE_KEY, enabled ? "true" : "false");
+									window.dispatchEvent(new Event("voice-global-only-mode-changed"));
+								}}
+								className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+							>
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</div>
+					</div>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="text-sm font-medium text-slate-200">Production handoff mode</p>
+								<p className="text-xs text-slate-500 mt-0.5">
+									Disables toast popups, bypasses voice lock, and hides debug feedback
+								</p>
+							</div>
+							<select
+								value={settings.productionHandoffMode ? "on" : "off"}
+								onChange={(e) => {
+									const enabled = e.target.value === "on";
+									setSettings((s) =>
+										s ? { ...s, productionHandoffMode: enabled, toastsEnabled: !enabled } : s,
+									);
+									localStorage.setItem(PRODUCTION_HANDOFF_MODE_KEY, enabled ? "true" : "false");
+									localStorage.setItem(TOASTS_ENABLED_KEY, enabled ? "false" : "true");
+									localStorage.setItem(VOICE_LOCK_ENABLED_KEY, enabled ? "false" : "true");
+									localStorage.setItem(
+										VOICE_DEBUG_FEEDBACK_ENABLED_KEY,
+										enabled ? "false" : "true",
+									);
+									window.dispatchEvent(new Event("toast-visibility-changed"));
+								}}
+								className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+							>
+								<option value="off">Off</option>
+								<option value="on">On</option>
+							</select>
+						</div>
+					</div>
+
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="text-sm font-medium text-slate-200">Toast notifications</p>
+								<p className="text-xs text-slate-500 mt-0.5">
+									Disable all toast popups for production handoff
+								</p>
+							</div>
+							<select
+								value={settings.toastsEnabled === false ? "off" : "on"}
+								onChange={(e) => {
+									const enabled = e.target.value === "on";
+									setSettings((s) =>
+										s
+											? {
+													...s,
+													toastsEnabled: enabled,
+													productionHandoffMode: enabled ? false : s.productionHandoffMode,
+												}
+											: s,
+									);
+									localStorage.setItem(TOASTS_ENABLED_KEY, enabled ? "true" : "false");
+									if (enabled) localStorage.setItem(PRODUCTION_HANDOFF_MODE_KEY, "false");
+									window.dispatchEvent(new Event("toast-visibility-changed"));
+								}}
+								className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
+							>
+								<option value="on">On</option>
+								<option value="off">Off</option>
+							</select>
+						</div>
+					</div>
+				</section>
+
+				<Button type="submit" disabled={saving} className="w-full lg:col-span-2">
 					{saving ? "Saving..." : "Save Settings"}
 				</Button>
 			</form>
@@ -1304,7 +976,7 @@ export default function SettingsPage() {
 			</div>
 
 			{/* ── Fee Schedule ─────────────────────────────────── */}
-			<div id="fees" className="mt-8 flex flex-col gap-4">
+			<div id="fees" className="flex flex-col gap-4">
 				<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 					Behavior Fee Schedule
 				</h2>
@@ -1363,7 +1035,7 @@ export default function SettingsPage() {
 			</div>
 
 			{/* ── Store Items ──────────────────────────────────── */}
-			<div className="mt-8 flex flex-col gap-4">
+			<div className="flex flex-col gap-4">
 				<div className="flex items-center justify-between">
 					<div>
 						<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -1462,205 +1134,6 @@ export default function SettingsPage() {
 						)}
 					</div>
 				)}
-			</div>
-
-			{/* ── Schedule Settings + CRUD ────────────────────── */}
-			<div id="schedule" className="mt-8 flex flex-col gap-4">
-				<div>
-					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Schedule</h2>
-					<p className="text-xs text-slate-400 mt-0.5">
-						Configure your daily schedule and doc links for the schedule overlay
-					</p>
-				</div>
-
-				{/* Doc open mode */}
-				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-					<div className="flex items-center justify-between gap-4">
-						<div>
-							<p className="text-sm font-medium text-slate-200">Document open mode</p>
-							<p className="text-xs text-slate-500 mt-0.5">
-								How schedule doc links open when tapped or triggered by voice
-							</p>
-						</div>
-						<select
-							value={settings.scheduleDocOpenMode ?? "toast"}
-							onChange={(e) =>
-								setSettings((s) =>
-									s
-										? {
-												...s,
-												scheduleDocOpenMode: e.target.value as "toast" | "new-tab",
-											}
-										: s,
-								)
-							}
-							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
-						>
-							<option value="toast">Tappable toast (confirm first)</option>
-							<option value="new-tab">Open immediately in new tab</option>
-						</select>
-					</div>
-				</div>
-
-				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-					<div className="flex items-center justify-between gap-4">
-						<div>
-							<p className="text-sm font-medium text-slate-200">Voice navigation</p>
-							<p className="text-xs text-slate-500 mt-0.5">
-								How voice commands like "go to classes" behave
-							</p>
-						</div>
-						<select
-							value={settings.voiceNavMode ?? "toast"}
-							onChange={async (e) => {
-								const v = e.target.value as "immediate" | "toast";
-								setSettings((s) => (s ? { ...s, voiceNavMode: v } : s));
-								localStorage.setItem("voiceSettings.voiceNavMode", v);
-								window.dispatchEvent(
-									new CustomEvent("voice-nav-mode-changed", { detail: { voiceNavMode: v } }),
-								);
-								await fetch("/api/teacher-settings", {
-									method: "PUT",
-									headers: { "Content-Type": "application/json" },
-									body: JSON.stringify({ voiceNavMode: v }),
-								});
-							}}
-							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
-						>
-							<option value="toast">Tappable toast (confirm first)</option>
-							<option value="immediate">Navigate immediately</option>
-						</select>
-					</div>
-				</div>
-
-				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-					<div className="flex items-center justify-between gap-4">
-						<div>
-							<p className="text-sm font-medium text-slate-200">Voice app opens</p>
-							<p className="text-xs text-slate-500 mt-0.5">
-								How “open Pinnacle / iReady / Schoology…” behaves
-							</p>
-						</div>
-						<select
-							value={settings.voiceAppOpenMode ?? "immediate"}
-							onChange={async (e) => {
-								const v = e.target.value as "immediate" | "confirm";
-								setSettings((s) => (s ? { ...s, voiceAppOpenMode: v } : s));
-								localStorage.setItem("voiceSettings.voiceAppOpenMode", v);
-								window.dispatchEvent(
-									new CustomEvent("voice-app-open-mode-changed", {
-										detail: { voiceAppOpenMode: v },
-									}),
-								);
-								await fetch("/api/teacher-settings", {
-									method: "PUT",
-									headers: { "Content-Type": "application/json" },
-									body: JSON.stringify({ voiceAppOpenMode: v }),
-								});
-							}}
-							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
-						>
-							<option value="immediate">Open immediately (same tab)</option>
-							<option value="confirm">Tap to open (new tab)</option>
-						</select>
-					</div>
-				</div>
-
-				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-					<div className="flex items-center justify-between gap-4">
-						<div>
-							<p className="text-sm font-medium text-slate-200">Global voice only</p>
-							<p className="text-xs text-slate-500 mt-0.5">
-								Keeps lecture recording, dictation, and orb capture off so only background global
-								voice commands can use the mic
-							</p>
-						</div>
-						<select
-							value={settings.globalVoiceOnlyMode ? "on" : "off"}
-							onChange={(e) => {
-								const enabled = e.target.value === "on";
-								setSettings((s) => (s ? { ...s, globalVoiceOnlyMode: enabled } : s));
-								localStorage.setItem(GLOBAL_VOICE_ONLY_MODE_KEY, enabled ? "true" : "false");
-								window.dispatchEvent(new Event("voice-global-only-mode-changed"));
-							}}
-							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
-						>
-							<option value="off">Off</option>
-							<option value="on">On</option>
-						</select>
-					</div>
-				</div>
-
-				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-					<div className="flex items-center justify-between gap-4">
-						<div>
-							<p className="text-sm font-medium text-slate-200">Production handoff mode</p>
-							<p className="text-xs text-slate-500 mt-0.5">
-								Disables toast popups, bypasses voice lock, and hides debug feedback
-							</p>
-						</div>
-						<select
-							value={settings.productionHandoffMode ? "on" : "off"}
-							onChange={(e) => {
-								const enabled = e.target.value === "on";
-								setSettings((s) =>
-									s
-										? {
-												...s,
-												productionHandoffMode: enabled,
-												toastsEnabled: !enabled,
-											}
-										: s,
-								);
-								localStorage.setItem(PRODUCTION_HANDOFF_MODE_KEY, enabled ? "true" : "false");
-								localStorage.setItem(TOASTS_ENABLED_KEY, enabled ? "false" : "true");
-								localStorage.setItem(VOICE_LOCK_ENABLED_KEY, enabled ? "false" : "true");
-								localStorage.setItem(VOICE_DEBUG_FEEDBACK_ENABLED_KEY, enabled ? "false" : "true");
-								window.dispatchEvent(new Event("toast-visibility-changed"));
-							}}
-							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
-						>
-							<option value="off">Off</option>
-							<option value="on">On</option>
-						</select>
-					</div>
-				</div>
-
-				<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-					<div className="flex items-center justify-between gap-4">
-						<div>
-							<p className="text-sm font-medium text-slate-200">Toast notifications</p>
-							<p className="text-xs text-slate-500 mt-0.5">
-								Disable all toast popups for production handoff
-							</p>
-						</div>
-						<select
-							value={settings.toastsEnabled === false ? "off" : "on"}
-							onChange={(e) => {
-								const enabled = e.target.value === "on";
-								setSettings((s) =>
-									s
-										? {
-												...s,
-												toastsEnabled: enabled,
-												productionHandoffMode: enabled ? false : s.productionHandoffMode,
-											}
-										: s,
-								);
-								localStorage.setItem(TOASTS_ENABLED_KEY, enabled ? "true" : "false");
-								if (enabled) localStorage.setItem(PRODUCTION_HANDOFF_MODE_KEY, "false");
-								window.dispatchEvent(new Event("toast-visibility-changed"));
-							}}
-							className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5"
-						>
-							<option value="on">On</option>
-							<option value="off">Off</option>
-						</select>
-					</div>
-				</div>
-
-				<ScheduleManager />
-				<PacingGuideCard />
 			</div>
 		</div>
 	);

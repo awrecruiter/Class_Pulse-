@@ -4,6 +4,7 @@ import {
 	ArrowRightIcon,
 	BookOpenIcon,
 	CalendarDaysIcon,
+	CalendarIcon,
 	CheckCircleIcon,
 	ClipboardListIcon,
 	FolderOpenIcon,
@@ -29,6 +30,8 @@ import {
 } from "@/lib/db/schema";
 import { getTodayPacing } from "@/lib/pacing";
 import { CommsActions } from "./comms-actions";
+import { PacingGuideCard } from "./pacing-guide-card";
+import { ScheduleManager } from "./schedule-manager";
 import { UploadPanel } from "./upload-panel";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -382,6 +385,20 @@ export default async function CockpitPage() {
 
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
+
+					{/* Schedule Manager */}
+					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+						<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+							<CalendarIcon className="h-4 w-4 text-slate-500" />
+							Schedule
+						</h2>
+						<ScheduleManager />
+					</section>
+
+					{/* Pacing Guide */}
+					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+						<PacingGuideCard />
+					</section>
 
 					{/* Proficiency Snapshot */}
 					{groupRows.length > 0 && (
