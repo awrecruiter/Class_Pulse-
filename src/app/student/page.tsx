@@ -3,7 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 
 gsap.registerPlugin(useGSAP);
 
@@ -54,7 +54,7 @@ function RamLogo({ size = 56 }: { size?: number }) {
 	);
 }
 
-export default function StudentJoinPage() {
+function StudentJoinContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const prefillCode =
@@ -288,5 +288,13 @@ export default function StudentJoinPage() {
 
 			<p className="text-xs text-slate-700">Ms. White's Class Student Portal</p>
 		</div>
+	);
+}
+
+export default function StudentJoinPage() {
+	return (
+		<Suspense>
+			<StudentJoinContent />
+		</Suspense>
 	);
 }
