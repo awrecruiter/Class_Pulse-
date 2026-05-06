@@ -202,7 +202,7 @@ function TabletFrame({ src, alt, width = 380 }: { src: string; alt: string; widt
 					borderRadius: 36,
 					padding: "22px 12px 16px",
 					boxShadow:
-						"0 40px 100px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.08)",
+						"0 40px 100px rgba(0,0,0,0.7), 0 0 60px rgba(139,92,246,0.28), 0 0 120px rgba(139,92,246,0.12), 0 0 0 0.5px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.08)",
 				}}
 			>
 				{/* Front camera */}
@@ -782,7 +782,8 @@ export default function HomeschoolPage() {
 						{/* Tablet — student session in progress */}
 						<div className="flex flex-col items-center gap-4">
 							<div className="relative">
-								<div className="absolute inset-x-4 bottom-4 top-10 -z-0 rounded-3xl blur-2xl bg-violet-500/12" />
+								<div className="absolute -inset-6 -z-0 rounded-[48px] blur-3xl bg-violet-500/25" />
+								<div className="absolute inset-2 -z-0 rounded-3xl blur-xl bg-violet-400/20" />
 								<div className="relative z-10">
 									<TabletFrame
 										src="/screenshots/student-session-pulse.png"
