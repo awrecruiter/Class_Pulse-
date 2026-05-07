@@ -444,6 +444,16 @@ export default function CoachPage() {
 	const [rightOpen, setRightOpen] = useState(true);
 	const [groupsOpen, setGroupsOpen] = useState(true);
 	const [parentCommsPreselect, setParentCommsPreselect] = useState<ParentCommsPreselect>(null);
+	const [topicOverride, setTopicOverride] = useState<number | null>(null);
+	useEffect(() => {
+		fetch("/api/teacher-settings")
+			.then((r) => (r.ok ? r.json() : { settings: {} }))
+			.then((j) => {
+				if (typeof j.settings?.currentTopicNumber === "number")
+					setTopicOverride(j.settings.currentTopicNumber);
+			})
+			.catch(() => {});
+	}, []);
 	const {
 		classes,
 		selectedClassId,
@@ -1332,7 +1342,7 @@ export default function CoachPage() {
 							showOrbArea &&
 							inputMode !== "di" &&
 							(() => {
-								const p = getTodayPacing();
+								const p = getTodayPacing(undefined, topicOverride);
 								if (!p?.currentLesson) return null;
 								return (
 									<div className="px-3 pb-1">

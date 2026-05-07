@@ -27,6 +27,7 @@ import {
 	masteryRecords,
 	rosterEntries,
 	studentGroups,
+	teacherSettings,
 } from "@/lib/db/schema";
 import { getTodayPacing } from "@/lib/pacing";
 import { CollapsibleSection } from "./collapsible-section";
@@ -95,8 +96,17 @@ export default async function CockpitPage() {
 			.limit(20),
 	]);
 
+	// ── Teacher settings (topic override) ───────────────────────────────────
+	const settingsRow = await db
+		.select({ currentTopicNumber: teacherSettings.currentTopicNumber })
+		.from(teacherSettings)
+		.where(eq(teacherSettings.userId, teacherId))
+		.limit(1)
+		.then((r) => r[0] ?? null);
+	const topicOverride = settingsRow?.currentTopicNumber ?? null;
+
 	// ── Pacing ────────────────────────────────────────────────────────────────
-	const pacing = getTodayPacing();
+	const pacing = getTodayPacing(undefined, topicOverride);
 
 	// ── Resource readiness ───────────────────────────────────────────────────
 	const resourceTypes = ["bell-ringer", "cfu", "exit-ticket", "pacing"] as const;

@@ -15,8 +15,19 @@ export function DailyAssignmentInput({ classId }: Props) {
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const today = new Date().toISOString().slice(0, 10);
 
-	// Derive pacing suggestion once (client-safe — uses local date)
-	const pacingSuggestion = getTodayPacing()?.homeworkSuggestion ?? null;
+	const [topicOverride, setTopicOverride] = useState<number | null>(null);
+	useEffect(() => {
+		fetch("/api/teacher-settings")
+			.then((r) => (r.ok ? r.json() : { settings: {} }))
+			.then((j) => {
+				if (typeof j.settings?.currentTopicNumber === "number")
+					setTopicOverride(j.settings.currentTopicNumber);
+			})
+			.catch(() => {});
+	}, []);
+
+	// Derive pacing suggestion (respects topic override)
+	const pacingSuggestion = getTodayPacing(undefined, topicOverride)?.homeworkSuggestion ?? null;
 
 	useEffect(() => {
 		fetch(`/api/classes/${classId}/assignment?date=${today}`)
