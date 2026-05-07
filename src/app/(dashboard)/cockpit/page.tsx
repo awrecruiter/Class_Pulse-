@@ -457,105 +457,103 @@ export default async function CockpitPage() {
 							</div>
 						)}
 					</section>
-
-					{/* Alerts summary */}
-					{(pacingStatus === "behind" || approvedResourceCount < 4) && (
-						<section className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 p-4 space-y-2">
-							<div className="flex items-center gap-2 text-yellow-300 text-sm font-medium">
-								<AlertTriangleIcon className="h-4 w-4" />
-								Action Needed
-							</div>
-							<ul className="space-y-1 text-xs text-slate-400">
-								{pacingStatus === "behind" && (
-									<li>⚠ Pacing is running late — check your calendar</li>
-								)}
-								{approvedResourceCount < 4 && (
-									<li>
-										⚠ {4 - approvedResourceCount} resource{4 - approvedResourceCount > 1 ? "s" : ""}{" "}
-										not yet uploaded for today
-									</li>
-								)}
-							</ul>
-						</section>
-					)}
-
-					{/* Proficiency Snapshot */}
-					{groupRows.length > 0 && (
-						<CollapsibleSection
-							title={
-								<>
-									Proficiency Snapshot
-									<span className="text-xs text-slate-500 font-normal">(last 5 sessions)</span>
-								</>
-							}
-							icon={<GraduationCapIcon className="h-4 w-4 text-slate-500" />}
-						>
-							<div className="space-y-3">
-								{groupRows.map((group) => {
-									const mastery = groupMastery[group.name];
-									const pct =
-										mastery && mastery.total > 0
-											? Math.round((mastery.mastered / mastery.total) * 100)
-											: 0;
-									const barColor =
-										pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-yellow-500" : "bg-red-500";
-									return (
-										<div key={group.id} className="space-y-1">
-											<div className="flex items-center justify-between text-xs">
-												<span className="font-medium text-slate-300">
-													{group.emoji} {group.name}
-												</span>
-												<span className="text-slate-500">
-													{mastery ? `${mastery.mastered}/${mastery.total} mastered` : "No data"}
-												</span>
-											</div>
-											<div className="h-2 rounded-full bg-slate-700 overflow-hidden">
-												<div
-													className={`h-full rounded-full transition-all ${barColor}`}
-													style={{ width: `${pct}%` }}
-												/>
-											</div>
-										</div>
-									);
-								})}
-							</div>
-						</CollapsibleSection>
-					)}
-
-					{/* Recent Sessions */}
-					<CollapsibleSection
-						title="Recent Sessions"
-						icon={<ClipboardListIcon className="h-4 w-4 text-slate-500" />}
-					>
-						{recentActivity.length === 0 ? (
-							<p className="text-sm text-slate-500">No sessions yet</p>
-						) : (
-							<ul className="space-y-2">
-								{recentActivity.map((session) => (
-									<li
-										key={session.id}
-										className="flex items-center justify-between text-xs text-slate-400 py-1.5 border-b border-slate-700/50 last:border-0"
-									>
-										<span className="font-mono text-slate-300">{session.label}</span>
-										<div className="flex items-center gap-3">
-											<span>{session.date}</span>
-											<span
-												className={`px-2 py-0.5 rounded-full font-medium ${
-													session.type === "active"
-														? "bg-emerald-500/20 text-emerald-300"
-														: "bg-slate-700 text-slate-400"
-												}`}
-											>
-												{session.type}
-											</span>
-										</div>
-									</li>
-								))}
-							</ul>
-						)}
-					</CollapsibleSection>
 				</div>
 			</div>
+
+			{/* ── Alerts strip ──────────────────────────────────────────────────── */}
+			{(pacingStatus === "behind" || approvedResourceCount < 4) && (
+				<section className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-2">
+					<div className="flex items-center gap-2 text-yellow-300 text-sm font-medium shrink-0">
+						<AlertTriangleIcon className="h-4 w-4" />
+						Action Needed
+					</div>
+					<ul className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-400">
+						{pacingStatus === "behind" && <li>⚠ Pacing is running late — check your calendar</li>}
+						{approvedResourceCount < 4 && (
+							<li>
+								⚠ {4 - approvedResourceCount} resource{4 - approvedResourceCount > 1 ? "s" : ""} not
+								yet uploaded for today
+							</li>
+						)}
+					</ul>
+				</section>
+			)}
+
+			{/* ── Proficiency Snapshot (full width) ─────────────────────────────── */}
+			{groupRows.length > 0 && (
+				<CollapsibleSection
+					title={
+						<>
+							Proficiency Snapshot
+							<span className="text-xs text-slate-500 font-normal">(last 5 sessions)</span>
+						</>
+					}
+					icon={<GraduationCapIcon className="h-4 w-4 text-slate-500" />}
+				>
+					<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+						{groupRows.map((group) => {
+							const mastery = groupMastery[group.name];
+							const pct =
+								mastery && mastery.total > 0
+									? Math.round((mastery.mastered / mastery.total) * 100)
+									: 0;
+							const barColor =
+								pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-yellow-500" : "bg-red-500";
+							return (
+								<div key={group.id} className="space-y-1">
+									<div className="flex items-center justify-between text-xs">
+										<span className="font-medium text-slate-300">
+											{group.emoji} {group.name}
+										</span>
+										<span className="text-slate-500">
+											{mastery ? `${mastery.mastered}/${mastery.total} mastered` : "No data"}
+										</span>
+									</div>
+									<div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+										<div
+											className={`h-full rounded-full transition-all ${barColor}`}
+											style={{ width: `${pct}%` }}
+										/>
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				</CollapsibleSection>
+			)}
+
+			{/* ── Recent Sessions (full width) ──────────────────────────────────── */}
+			<CollapsibleSection
+				title="Recent Sessions"
+				icon={<ClipboardListIcon className="h-4 w-4 text-slate-500" />}
+			>
+				{recentActivity.length === 0 ? (
+					<p className="text-sm text-slate-500">No sessions yet</p>
+				) : (
+					<ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3">
+						{recentActivity.map((session) => (
+							<li
+								key={session.id}
+								className="flex items-center justify-between text-xs text-slate-400 py-1.5 border-b border-slate-700/50 last:border-0"
+							>
+								<span className="font-mono text-slate-300">{session.label}</span>
+								<div className="flex items-center gap-3">
+									<span>{session.date}</span>
+									<span
+										className={`px-2 py-0.5 rounded-full font-medium ${
+											session.type === "active"
+												? "bg-emerald-500/20 text-emerald-300"
+												: "bg-slate-700 text-slate-400"
+										}`}
+									>
+										{session.type}
+									</span>
+								</div>
+							</li>
+						))}
+					</ul>
+				)}
+			</CollapsibleSection>
 
 			{/* ── Schedule (full width) ──────────────────────────────────────── */}
 			<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
