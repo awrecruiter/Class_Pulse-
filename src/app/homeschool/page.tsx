@@ -336,74 +336,40 @@ const FAKE_SCHEDULE = [
 		time: "8:00 – 9:30 AM",
 		label: "Math · Fractions",
 		sub: "MA.5.FR.2.1",
-		color: "emerald",
+		hex: "#10b981",
 		active: true,
 	},
 	{
 		time: "9:45 – 10:30 AM",
 		label: "Language Arts",
 		sub: "Writing workshop",
-		color: "sky",
+		hex: "#0ea5e9",
 		active: false,
 	},
 	{
 		time: "10:30 – 11:00 AM",
 		label: "Science",
 		sub: "Lab notebook",
-		color: "violet",
+		hex: "#8b5cf6",
 		active: false,
 	},
 	{
 		time: "11:00 – 11:30 AM",
 		label: "Morning Meeting",
 		sub: "Social-emotional",
-		color: "pink",
+		hex: "#ec4899",
 		active: false,
 	},
-	{ time: "12:00 – 12:30 PM", label: "Lunch", sub: "", color: "slate", active: false },
+	{ time: "12:00 – 12:30 PM", label: "Lunch", sub: "", hex: "#64748b", active: false },
 	{
 		time: "1:30 – 2:30 PM",
 		label: "iReady Practice",
 		sub: "Adaptive reading",
-		color: "amber",
+		hex: "#f59e0b",
 		active: false,
 	},
-	{
-		time: "2:45 – 3:15 PM",
-		label: "Writing",
-		sub: "Opinion essay",
-		color: "orange",
-		active: false,
-	},
+	{ time: "2:45 – 3:15 PM", label: "Writing", sub: "Opinion essay", hex: "#f97316", active: false },
 ];
-
-const SCHED_BG: Record<string, string> = {
-	emerald: "bg-emerald-500/15 border-emerald-500/30",
-	sky: "bg-sky-500/10 border-sky-500/20",
-	violet: "bg-violet-500/10 border-violet-500/20",
-	pink: "bg-pink-500/10 border-pink-500/20",
-	slate: "bg-white/5 border-white/10",
-	amber: "bg-amber-500/10 border-amber-500/20",
-	orange: "bg-orange-500/10 border-orange-500/20",
-};
-const SCHED_TEXT: Record<string, string> = {
-	emerald: "text-emerald-300",
-	sky: "text-sky-300",
-	violet: "text-violet-300",
-	pink: "text-pink-300",
-	slate: "text-white/50",
-	amber: "text-amber-300",
-	orange: "text-orange-300",
-};
-const SCHED_MUTED: Record<string, string> = {
-	emerald: "text-emerald-400/60",
-	sky: "text-sky-400/50",
-	violet: "text-violet-400/50",
-	pink: "text-pink-400/50",
-	slate: "text-white/30",
-	amber: "text-amber-400/50",
-	orange: "text-orange-400/50",
-};
 
 function FakeCoachFrame() {
 	return (
@@ -419,32 +385,37 @@ function FakeCoachFrame() {
 			</div>
 			{/* Mock app body */}
 			<div className="flex bg-[#0d1525] overflow-hidden" style={{ minHeight: 420 }}>
-				{/* Schedule sidebar */}
-				<div className="w-48 shrink-0 border-r border-white/8 bg-[#0a1020] flex flex-col">
+				{/* Schedule sidebar — clearly distinct bg */}
+				<div
+					className="w-52 shrink-0 border-r flex flex-col"
+					style={{ backgroundColor: "#0a1628", borderColor: "rgba(255,255,255,0.08)" }}
+				>
 					<div className="px-3 py-2.5 border-b border-white/8">
-						<p className="text-[11px] font-bold text-white/70 uppercase tracking-wider">Schedule</p>
-						<p className="text-[10px] text-white/35">Wednesday, May 6</p>
+						<p className="text-[11px] font-bold text-white/80 uppercase tracking-wider">Schedule</p>
+						<p className="text-[10px] text-white/40">Wednesday, May 6</p>
 					</div>
-					<div className="flex-1 overflow-y-auto px-2 py-2 space-y-1.5">
+					<div className="flex-1 px-2 py-2 space-y-1">
 						{FAKE_SCHEDULE.map((block) => (
 							<div
 								key={block.label}
-								className={cn(
-									"rounded-md px-2.5 py-2 border",
-									SCHED_BG[block.color],
-									block.active ? "ring-1 ring-emerald-500/40" : "opacity-70",
-								)}
+								style={{
+									borderLeft: `3px solid ${block.hex}`,
+									backgroundColor: block.active ? `${block.hex}26` : "rgba(255,255,255,0.04)",
+									opacity: block.active ? 1 : 0.65,
+								}}
+								className="pl-2.5 pr-2 py-1.5 rounded-r-md"
 							>
-								<p className={cn("text-[9px] leading-tight mb-0.5", SCHED_MUTED[block.color])}>
+								<p className="text-[9px] leading-tight mb-0.5" style={{ color: `${block.hex}aa` }}>
 									{block.time}
 								</p>
-								<p
-									className={cn("text-[11px] font-semibold leading-tight", SCHED_TEXT[block.color])}
-								>
+								<p className="text-[11px] font-semibold leading-tight text-white/90">
 									{block.label}
 								</p>
 								{block.sub && (
-									<p className={cn("text-[9px] leading-tight mt-0.5", SCHED_MUTED[block.color])}>
+									<p
+										className="text-[9px] leading-tight mt-0.5"
+										style={{ color: `${block.hex}88` }}
+									>
 										{block.sub}
 									</p>
 								)}
@@ -484,7 +455,13 @@ function FakeCoachFrame() {
 							</p>
 						</div>
 						{/* Prereq gap */}
-						<div className="rounded-lg bg-orange-500/8 border border-orange-500/20 p-3 flex flex-col gap-1.5">
+						<div
+							className="rounded-lg border p-3 flex flex-col gap-1.5"
+							style={{
+								backgroundColor: "rgba(249,115,22,0.06)",
+								borderColor: "rgba(249,115,22,0.2)",
+							}}
+						>
 							<p className="text-[9px] font-bold uppercase tracking-widest text-orange-400">
 								Prerequisite Gap
 							</p>
@@ -766,7 +743,8 @@ export default function HomeschoolPage() {
 						{/* iPhone — initial student join screen */}
 						<div className="flex flex-col items-center gap-4">
 							<div className="relative">
-								<div className="absolute inset-x-2 bottom-2 top-8 -z-0 rounded-3xl blur-2xl bg-sky-500/10" />
+								<div className="absolute -inset-6 -z-0 rounded-[48px] blur-3xl bg-sky-500/25" />
+								<div className="absolute inset-2 -z-0 rounded-3xl blur-xl bg-sky-400/20" />
 								<div className="relative z-10">
 									<IPhone17e
 										src="/screenshots/student-join.png"
@@ -796,14 +774,15 @@ export default function HomeschoolPage() {
 								Tablet
 							</span>
 						</div>
-						{/* Desktop — school store */}
+						{/* Desktop — student store */}
 						<div className="flex flex-col items-center gap-4" style={{ width: 380 }}>
 							<div className="relative w-full">
-								<div className="absolute inset-x-6 bottom-2 top-10 -z-0 rounded-2xl blur-2xl bg-amber-500/8" />
+								<div className="absolute -inset-4 -z-0 rounded-2xl blur-3xl bg-amber-500/20" />
+								<div className="absolute inset-2 -z-0 rounded-xl blur-xl bg-amber-400/15" />
 								<div className="relative z-10">
 									<BrowserFrame
-										src="/screenshots/store-seeded.png"
-										alt="School store in desktop browser showing RAM Buck reward items"
+										src="/screenshots/student-store.png"
+										alt="Student store in desktop browser"
 									/>
 								</div>
 							</div>
