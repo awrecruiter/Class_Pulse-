@@ -29,6 +29,7 @@ import {
 	studentGroups,
 } from "@/lib/db/schema";
 import { getTodayPacing } from "@/lib/pacing";
+import { CollapsibleSection } from "./collapsible-section";
 import { CommsActions } from "./comms-actions";
 import { PacingGuideCard } from "./pacing-guide-card";
 import { ScheduleManager } from "./schedule-manager";
@@ -480,12 +481,15 @@ export default async function CockpitPage() {
 
 					{/* Proficiency Snapshot */}
 					{groupRows.length > 0 && (
-						<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-							<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-								<GraduationCapIcon className="h-4 w-4 text-slate-500" />
-								Proficiency Snapshot
-								<span className="text-xs text-slate-500 font-normal">(last 5 sessions)</span>
-							</h2>
+						<CollapsibleSection
+							title={
+								<>
+									Proficiency Snapshot
+									<span className="text-xs text-slate-500 font-normal">(last 5 sessions)</span>
+								</>
+							}
+							icon={<GraduationCapIcon className="h-4 w-4 text-slate-500" />}
+						>
 							<div className="space-y-3">
 								{groupRows.map((group) => {
 									const mastery = groupMastery[group.name];
@@ -515,15 +519,14 @@ export default async function CockpitPage() {
 									);
 								})}
 							</div>
-						</section>
+						</CollapsibleSection>
 					)}
 
 					{/* Recent Sessions */}
-					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-						<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-							<ClipboardListIcon className="h-4 w-4 text-slate-500" />
-							Recent Sessions
-						</h2>
+					<CollapsibleSection
+						title="Recent Sessions"
+						icon={<ClipboardListIcon className="h-4 w-4 text-slate-500" />}
+					>
 						{recentActivity.length === 0 ? (
 							<p className="text-sm text-slate-500">No sessions yet</p>
 						) : (
@@ -550,7 +553,7 @@ export default async function CockpitPage() {
 								))}
 							</ul>
 						)}
-					</section>
+					</CollapsibleSection>
 				</div>
 			</div>
 
