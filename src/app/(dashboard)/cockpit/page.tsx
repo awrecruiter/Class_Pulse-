@@ -386,20 +386,6 @@ export default async function CockpitPage() {
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
 
-					{/* Schedule Manager */}
-					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-						<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-							<CalendarIcon className="h-4 w-4 text-slate-500" />
-							Schedule
-						</h2>
-						<ScheduleManager />
-					</section>
-
-					{/* Pacing Guide */}
-					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-						<PacingGuideCard />
-					</section>
-
 					{/* Proficiency Snapshot */}
 					{groupRows.length > 0 && (
 						<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
@@ -567,6 +553,20 @@ export default async function CockpitPage() {
 					)}
 				</div>
 			</div>
+
+			{/* ── Schedule (full width) ──────────────────────────────────────── */}
+			<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+				<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+					<CalendarIcon className="h-4 w-4 text-slate-500" />
+					Schedule
+				</h2>
+				<ScheduleManager />
+			</section>
+
+			{/* ── Pacing Guide (full width) ───────────────────────────────────── */}
+			<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+				<PacingGuideCard />
+			</section>
 		</div>
 	);
 }
