@@ -385,80 +385,6 @@ export default async function CockpitPage() {
 
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
-
-					{/* Proficiency Snapshot */}
-					{groupRows.length > 0 && (
-						<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-							<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-								<GraduationCapIcon className="h-4 w-4 text-slate-500" />
-								Proficiency Snapshot
-								<span className="text-xs text-slate-500 font-normal">(last 5 sessions)</span>
-							</h2>
-							<div className="space-y-3">
-								{groupRows.map((group) => {
-									const mastery = groupMastery[group.name];
-									const pct =
-										mastery && mastery.total > 0
-											? Math.round((mastery.mastered / mastery.total) * 100)
-											: 0;
-									const barColor =
-										pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-yellow-500" : "bg-red-500";
-									return (
-										<div key={group.id} className="space-y-1">
-											<div className="flex items-center justify-between text-xs">
-												<span className="font-medium text-slate-300">
-													{group.emoji} {group.name}
-												</span>
-												<span className="text-slate-500">
-													{mastery ? `${mastery.mastered}/${mastery.total} mastered` : "No data"}
-												</span>
-											</div>
-											<div className="h-2 rounded-full bg-slate-700 overflow-hidden">
-												<div
-													className={`h-full rounded-full transition-all ${barColor}`}
-													style={{ width: `${pct}%` }}
-												/>
-											</div>
-										</div>
-									);
-								})}
-							</div>
-						</section>
-					)}
-
-					{/* Recent Activity */}
-					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-						<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-							<ClipboardListIcon className="h-4 w-4 text-slate-500" />
-							Recent Sessions
-						</h2>
-						{recentActivity.length === 0 ? (
-							<p className="text-sm text-slate-500">No sessions yet</p>
-						) : (
-							<ul className="space-y-2">
-								{recentActivity.map((session) => (
-									<li
-										key={session.id}
-										className="flex items-center justify-between text-xs text-slate-400 py-1.5 border-b border-slate-700/50 last:border-0"
-									>
-										<span className="font-mono text-slate-300">{session.label}</span>
-										<div className="flex items-center gap-3">
-											<span>{session.date}</span>
-											<span
-												className={`px-2 py-0.5 rounded-full font-medium ${
-													session.type === "active"
-														? "bg-emerald-500/20 text-emerald-300"
-														: "bg-slate-700 text-slate-400"
-												}`}
-											>
-												{session.type}
-											</span>
-										</div>
-									</li>
-								))}
-							</ul>
-						)}
-					</section>
 				</div>
 
 				{/* Right column (1/3) */}
@@ -551,6 +477,80 @@ export default async function CockpitPage() {
 							</ul>
 						</section>
 					)}
+
+					{/* Proficiency Snapshot */}
+					{groupRows.length > 0 && (
+						<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+							<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+								<GraduationCapIcon className="h-4 w-4 text-slate-500" />
+								Proficiency Snapshot
+								<span className="text-xs text-slate-500 font-normal">(last 5 sessions)</span>
+							</h2>
+							<div className="space-y-3">
+								{groupRows.map((group) => {
+									const mastery = groupMastery[group.name];
+									const pct =
+										mastery && mastery.total > 0
+											? Math.round((mastery.mastered / mastery.total) * 100)
+											: 0;
+									const barColor =
+										pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-yellow-500" : "bg-red-500";
+									return (
+										<div key={group.id} className="space-y-1">
+											<div className="flex items-center justify-between text-xs">
+												<span className="font-medium text-slate-300">
+													{group.emoji} {group.name}
+												</span>
+												<span className="text-slate-500">
+													{mastery ? `${mastery.mastered}/${mastery.total} mastered` : "No data"}
+												</span>
+											</div>
+											<div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+												<div
+													className={`h-full rounded-full transition-all ${barColor}`}
+													style={{ width: `${pct}%` }}
+												/>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+						</section>
+					)}
+
+					{/* Recent Sessions */}
+					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
+						<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+							<ClipboardListIcon className="h-4 w-4 text-slate-500" />
+							Recent Sessions
+						</h2>
+						{recentActivity.length === 0 ? (
+							<p className="text-sm text-slate-500">No sessions yet</p>
+						) : (
+							<ul className="space-y-2">
+								{recentActivity.map((session) => (
+									<li
+										key={session.id}
+										className="flex items-center justify-between text-xs text-slate-400 py-1.5 border-b border-slate-700/50 last:border-0"
+									>
+										<span className="font-mono text-slate-300">{session.label}</span>
+										<div className="flex items-center gap-3">
+											<span>{session.date}</span>
+											<span
+												className={`px-2 py-0.5 rounded-full font-medium ${
+													session.type === "active"
+														? "bg-emerald-500/20 text-emerald-300"
+														: "bg-slate-700 text-slate-400"
+												}`}
+											>
+												{session.type}
+											</span>
+										</div>
+									</li>
+								))}
+							</ul>
+						)}
+					</section>
 				</div>
 			</div>
 
