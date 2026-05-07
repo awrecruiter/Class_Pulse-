@@ -285,6 +285,17 @@ export default async function CockpitPage() {
 				</div>
 			</section>
 
+			{/* ── Info strip (alerts · proficiency · sessions) ─────────────────── */}
+			<CockpitInfoStrip
+				alerts={{
+					pacing: pacingStatus === "behind",
+					resourcesMissing: 4 - approvedResourceCount,
+				}}
+				groupRows={groupRows}
+				groupMastery={groupMastery}
+				recentActivity={recentActivity}
+			/>
+
 			{/* ── Main grid ───────────────────────────────────────────────────── */}
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
 				{/* Left column (2/3) */}
@@ -460,17 +471,6 @@ export default async function CockpitPage() {
 					</section>
 				</div>
 			</div>
-
-			{/* ── Info strip (alerts · proficiency · sessions) ─────────────────── */}
-			<CockpitInfoStrip
-				alerts={{
-					pacing: pacingStatus === "behind",
-					resourcesMissing: 4 - approvedResourceCount,
-				}}
-				groupRows={groupRows}
-				groupMastery={groupMastery}
-				recentActivity={recentActivity}
-			/>
 
 			{/* ── Schedule (full width) ──────────────────────────────────────── */}
 			<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
