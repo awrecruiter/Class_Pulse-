@@ -285,7 +285,7 @@ export default async function CockpitPage() {
 			</section>
 
 			{/* ── Main grid ───────────────────────────────────────────────────── */}
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
 				{/* Left column (2/3) */}
 				<div className="lg:col-span-2 space-y-6">
 					{/* Class Selector */}

@@ -760,8 +760,8 @@ export function ScheduleCalendar({ blocks, onBlocksChange }: ScheduleCalendarPro
 					})}
 				</div>
 
-				{/* Grid body — scrollable */}
-				<div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: "560px" }}>
+				{/* Grid body */}
+				<div ref={scrollRef}>
 					<div className="relative flex" style={{ height: `${TOTAL_SLOTS * SLOT_HEIGHT}px` }}>
 						{/* Hour grid lines — drawn behind everything */}
 						<div className="absolute inset-0 pointer-events-none">
