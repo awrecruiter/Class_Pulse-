@@ -133,12 +133,14 @@ export function ScheduleManager() {
 					toast.error(`Extract failed: ${msg}`);
 				} finally {
 					setImporting(false);
+					if (photoInputRef.current) photoInputRef.current.value = "";
 				}
 			};
 			reader.readAsDataURL(file);
 		} catch {
 			toast.error("Could not read image file");
 			setImporting(false);
+			if (photoInputRef.current) photoInputRef.current.value = "";
 		}
 	}
 
@@ -200,6 +202,7 @@ export function ScheduleManager() {
 			setExtractStatus({ type: "error", msg: "Could not parse calendar file." });
 		} finally {
 			setImporting(false);
+			if (icsInputRef.current) icsInputRef.current.value = "";
 		}
 	}
 

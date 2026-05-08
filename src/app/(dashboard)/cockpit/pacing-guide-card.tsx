@@ -1,6 +1,7 @@
 "use client";
 
 import { PlusIcon, XIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ type PacingEntry = {
 };
 
 export function PacingGuideCard() {
+	const router = useRouter();
 	const [entries, setEntries] = useState<PacingEntry[]>([]);
 	const [weekOf, setWeekOf] = useState("");
 	const [standardCode, setStandardCode] = useState("");
@@ -54,6 +56,7 @@ export function PacingGuideCard() {
 				body: JSON.stringify({ currentTopicNumber: val === "" ? null : val }),
 			});
 			toast.success(val === "" ? "Using YAAG auto-schedule" : `Override set to Topic ${val}`);
+			router.refresh();
 		} catch {
 			toast.error("Failed to save");
 		} finally {

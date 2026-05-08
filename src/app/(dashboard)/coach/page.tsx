@@ -33,7 +33,6 @@ import { LectureVisualizer } from "@/components/coach/lecture-visualizer";
 import type { MicState } from "@/components/coach/mic-button";
 import { ParentCommsPanel } from "@/components/coach/parent-comms-panel";
 import { RemediationFlow } from "@/components/coach/remediation-flow";
-import { SessionStandardTag } from "@/components/coach/session-standard-tag";
 import { StandardPicker } from "@/components/coach/standard-picker";
 import { TeacherLedgerSheet } from "@/components/coach/teacher-ledger-sheet";
 import { TodayResourcesPanel } from "@/components/coach/today-resources-panel";
@@ -430,9 +429,6 @@ export default function CoachPage() {
 	// Per-student comprehension signal map — keyed by rosterId, updated via SSE
 	const [signalMap, setSignalMap] = useState<SignalMap>({});
 
-	// Standard code for current/next session — teacher can set before going live
-	const [sessionStandardCode, setSessionStandardCode] = useState<string>("");
-
 	// Teacher ledger sheet — tapping a student balance opens this
 	const [ledgerStudent, setLedgerStudent] = useState<StudentOverview | null>(null);
 
@@ -494,7 +490,6 @@ export default function CoachPage() {
 	// Session lifecycle — go-live / end-session actions + sessionStorage day-gating
 	const { goLive, endSession } = useSessionLifecycle({
 		classId: selectedClassId || null,
-		sessionStandardCode,
 		setActiveSessionId,
 		setActiveJoinCode,
 		onSessionEnded: () => {
@@ -1055,6 +1050,21 @@ export default function CoachPage() {
 									</button>
 								</div>
 
+								{/* Today's lesson resources — top of sidebar */}
+								{selectedClassId &&
+									(() => {
+										const p = getTodayPacing(undefined, topicOverride);
+										if (!p?.currentLesson) return null;
+										return (
+											<div className="px-3 pt-2 pb-1 border-b border-slate-800">
+												<TodayResourcesPanel
+													topicNumber={p.topic.number}
+													lessonNumber={p.currentLesson.number}
+												/>
+											</div>
+										);
+									})()}
+
 								{/* Comprehension panel — collapsible */}
 								<div className="border-b border-slate-800">
 									<button
@@ -1270,16 +1280,6 @@ export default function CoachPage() {
 									className="w-full"
 									onAmplitude={handleAmplitude}
 								/>
-								{/* Standard tag — shown before session starts */}
-								{!activeSessionId && (
-									<div className="w-full px-1">
-										<SessionStandardTag
-											value={sessionStandardCode}
-											onChange={setSessionStandardCode}
-										/>
-									</div>
-								)}
-
 								{/* Session toggle */}
 								<div className="flex flex-col items-center gap-2">
 									<button
@@ -1336,23 +1336,6 @@ export default function CoachPage() {
 								<DailyAssignmentInput classId={selectedClassId} />
 							</div>
 						)}
-
-						{/* Today's lesson resources — shown when a class is selected and pacing is active */}
-						{selectedClassId &&
-							showOrbArea &&
-							inputMode !== "di" &&
-							(() => {
-								const p = getTodayPacing(undefined, topicOverride);
-								if (!p?.currentLesson) return null;
-								return (
-									<div className="px-3 pb-1">
-										<TodayResourcesPanel
-											topicNumber={p.topic.number}
-											lessonNumber={p.currentLesson.number}
-										/>
-									</div>
-								);
-							})()}
 
 						{/* Groups zone — fixed height, no scroll */}
 						{classes.length > 0 && showOrbArea && inputMode !== "di" && (
