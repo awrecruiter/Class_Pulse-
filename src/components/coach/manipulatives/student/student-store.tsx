@@ -29,6 +29,8 @@ type Props = {
 	sessionId: string;
 	isOpen: boolean;
 	purchaseUpdate?: PurchaseUpdate | null;
+	currencyName?: string;
+	currencyEmoji?: string;
 };
 
 const CARD_COLORS = [
@@ -69,10 +71,14 @@ function LedgerPanel({
 	sessionId,
 	balance,
 	onClose,
+	currencyName = "RAM Bucks",
+	currencyEmoji = "🐏",
 }: {
 	sessionId: string;
 	balance: number;
 	onClose: () => void;
+	currencyName?: string;
+	currencyEmoji?: string;
 }) {
 	const [tab, setTab] = useState<"history" | "guide">("history");
 	const [entries, setEntries] = useState<LedgerEntry[]>([]);
@@ -125,8 +131,8 @@ function LedgerPanel({
 			{/* Header */}
 			<div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
 				<div className="flex items-center gap-2">
-					<span className="text-lg">🐏</span>
-					<span className="text-base font-black text-slate-700">RAM Bucks</span>
+					<span className="text-lg">{currencyEmoji}</span>
+					<span className="text-base font-black text-slate-700">{currencyName}</span>
 				</div>
 				<button
 					type="button"
@@ -180,7 +186,7 @@ function LedgerPanel({
 						<div className="flex flex-col items-center gap-2 py-10 text-center">
 							<span className="text-3xl">📭</span>
 							<p className="text-sm font-semibold text-slate-500">No transactions yet</p>
-							<p className="text-xs text-slate-400">Earn RAM Bucks by answering questions!</p>
+							<p className="text-xs text-slate-400">{`Earn ${currencyName} by answering questions!`}</p>
 						</div>
 					) : (
 						<div className="flex flex-col gap-1.5 pb-2">
@@ -201,7 +207,7 @@ function LedgerPanel({
 											{entry.amount !== null ? (
 												<span className={`text-sm font-black ${cfg.color}`}>
 													{entry.amount > 0 ? "+" : ""}
-													{entry.amount} 🐏
+													{entry.amount} {currencyEmoji}
 												</span>
 											) : entry.kind === "pending" ? (
 												<span className="text-xs font-bold text-amber-600 bg-amber-100 rounded-full px-2 py-0.5">
@@ -223,7 +229,7 @@ function LedgerPanel({
 						{/* Ways to earn */}
 						<div>
 							<p className="text-xs font-black text-emerald-700 uppercase tracking-wide mb-1.5 px-1">
-								Ways to Earn 🐏
+								{`Ways to Earn ${currencyEmoji}`}
 							</p>
 							<div className="flex flex-col gap-1.5">
 								{EARN_GUIDE.map((row) => (
@@ -235,7 +241,7 @@ function LedgerPanel({
 										<p className="flex-1 text-xs font-semibold text-slate-700">{row.label}</p>
 										<span className="shrink-0 text-sm font-black text-emerald-600">
 											{row.amount !== null ? (
-												`+${row.amount} 🐏`
+												`+${row.amount} ${currencyEmoji}`
 											) : (
 												<span className="text-xs font-bold text-emerald-500">{row.note}</span>
 											)}
@@ -262,7 +268,7 @@ function LedgerPanel({
 											</span>
 											<p className="flex-1 text-xs font-semibold text-slate-700">{fee.label}</p>
 											<span className="shrink-0 text-sm font-black text-rose-600">
-												−{fee.deductionAmount} 🐏
+												−{fee.deductionAmount} {currencyEmoji}
 											</span>
 										</div>
 									))}
@@ -276,7 +282,13 @@ function LedgerPanel({
 	);
 }
 
-export function StudentStore({ sessionId, isOpen: isOpenProp, purchaseUpdate }: Props) {
+export function StudentStore({
+	sessionId,
+	isOpen: isOpenProp,
+	purchaseUpdate,
+	currencyName = "RAM Bucks",
+	currencyEmoji = "🐏",
+}: Props) {
 	const [isOpen, setIsOpen] = useState(isOpenProp);
 	const [items, setItems] = useState<StoreItem[]>([]);
 	const [balance, setBalance] = useState(0);
@@ -412,7 +424,13 @@ export function StudentStore({ sessionId, isOpen: isOpenProp, purchaseUpdate }: 
 	// ── Ledger overlay ──────────────────────────────────────────────────────────
 	if (showLedger) {
 		return (
-			<LedgerPanel sessionId={sessionId} balance={balance} onClose={() => setShowLedger(false)} />
+			<LedgerPanel
+				sessionId={sessionId}
+				balance={balance}
+				onClose={() => setShowLedger(false)}
+				currencyName={currencyName}
+				currencyEmoji={currencyEmoji}
+			/>
 		);
 	}
 
@@ -434,7 +452,10 @@ export function StudentStore({ sessionId, isOpen: isOpenProp, purchaseUpdate }: 
 					onClick={() => setShowLedger(true)}
 					className="rounded-2xl bg-indigo-50 border border-indigo-200 px-5 py-3 text-sm font-semibold text-indigo-600 active:scale-95 transition-transform"
 				>
-					Your balance: <span className="text-amber-600">🐏 {balance}</span>
+					Your balance:{" "}
+					<span className="text-amber-600">
+						{currencyEmoji} {balance}
+					</span>
 					<span className="text-xs text-indigo-400 ml-2">tap for history</span>
 				</button>
 			</div>
@@ -455,7 +476,7 @@ export function StudentStore({ sessionId, isOpen: isOpenProp, purchaseUpdate }: 
 					<div className="flex flex-col leading-tight">
 						<span className="text-xl font-black text-amber-600">{balance}</span>
 						<span className="text-xs font-bold text-amber-500 uppercase tracking-wide">
-							RAM Bucks · tap for history
+							{currencyName} · tap for history
 						</span>
 					</div>
 				</div>
@@ -489,7 +510,7 @@ export function StudentStore({ sessionId, isOpen: isOpenProp, purchaseUpdate }: 
 											{item.name}
 										</p>
 										<div className="shrink-0 flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5">
-											<span className="text-base leading-none">🐏</span>
+											<span className="text-base leading-none">{currencyEmoji}</span>
 											<span className="text-sm font-black text-amber-700">{item.cost}</span>
 										</div>
 									</div>
@@ -544,7 +565,7 @@ export function StudentStore({ sessionId, isOpen: isOpenProp, purchaseUpdate }: 
 											disabled
 											className="w-full rounded-full bg-slate-200 border border-slate-300 py-2 text-xs font-black text-slate-500 cursor-not-allowed"
 										>
-											Need {shortage} more 🐏
+											{`Need ${shortage} more ${currencyEmoji}`}
 										</button>
 									)}
 								</div>

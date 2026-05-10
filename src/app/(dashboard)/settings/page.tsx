@@ -42,6 +42,8 @@ type Settings = {
 	toastsEnabled?: boolean;
 	productionHandoffMode?: boolean;
 	globalVoiceOnlyMode?: boolean;
+	currencyName?: string;
+	currencyEmoji?: string;
 };
 
 type FeeEntry = {
@@ -579,6 +581,53 @@ export default function SettingsPage() {
 								/>
 							</button>
 						</label>
+					</div>
+				</section>
+
+				{/* ── Currency Branding ──────────────────────────── */}
+				<section id="currency" className="flex flex-col gap-4">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Currency Branding
+					</h2>
+					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">
+						<p className="text-xs text-slate-400">
+							Set your school mascot currency — students will see this name and emoji throughout the
+							app.
+						</p>
+						<div className="flex gap-3">
+							<div className="flex flex-col gap-1.5 flex-1">
+								<label className="text-sm font-medium text-slate-200" htmlFor="currency-name">
+									Currency name
+								</label>
+								<input
+									id="currency-name"
+									type="text"
+									maxLength={32}
+									placeholder="e.g. Tiger Bucks"
+									value={settings.currencyName ?? "RAM Bucks"}
+									onChange={(e) =>
+										setSettings((s) => (s ? { ...s, currencyName: e.target.value } : s))
+									}
+									className="rounded-lg border border-slate-800 bg-[#0d1525] px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-ring"
+								/>
+							</div>
+							<div className="flex flex-col gap-1.5 w-28">
+								<label className="text-sm font-medium text-slate-200" htmlFor="currency-emoji">
+									Emoji
+								</label>
+								<input
+									id="currency-emoji"
+									type="text"
+									maxLength={8}
+									placeholder="🐏"
+									value={settings.currencyEmoji ?? "🐏"}
+									onChange={(e) =>
+										setSettings((s) => (s ? { ...s, currencyEmoji: e.target.value } : s))
+									}
+									className="rounded-lg border border-slate-800 bg-[#0d1525] px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-ring text-center"
+								/>
+							</div>
+						</div>
 					</div>
 				</section>
 

@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useCurrency } from "@/contexts/currency";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ function ItemCard({
 	onUpdate: (updated: PrivilegeItem) => void;
 	onDelete: (id: string) => void;
 }) {
+	const { emoji: currencyEmoji } = useCurrency();
 	const [showPicker, setShowPicker] = useState(false);
 	const [grantState, setGrantState] = useState<"idle" | "loading" | "done" | "error">("idle");
 	const [selectedRosterId, setSelectedRosterId] = useState("");
@@ -348,7 +350,7 @@ function ItemCard({
 										<option value="">Pick a student…</option>
 										{roster.map((s) => (
 											<option key={s.id} value={s.id}>
-												{s.firstInitial}.{s.lastInitial}. — 🐏 {s.balance}
+												{s.firstInitial}.{s.lastInitial}. — {currencyEmoji} {s.balance}
 											</option>
 										))}
 									</select>
@@ -364,7 +366,7 @@ function ItemCard({
 												? "✓ Granted!"
 												: grantState === "error"
 													? "Failed — try again"
-													: `Grant (${item.cost} 🐏)`}
+													: `Grant (${item.cost} ${currencyEmoji})`}
 									</button>
 								</div>
 							)}
@@ -531,6 +533,7 @@ function FineCard({
 	onUpdate: (updated: FinePreset) => void;
 	onDelete: (id: string) => void;
 }) {
+	const { name: currencyName, emoji: currencyEmoji } = useCurrency();
 	const [showPicker, setShowPicker] = useState(false);
 	const [selectedRosterId, setSelectedRosterId] = useState("");
 	const [applyState, setApplyState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -603,7 +606,9 @@ function FineCard({
 							onChange={(e) => setDraft((d) => ({ ...d, amount: Number(e.target.value) }))}
 							className="w-24 rounded-lg border border-slate-800 bg-[#0d1525] px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
 						/>
-						<span className="text-xs text-slate-400">🐏 RAM Bucks</span>
+						<span className="text-xs text-slate-400">
+							{currencyEmoji} {currencyName}
+						</span>
 					</div>
 					<div className="flex gap-2">
 						<button
@@ -637,7 +642,7 @@ function FineCard({
 						</div>
 						<div className="flex items-center gap-1 shrink-0">
 							<span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 border border-red-500/30 px-2 py-0.5 text-xs font-bold text-red-400">
-								- {fine.amount} 🐏
+								- {fine.amount} {currencyEmoji}
 							</span>
 							<button
 								type="button"
@@ -684,7 +689,7 @@ function FineCard({
 										<option value="">Pick a student…</option>
 										{roster.map((s) => (
 											<option key={s.id} value={s.id}>
-												{s.firstInitial}.{s.lastInitial}. — 🐏 {s.balance}
+												{s.firstInitial}.{s.lastInitial}. — {currencyEmoji} {s.balance}
 											</option>
 										))}
 									</select>
@@ -700,7 +705,7 @@ function FineCard({
 												? "✓ Fine applied"
 												: applyState === "error"
 													? "Failed — try again"
-													: `Deduct ${fine.amount} 🐏`}
+													: `Deduct ${fine.amount} ${currencyEmoji}`}
 									</button>
 								</div>
 							)}
@@ -717,6 +722,7 @@ function FineCard({
 type ActiveTab = "items" | "fines" | "pending";
 
 export default function StorePage() {
+	const { name: currencyName } = useCurrency();
 	const [classes, setClasses] = useState<ClassRow[]>([]);
 	const [selectedClassId, setSelectedClassId] = useState("");
 	const [items, setItems] = useState<PrivilegeItem[]>([]);
@@ -1006,7 +1012,7 @@ export default function StorePage() {
 							}`}
 						>
 							<MinusCircleIcon className="h-4 w-4" />
-							RAM Buck Fines
+							{currencyName} Fines
 						</button>
 						<button
 							type="button"
@@ -1113,7 +1119,7 @@ export default function StorePage() {
 					</div>
 				)}
 
-				{/* ── Tab: RAM Buck Fines ────────────────────────────────── */}
+				{/* ── Tab: {currencyName} Fines ────────────────────────────────── */}
 				{activeTab === "fines" && (
 					<div>
 						<div className="flex items-center justify-between mb-4">
@@ -1122,7 +1128,7 @@ export default function StorePage() {
 									Fine Presets ({fines.length})
 								</h2>
 								<p className="text-xs text-slate-500 mt-0.5">
-									Quick RAM Buck deductions — saved to your browser
+									Quick {currencyName} deductions — saved to your browser
 								</p>
 							</div>
 							<button

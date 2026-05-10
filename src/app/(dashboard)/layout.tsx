@@ -4,6 +4,7 @@ import { NavBar } from "@/components/nav-bar";
 import { ScheduleOverlay } from "@/components/schedule/schedule-overlay";
 import { Toaster } from "@/components/ui/sonner";
 import { VoiceCommandProvider } from "@/components/voice/voice-command-provider";
+import { CurrencyProvider } from "@/contexts/currency";
 import { auth } from "@/lib/auth/server";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -12,13 +13,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
 	return (
 		<div className="min-h-screen bg-[#0d1525]">
-			<AiPresenceBorder />
-			<NavBar />
-			<VoiceCommandProvider>
-				<main>{children}</main>
-			</VoiceCommandProvider>
-			<ScheduleOverlay />
-			<Toaster />
+			<CurrencyProvider>
+				<AiPresenceBorder />
+				<NavBar />
+				<VoiceCommandProvider>
+					<main>{children}</main>
+				</VoiceCommandProvider>
+				<ScheduleOverlay />
+				<Toaster />
+			</CurrencyProvider>
 		</div>
 	);
 }

@@ -90,6 +90,9 @@ export const teacherSettings = pgTable("teacher_settings", {
 	voiceAppOpenMode: text("voice_app_open_mode").notNull().default("immediate"),
 	// Teacher-set current topic override (1–18). Null = auto-infer from YAAG dates.
 	currentTopicNumber: integer("current_topic_number"),
+	// Currency branding — teachers set their school mascot name and emoji
+	currencyName: text("currency_name").notNull().default("RAM Bucks"),
+	currencyEmoji: text("currency_emoji").notNull().default("🐏"),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

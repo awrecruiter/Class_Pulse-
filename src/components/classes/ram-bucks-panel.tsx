@@ -4,6 +4,7 @@ import { ChevronDownIcon, ChevronUpIcon, RotateCcwIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useCurrency } from "@/contexts/currency";
 import { cn } from "@/lib/utils";
 
 type Account = {
@@ -49,6 +50,7 @@ const TX_COLORS: Record<string, string> = {
 };
 
 export function RamBucksPanel({ classId }: { classId: string }) {
+	const { name: currencyName, emoji: currencyEmoji } = useCurrency();
 	const [accounts, setAccounts] = useState<Account[]>([]);
 	const [groupAccounts, setGroupAccounts] = useState<GroupAccount[]>([]);
 	const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -150,7 +152,11 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 				}),
 			});
 			if (!res.ok) throw new Error("Failed");
-			toast.success(mode === "award" ? `+${parsed} 🐏 awarded` : `-${parsed} 🐏 deducted`);
+			toast.success(
+				mode === "award"
+					? `+${parsed} ${currencyEmoji} awarded`
+					: `-${parsed} ${currencyEmoji} deducted`,
+			);
 			setAmount("");
 			setReason("");
 			setSelectedRosterId(null);
@@ -214,7 +220,9 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 							<span>{g.emoji}</span>
 							<span>{g.name}</span>
 							<span className="text-muted-foreground">·</span>
-							<span className="font-bold">🐏 {g.balance}</span>
+							<span className="font-bold">
+								{currencyEmoji} {g.balance}
+							</span>
 						</div>
 					))}
 				</div>
@@ -224,7 +232,7 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 			{accounts.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border p-4 text-center">
 					<p className="text-sm text-muted-foreground">
-						No RAM Buck accounts yet. Auto-assign groups to initialize accounts.
+						No {currencyName} accounts yet. Auto-assign groups to initialize accounts.
 					</p>
 				</div>
 			) : (
@@ -260,7 +268,9 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 										</div>
 									</div>
 									<div className="flex items-center gap-2">
-										<span className="text-sm font-bold text-amber-700">🐏 {account.balance}</span>
+										<span className="text-sm font-bold text-amber-700">
+											{currencyEmoji} {account.balance}
+										</span>
 										<button
 											type="button"
 											onClick={(e) => {
@@ -280,7 +290,7 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 									<div className="border-b border-border bg-muted/20 px-3 py-3">
 										<p className="text-xs font-medium text-muted-foreground mb-2">
 											Adjust balance for {account.firstInitial}.{account.lastInitial}. (current:{" "}
-											{selectedAccount?.balance ?? 0} 🐏)
+											{selectedAccount?.balance ?? 0} {currencyEmoji})
 										</p>
 										<form onSubmit={handleAward} className="flex flex-col gap-2">
 											<div className="flex gap-2">
@@ -399,7 +409,7 @@ export function RamBucksPanel({ classId }: { classId: string }) {
 									)}
 								>
 									{tx.amount >= 0 ? "+" : ""}
-									{tx.amount} 🐏
+									{tx.amount} {currencyEmoji}
 								</span>
 							</div>
 						))

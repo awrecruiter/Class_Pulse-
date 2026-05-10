@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { VoiceAction } from "@/app/api/coach/voice-agent/route";
+import { useCurrency } from "@/contexts/currency";
 import type { QueueItem } from "@/contexts/voice-queue";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import type { BoardCommand } from "@/hooks/use-board-voice";
@@ -41,6 +42,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 		setAgentThinking,
 		setScheduleOverlayOpen,
 	} = useVoiceQueue();
+	const { name: currencyName, emoji: currencyEmoji } = useCurrency();
 
 	// Guard: prevent async callbacks (callVoiceAgent, executeCommand, executeMoveToGroup)
 	// from firing toasts after the provider unmounts (e.g. when teacher navigates to student page)
@@ -911,7 +913,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 						}),
 					});
 					if (!res.ok) throw new Error("Failed");
-					toast.success(`+${d.amount} 🐏 RAM Bucks → ${d.studentName}`);
+					toast.success(`+${d.amount} ${currencyEmoji} ${currencyName} → ${d.studentName}`);
 					window.dispatchEvent(new CustomEvent("ram-bucks-updated"));
 					confirm(item.id);
 				} else if (d.type === "group_coins") {
@@ -969,7 +971,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 						}),
 					});
 					if (!res.ok) throw new Error("Failed");
-					toast.success(`-${d.amount} RAM Bucks from ${d.studentName}`);
+					toast.success(`-${d.amount} ${currencyName} from ${d.studentName}`);
 					window.dispatchEvent(new CustomEvent("ram-bucks-updated"));
 					confirm(item.id);
 				} else if (d.type === "clear_group") {

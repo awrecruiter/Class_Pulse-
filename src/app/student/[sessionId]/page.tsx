@@ -13,6 +13,7 @@ import {
 	ramBuckAccounts,
 	rosterEntries,
 	studentGroups,
+	teacherSettings,
 } from "@/lib/db/schema";
 import { StudentSession } from "./student-session";
 
@@ -93,6 +94,17 @@ export default async function StudentSessionPage({
 		groupBalance = ga?.balance ?? null;
 	}
 
+	// Load teacher currency settings
+	const [settingsRow] = cls
+		? await db
+				.select({
+					currencyName: teacherSettings.currencyName,
+					currencyEmoji: teacherSettings.currencyEmoji,
+				})
+				.from(teacherSettings)
+				.where(eq(teacherSettings.userId, cls.teacherId))
+		: [];
+
 	// Load today's homework assignment
 	const today = new Date().toISOString().slice(0, 10);
 	const [assignmentRow] = await db
@@ -116,6 +128,8 @@ export default async function StudentSessionPage({
 			groupBalance={groupBalance}
 			groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
 			joinCode={session.joinCode}
+			currencyName={settingsRow?.currencyName ?? "RAM Bucks"}
+			currencyEmoji={settingsRow?.currencyEmoji ?? "🐏"}
 			todayAssignment={assignmentRow?.content ?? null}
 		/>
 	);

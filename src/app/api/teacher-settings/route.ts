@@ -20,6 +20,8 @@ const updateSettingsSchema = z.object({
 	voiceAppOpenMode: z.enum(["immediate", "confirm"]).optional(),
 	// null = auto-infer from YAAG; 1–18 = force a specific topic
 	currentTopicNumber: z.number().int().min(1).max(18).nullable().optional(),
+	currencyName: z.string().min(1).max(32).optional(),
+	currencyEmoji: z.string().min(1).max(8).optional(),
 });
 
 export async function GET(request: NextRequest) {

@@ -244,6 +244,8 @@ type Props = {
 	groupName: string | null;
 	joinCode: string;
 	todayAssignment: string | null;
+	currencyName: string;
+	currencyEmoji: string;
 };
 
 export function StudentSession({
@@ -258,6 +260,8 @@ export function StudentSession({
 	groupName,
 	joinCode,
 	todayAssignment,
+	currencyName = "RAM Bucks",
+	currencyEmoji = "🐏",
 }: Props) {
 	const router = useRouter();
 	const [currentSignal, setCurrentSignal] = useState<Signal | null>(initialSignal);
@@ -442,7 +446,7 @@ export function StudentSession({
 					<div className="flex items-center gap-2 flex-wrap justify-center">
 						{ramBalance > 0 && (
 							<div className="rounded-full bg-amber-500/15 border border-amber-500/30 px-3.5 py-1 text-sm font-bold text-amber-400">
-								{ramBalance} RAM Bucks
+								{ramBalance} {currencyName}
 							</div>
 						)}
 						{groupBalance !== null && groupName && (
@@ -609,6 +613,8 @@ export function StudentSession({
 									sessionId={sessionId}
 									isOpen={storeIsOpen}
 									purchaseUpdate={purchaseUpdate}
+									currencyName={currencyName}
+									currencyEmoji={currencyEmoji}
 								/>
 							</div>
 						)}

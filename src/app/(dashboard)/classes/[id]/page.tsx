@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { GroupsKanban } from "@/components/classes/groups-kanban";
 import { RamBucksPanel } from "@/components/classes/ram-bucks-panel";
 import { Button } from "@/components/ui/button";
+import { useCurrency } from "@/contexts/currency";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 
 type RosterEntry = {
@@ -114,6 +115,7 @@ type StudentGroup = {
 
 export default function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id } = use(params);
+	const { name: currencyName, emoji: currencyEmoji } = useCurrency();
 	const { setActiveClassId } = useVoiceQueue();
 	const [cls, setCls] = useState<ClassData | null>(null);
 	const [roster, setRoster] = useState<RosterEntry[]>([]);
@@ -1069,7 +1071,9 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					{/* RAM Buck Economy */}
 					<div className="flex flex-col gap-3">
 						<div className="flex items-center justify-between">
-							<p className="text-sm font-semibold text-slate-200">🐏 RAM Bucks</p>
+							<p className="text-sm font-semibold text-slate-200">
+								{currencyEmoji} {currencyName}
+							</p>
 						</div>
 						<RamBucksPanel classId={id} />
 					</div>
@@ -1333,7 +1337,7 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 												event.type === "mastery"
 													? "⭐"
 													: event.type === "ram-buck"
-														? "🐏"
+														? currencyEmoji
 														: event.type === "behavior"
 															? "📋"
 															: event.type === "cfu"

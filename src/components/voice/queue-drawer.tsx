@@ -18,6 +18,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useCurrency } from "@/contexts/currency";
 import { type QueueItem, useVoiceQueue } from "@/contexts/voice-queue";
 import { PRODUCTION_HANDOFF_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
 
@@ -70,13 +71,13 @@ function itemIcon(item: QueueItem) {
 	}
 }
 
-function itemLabel(item: QueueItem): string {
+function itemLabel(item: QueueItem, currencyName: string): string {
 	const d = item.data;
 	switch (d.type) {
 		case "consequence":
 			return `${d.stepLabel} → ${d.studentName}`;
 		case "ram_bucks":
-			return `+${d.amount} RAM Bucks → ${d.studentName}`;
+			return `+${d.amount} ${currencyName} → ${d.studentName}`;
 		case "group_coins":
 			return `+${d.amount} coins → ${d.group} group`;
 		case "parent_message":
@@ -86,7 +87,7 @@ function itemLabel(item: QueueItem): string {
 		case "behavior_log":
 			return `Log behavior — ${d.studentName}`;
 		case "ram_bucks_deduct":
-			return `-${d.amount} RAM Bucks — ${d.studentName}`;
+			return `-${d.amount} ${currencyName} — ${d.studentName}`;
 		case "clear_group":
 			return `Clear ${d.groupName} group`;
 		case "start_session":
@@ -147,6 +148,7 @@ interface QueueDrawerProps {
 
 export function QueueDrawer({ open, onClose, onExecute }: QueueDrawerProps) {
 	const { queue, dismiss, dismissAll } = useVoiceQueue();
+	const { name: currencyName } = useCurrency();
 	const [handoffMode, setHandoffMode] = useState(false);
 
 	useEffect(() => {
@@ -228,7 +230,9 @@ export function QueueDrawer({ open, onClose, onExecute }: QueueDrawerProps) {
 							>
 								<div className="mt-0.5 shrink-0">{itemIcon(item)}</div>
 								<div className="flex-1 min-w-0">
-									<p className="text-sm font-medium text-slate-200">{itemLabel(item)}</p>
+									<p className="text-sm font-medium text-slate-200">
+										{itemLabel(item, currencyName)}
+									</p>
 									<p className="text-xs text-slate-500 mt-0.5 truncate">{itemSub(item)}</p>
 								</div>
 								<div className="flex items-center gap-1.5 shrink-0">

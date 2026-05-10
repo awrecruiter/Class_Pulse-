@@ -3,6 +3,7 @@
 import { BanknoteIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
+import { useCurrency } from "@/contexts/currency";
 
 type LedgerEntry = {
 	id: string;
@@ -31,6 +32,7 @@ interface TeacherLedgerSheetProps {
 }
 
 export function TeacherLedgerSheet({ student, classId, onClose }: TeacherLedgerSheetProps) {
+	const { name: currencyName } = useCurrency();
 	const [entries, setEntries] = useState<LedgerEntry[]>([]);
 	const [loading, setLoading] = useState(true);
 
@@ -91,7 +93,9 @@ export function TeacherLedgerSheet({ student, classId, onClose }: TeacherLedgerS
 						<p className="text-sm font-semibold text-slate-100">{student.displayName}</p>
 						<div className="flex items-center gap-1.5 mt-0.5">
 							<BanknoteIcon className="h-3 w-3 text-emerald-400" />
-							<span className="text-xs font-bold text-amber-400">{student.balance} RAM Bucks</span>
+							<span className="text-xs font-bold text-amber-400">
+								{student.balance} {currencyName}
+							</span>
 							<span className="text-[10px] text-slate-500">· ID {student.studentId}</span>
 						</div>
 					</div>
