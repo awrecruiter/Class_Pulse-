@@ -8,6 +8,8 @@ type ClassItem = { id: string; label: string };
 export default function ParentCommsPage() {
 	const [classes, setClasses] = useState<ClassItem[]>([]);
 	const [selectedClassId, setSelectedClassId] = useState<string>("");
+	const [loadingClasses, setLoadingClasses] = useState(true);
+	const [classesError, setClassesError] = useState(false);
 	const [students, setStudents] = useState<
 		Array<{
 			rosterId: string;
@@ -19,8 +21,10 @@ export default function ParentCommsPage() {
 	>([]);
 
 	useEffect(() => {
+		setLoadingClasses(true);
+		setClassesError(false);
 		fetch("/api/classes")
-			.then((r) => (r.ok ? r.json() : { classes: [] }))
+			.then((r) => (r.ok ? r.json() : Promise.reject(new Error("fetch failed"))))
 			.then((j) => {
 				const list: ClassItem[] = j.classes ?? [];
 				setClasses(list);
@@ -33,7 +37,8 @@ export default function ParentCommsPage() {
 				const preferred = list.find((c) => c.id === saved) ?? list[0];
 				setSelectedClassId(preferred?.id ?? "");
 			})
-			.catch(() => {});
+			.catch(() => setClassesError(true))
+			.finally(() => setLoadingClasses(false));
 	}, []);
 
 	useEffect(() => {
@@ -72,9 +77,20 @@ export default function ParentCommsPage() {
 				)}
 			</div>
 
+			{/* Error banner */}
+			{classesError && (
+				<div className="shrink-0 bg-red-900/30 border-b border-red-700/40 px-4 py-2 text-xs text-red-400 font-medium">
+					Couldn’t load class data — refresh to try again
+				</div>
+			)}
+
 			{/* Content */}
 			<div className="flex-1 min-h-0 overflow-y-scroll">
-				{selectedClassId ? (
+				{loadingClasses ? (
+					<div className="flex items-center justify-center h-full text-slate-500 text-sm">
+						Loading…
+					</div>
+				) : selectedClassId ? (
 					<ParentCommsPanel classId={selectedClassId} students={students} />
 				) : (
 					<div className="flex items-center justify-center h-full text-slate-600 text-sm">
