@@ -35,6 +35,7 @@ import { CommsActions } from "./comms-actions";
 import { CockpitInfoStrip } from "./info-strip";
 import { PacingGuideCard } from "./pacing-guide-card";
 import { ScheduleManager } from "./schedule-manager";
+import { TodaysQuestionsPanel } from "./todays-questions-panel";
 import { UploadPanel } from "./upload-panel";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -432,6 +433,7 @@ export default async function CockpitPage() {
 
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
+					<TodaysQuestionsPanel date={today} />
 				</div>
 
 				{/* Right column (1/3) */}
