@@ -14,6 +14,7 @@ import {
 	Trash2Icon,
 	XIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -1029,6 +1030,26 @@ export default function StorePage() {
 			</div>
 
 			<div className="mx-auto max-w-7xl px-4 py-6">
+				{/* ── No class empty state ───────────────────────────────── */}
+				{!loading && classes.length === 0 && (
+					<div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+						<div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+							<ShoppingCartIcon className="h-7 w-7 text-amber-400" />
+						</div>
+						<div>
+							<p className="text-base font-semibold text-slate-200">No class yet</p>
+							<p className="text-sm text-slate-500 mt-1">
+								Create a class first to manage the Privilege Store.
+							</p>
+						</div>
+						<Link
+							href="/classes"
+							className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors"
+						>
+							Go to Classes →
+						</Link>
+					</div>
+				)}
 				{/* ── Tab: Store Items ───────────────────────────────────── */}
 				{activeTab === "items" && (
 					<div>

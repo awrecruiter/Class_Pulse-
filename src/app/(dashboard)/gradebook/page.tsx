@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart2Icon, DownloadIcon, LineChartIcon, RefreshCwIcon } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -441,6 +442,27 @@ export default function GradebookPage() {
 				<h1 className="text-xl font-bold text-slate-200">Gradebook</h1>
 				<p className="text-sm text-slate-400 mt-0.5">Record daily CFU scores per standard</p>
 			</div>
+
+			{/* No class empty state */}
+			{classes.length === 0 && (
+				<div className="flex flex-col items-center justify-center gap-4 py-16 text-center rounded-xl border border-slate-800 bg-slate-900/40">
+					<div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+						<BarChart2Icon className="h-6 w-6 text-indigo-400" />
+					</div>
+					<div>
+						<p className="text-base font-semibold text-slate-200">No class yet</p>
+						<p className="text-sm text-slate-500 mt-1">
+							Create a class first to start recording CFU scores.
+						</p>
+					</div>
+					<Link
+						href="/classes"
+						className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors"
+					>
+						Go to Classes →
+					</Link>
+				</div>
+			)}
 
 			{/* Controls */}
 			<div className="rounded-lg border border-slate-800 bg-slate-900 p-4 flex flex-col gap-4">

@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
 	const { data } = await auth.getSession();
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-	const body = await request.json();
+	let body: unknown;
+	try {
+		body = await request.json();
+	} catch {
+		return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+	}
 	const result = createSessionSchema.safeParse(body);
 	if (!result.success)
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });

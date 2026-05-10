@@ -223,6 +223,30 @@ export default async function CockpitPage() {
 
 	// ── Render ────────────────────────────────────────────────────────────────
 
+	if (teacherClasses.length === 0) {
+		return (
+			<div className="mx-auto max-w-7xl px-4 py-16 flex flex-col items-center justify-center gap-6 text-center">
+				<div className="h-16 w-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+					<UsersIcon className="h-8 w-8 text-indigo-400" />
+				</div>
+				<div>
+					<h1 className="text-2xl font-bold text-slate-200">Welcome to Class Pulse</h1>
+					<p className="text-slate-400 mt-2 max-w-md">
+						Create your first class to start tracking students, running sessions, and using the AI
+						coach.
+					</p>
+				</div>
+				<Link
+					href="/classes"
+					className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-6 py-3 text-sm font-bold text-white transition-colors shadow-lg"
+				>
+					Create Your First Class
+					<ArrowRightIcon className="h-4 w-4" />
+				</Link>
+			</div>
+		);
+	}
+
 	return (
 		<div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
 			{/* ── Status Bar ──────────────────────────────────────────────────── */}
