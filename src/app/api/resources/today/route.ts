@@ -19,11 +19,15 @@ export type TodayQuestion = {
 export type TodayResourceSection = {
 	resourceType: "bell-ringer" | "cfu" | "exit-ticket" | "pacing";
 	questions: TodayQuestion[];
+	url: string;
 };
 
 /**
  * GET /api/resources/today?date=YYYY-MM-DD
- * Returns uploaded question sets for the given date (defaults to today).
+ * Returns uploaded resource sections for the given date (defaults to today).
+ * Every section includes its URL so the UI can show chips and voice commands
+ * can open resources directly. Pacing rows are included with an empty
+ * questions array (they have a URL but no Q&A data).
  */
 export async function GET(request: NextRequest) {
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
@@ -43,6 +47,7 @@ export async function GET(request: NextRequest) {
 		.select({
 			resourceType: lessonResources.resourceType,
 			resourceData: lessonResources.resourceData,
+			url: lessonResources.url,
 		})
 		.from(lessonResources)
 		.where(and(eq(lessonResources.teacherId, data.user.id), eq(lessonResources.importDate, date)));
@@ -52,7 +57,13 @@ export async function GET(request: NextRequest) {
 	for (const row of rows) {
 		const rt = row.resourceType as TodayResourceSection["resourceType"];
 		if (!["bell-ringer", "cfu", "exit-ticket", "pacing"].includes(rt)) continue;
-		if (rt === "pacing") continue; // pacing rows are schedule data, not questions
+
+		// Pacing rows have no Q&A data — include them with an empty questions array
+		// so the UI can show a chip and voice commands can open the URL.
+		if (rt === "pacing") {
+			sections.push({ resourceType: "pacing", questions: [], url: row.url });
+			continue;
+		}
 
 		const rawData = row.resourceData as { rows?: unknown[] } | null;
 		const rawRows = rawData?.rows ?? [];
@@ -72,9 +83,8 @@ export async function GET(request: NextRequest) {
 			questions.push(q);
 		}
 
-		if (questions.length > 0) {
-			sections.push({ resourceType: rt, questions });
-		}
+		// Always push — even empty-question rows let the chip show as "uploaded"
+		sections.push({ resourceType: rt, questions, url: row.url });
 	}
 
 	return NextResponse.json({ date, sections });

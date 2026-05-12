@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { TodayResourceSection } from "@/app/api/resources/today/route";
 import type { ScheduleDocLink } from "@/hooks/use-schedule-today";
 import { useScheduleToday } from "@/hooks/use-schedule-today";
 import { getTodayPacing } from "@/lib/pacing";
@@ -55,6 +56,27 @@ const COLOR_TEXT: Record<string, string> = {
 	slate: "#cbd5e1",
 };
 
+// ─── Today's Resources config ─────────────────────────────────────────────────
+
+const RESOURCE_CONFIG: Record<
+	"bell-ringer" | "cfu" | "exit-ticket" | "pacing",
+	{ label: string; colorKey: string }
+> = {
+	"bell-ringer": { label: "Bell Ringer", colorKey: "amber" },
+	cfu: { label: "CFU", colorKey: "indigo" },
+	"exit-ticket": { label: "Exit Ticket", colorKey: "emerald" },
+	pacing: { label: "Pacing Guide", colorKey: "blue" },
+};
+
+const ALL_RESOURCE_TYPES = [
+	"bell-ringer",
+	"cfu",
+	"exit-ticket",
+	"pacing",
+] as const satisfies ReadonlyArray<keyof typeof RESOURCE_CONFIG>;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function resolveColor(color: string): string {
 	return COLOR_SOLID[color] ?? COLOR_SOLID.blue;
 }
@@ -104,6 +126,7 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [tomorrowBlocks, setTomorrowBlocks] = useState<typeof blocks>([]);
 	const [tomorrowLoading, setTomorrowLoading] = useState(false);
+	const [todayResources, setTodayResources] = useState<TodayResourceSection[]>([]);
 
 	const [nowMinutes, setNowMinutes] = useState(() => {
 		const d = new Date();
@@ -183,6 +206,19 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 			})
 			.catch(() => {});
 	}, []);
+
+	// Fetch today's uploaded resources for the chip row.
+	// Clears when the school day is over (sidebar shows tomorrow's schedule).
+	useEffect(() => {
+		if (dayIsOver) {
+			setTodayResources([]);
+			return;
+		}
+		fetch("/api/resources/today")
+			.then((r) => (r.ok ? r.json() : { sections: [] }))
+			.then((j: { sections?: TodayResourceSection[] }) => setTodayResources(j.sections ?? []))
+			.catch(() => {});
+	}, [dayIsOver]);
 
 	function handleDocTap(doc: ScheduleDocLink) {
 		if (scheduleDocOpenMode === "new-tab") {
@@ -286,6 +322,49 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 					)}
 				</div>
 			)}
+
+			{/* Today's Resources chips — colored if uploaded, grey/dim if not */}
+			{!dayIsOver && (
+				<div className="mx-3 mb-2">
+					<p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">
+						Today's Resources
+					</p>
+					<div className="flex flex-wrap gap-1">
+						{ALL_RESOURCE_TYPES.map((rt) => {
+							const cfg = RESOURCE_CONFIG[rt];
+							const found = todayResources.find((s) => s.resourceType === rt);
+							const solidColor = COLOR_SOLID[cfg.colorKey] ?? COLOR_SOLID.blue;
+							const textColor = COLOR_TEXT[cfg.colorKey] ?? COLOR_TEXT.blue;
+							if (found) {
+								return (
+									<button
+										key={rt}
+										type="button"
+										onClick={() => window.open(found.url, "_blank")}
+										className="rounded-full px-2 py-0.5 text-[9px] font-semibold transition-opacity hover:opacity-80"
+										style={{
+											backgroundColor: `${solidColor}18`,
+											color: textColor,
+											border: `1px solid ${solidColor}40`,
+										}}
+									>
+										{cfg.label}
+									</button>
+								);
+							}
+							return (
+								<span
+									key={rt}
+									className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-slate-600 bg-slate-800/40 border border-slate-700/30 cursor-not-allowed select-none"
+								>
+									{cfg.label}
+								</span>
+							);
+						})}
+					</div>
+				</div>
+			)}
+
 			{/* Fixed-height scroll window — hides scrollbar track */}
 			<div
 				ref={scrollRef}

@@ -155,3 +155,48 @@ export function matchNavigationDestination(transcript: string): VoiceNavDestinat
 
 	return null;
 }
+
+// ─── Today's daily resource open commands ────────────────────────────────────
+
+export type TodayResourceCommandType = "bell-ringer" | "cfu" | "exit-ticket" | "pacing";
+
+/**
+ * Synchronous regex matcher for "open [daily resource]" voice commands.
+ * Returns the resource type to open, or null if no match.
+ * Runs before the AI voice agent — zero latency, no API call.
+ */
+export function matchTodayResourceCommand(transcript: string): TodayResourceCommandType | null {
+	const lower = transcript.toLowerCase().trim();
+
+	// Bell ringer / warm up
+	if (
+		/\bbell.?ringer\b/.test(lower) ||
+		/\bwarm.?up\b/.test(lower) ||
+		/\bopen\s+bell\b/.test(lower)
+	) {
+		return "bell-ringer";
+	}
+
+	// CFU / check for understanding
+	if (/\bcfu\b/.test(lower) || /\bcheck\s+for\s+understanding\b/.test(lower)) {
+		return "cfu";
+	}
+
+	// Exit ticket
+	if (/\bexit\s+ticket\b/.test(lower)) {
+		return "exit-ticket";
+	}
+
+	// Pacing guide / slides
+	// Note: "open slides" alone maps here; "open lesson slides" / "open [type] slides"
+	// intentionally falls through to the lesson-resource fast-path.
+	if (
+		/\bpacing\s+guide\b/.test(lower) ||
+		/^open\s+slides$/.test(lower) ||
+		/\bopen\s+(?:the\s+)?pacing\b/.test(lower)
+	) {
+		return "pacing";
+	}
+
+	return null;
+}

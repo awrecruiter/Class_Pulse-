@@ -18,6 +18,7 @@ import {
 	getVoiceSurface,
 	getVoiceSurfaceSummary,
 	matchNavigationDestination,
+	matchTodayResourceCommand,
 } from "@/lib/voice/registry";
 import type { LessonResource } from "@/types";
 import { QueueDrawer } from "./queue-drawer";
@@ -275,6 +276,36 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 	useEffect(() => {
 		executeMoveToGroupRef.current = executeMoveToGroup;
 	}, [executeMoveToGroup]);
+
+	// ── Today's daily resource opener ───────────────────────────────────────────
+
+	const DAILY_RESOURCE_LABELS: Record<string, string> = {
+		"bell-ringer": "Bell Ringer",
+		cfu: "CFU",
+		"exit-ticket": "Exit Ticket",
+		pacing: "Pacing Guide",
+	};
+
+	const openTodayResource = useCallback(async (resourceType: string, transcript: string) => {
+		try {
+			const res = await fetch("/api/resources/today");
+			if (!res.ok) throw new Error("fetch failed");
+			const { sections } = (await res.json()) as {
+				sections: Array<{ resourceType: string; url: string }>;
+			};
+			const found = sections.find((s) => s.resourceType === resourceType);
+			if (found?.url) {
+				window.open(found.url, "_blank", "noopener,noreferrer");
+			} else {
+				toast.error(
+					`No ${DAILY_RESOURCE_LABELS[resourceType] ?? resourceType} uploaded for today`,
+					{ description: `Heard: "${transcript}"`, duration: 4000 },
+				);
+			}
+		} catch {
+			toast.error("Could not load today's resources");
+		}
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// ── Doc open helper ─────────────────────────────────────────────────────────
 
@@ -629,6 +660,14 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				}
 			}
 
+			// Fast-path: "open [today's daily resource]" — bell ringer, CFU, exit ticket, pacing guide
+			// Matches before the lesson-resource fast-path and before the AI agent call.
+			const todayResourceType = matchTodayResourceCommand(transcript);
+			if (todayResourceType) {
+				void openTodayResource(todayResourceType, transcript);
+				return;
+			}
+
 			// Fast-path: "open [resource type]" — open today's lesson resource without AI
 			const openResourceMatch =
 				/\bopen\s+(slides?|slide\s*deck|powerpoint|ppt|book|textbook|worksheet|video)\b/i.exec(
@@ -848,7 +887,7 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				if (mountedRef.current) setAgentThinking(false);
 			}
 		},
-		[setAgentThinking, handleCommand, refreshAgentContext, handleNavigate],
+		[setAgentThinking, handleCommand, refreshAgentContext, handleNavigate, openTodayResource],
 	);
 
 	const callVoiceAgentRef = useRef(callVoiceAgent);
