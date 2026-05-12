@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { FL_BEST_STANDARDS } from "@/data/fl-best-standards";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -400,6 +401,69 @@ export async function POST(request: NextRequest) {
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
 	const teacherId = data.user.id;
+
+	// ─── JSON path (URL paste flow) ───────────────────────────────────────────
+	const contentType = request.headers.get("content-type") ?? "";
+	if (contentType.includes("application/json")) {
+		let body: unknown;
+		try {
+			body = await request.json();
+		} catch {
+			return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+		}
+
+		const jsonSchema = z.object({
+			resourceType: z.enum(["bell-ringer", "cfu", "exit-ticket", "pacing"]),
+			date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
+			url: z.string().min(1, "url is required"),
+			classId: z.string().optional(),
+		});
+		const parsed = jsonSchema.safeParse(body);
+		if (!parsed.success) {
+			return NextResponse.json(
+				{ error: parsed.error.issues[0]?.message ?? "Invalid request" },
+				{ status: 400 },
+			);
+		}
+
+		const { resourceType, date: importDate, url } = parsed.data;
+		try {
+			await db
+				.insert(lessonResources)
+				.values({
+					teacherId,
+					topicNumber: 0,
+					lessonNumber: importDate,
+					resourceType,
+					label: resourceType,
+					url,
+					isHidden: false,
+					sortOrder: 0,
+					resourceData: null,
+					importDate,
+				})
+				.onConflictDoUpdate({
+					target: [
+						lessonResources.teacherId,
+						lessonResources.topicNumber,
+						lessonResources.lessonNumber,
+						lessonResources.resourceType,
+					],
+					set: {
+						url,
+						importDate,
+						label: resourceType,
+						updatedAt: new Date(),
+					},
+				});
+		} catch (err) {
+			console.error("[resources/upload] DB write error (JSON):", err);
+			return NextResponse.json({ error: "Database error writing resource" }, { status: 500 });
+		}
+
+		return NextResponse.json({ status: "success", importedRows: 1 });
+	}
+	// ─── FormData / CSV path ──────────────────────────────────────────────────
 
 	let formData: FormData;
 	try {

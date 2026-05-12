@@ -8,6 +8,7 @@ import {
 	CoinsIcon,
 	CopyIcon,
 	DownloadIcon,
+	ExternalLinkIcon,
 	HistoryIcon,
 	PencilIcon,
 	PhoneIcon,
@@ -700,6 +701,16 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 										</button>
 									</div>
 								</div>
+								{/* Preview link — active session */}
+								<a
+									href="/student/preview"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="flex items-center gap-1 self-center text-xs text-slate-500 hover:text-slate-300 transition-colors"
+								>
+									<ExternalLinkIcon className="h-3 w-3" />
+									Preview Student View
+								</a>
 							</>
 						) : (
 							<div className="flex flex-col gap-3">
@@ -723,6 +734,16 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 										</Link>
 									</Button>
 								)}
+								{/* Preview link — no session */}
+								<a
+									href="/student/preview"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="flex items-center gap-1 self-start text-xs text-slate-500 hover:text-slate-300 transition-colors"
+								>
+									<ExternalLinkIcon className="h-3 w-3" />
+									Preview Student View
+								</a>
 							</div>
 						)}
 					</div>
