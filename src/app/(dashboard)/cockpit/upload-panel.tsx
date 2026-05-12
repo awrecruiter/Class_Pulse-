@@ -128,7 +128,7 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 		}
 	};
 
-	// ── File upload ──────────────────────────────────────────────────────────────
+	// ── File upload (presigned S3 PUT — bypasses Vercel payload limit) ──────────
 	const handleFileUpload = async () => {
 		if (!pickedFile) {
 			toast.error("Select a file first");
@@ -140,17 +140,32 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 		}
 		setFileUploading(true);
 		try {
-			const form = new FormData();
-			form.append("file", pickedFile);
-
-			const res = await fetch("/api/resources/pdf", { method: "POST", body: form });
-			const json = await res.json();
-			if (!res.ok) {
-				toast.error((json as { error?: string }).error ?? "Upload failed");
+			// 1. Get a short-lived presigned PUT URL from our API
+			const params = new URLSearchParams({ filename: pickedFile.name });
+			const presignRes = await fetch(`/api/resources/pdf/presign?${params}`);
+			const presignJson = await presignRes.json();
+			if (!presignRes.ok) {
+				toast.error((presignJson as { error?: string }).error ?? "Could not get upload URL");
 				return;
 			}
-			const { url: fileUrl } = json as { url: string };
-			await saveResourceUrl(fileUrl);
+			const { presignedUrl, objectUrl } = presignJson as {
+				presignedUrl: string;
+				objectUrl: string;
+			};
+
+			// 2. PUT file directly to S3 — never touches the Next.js server
+			const uploadRes = await fetch(presignedUrl, {
+				method: "PUT",
+				body: pickedFile,
+				headers: { "Content-Type": pickedFile.type || "application/octet-stream" },
+			});
+			if (!uploadRes.ok) {
+				toast.error("Storage upload failed — check S3 CORS settings");
+				return;
+			}
+
+			// 3. Save the public S3 URL as a lesson resource record
+			await saveResourceUrl(objectUrl);
 			setPickedFile(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 		} catch {
