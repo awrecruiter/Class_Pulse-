@@ -99,15 +99,21 @@ export default async function CockpitPage() {
 	]);
 
 	// ── Teacher settings (topic override + behavior reset schedule) ─────────
-	const settingsRow = await db
-		.select({
-			currentTopicNumber: teacherSettings.currentTopicNumber,
-			behaviorResetSchedule: teacherSettings.behaviorResetSchedule,
-		})
-		.from(teacherSettings)
-		.where(eq(teacherSettings.userId, teacherId))
-		.limit(1)
-		.then((r) => r[0] ?? null);
+	let settingsRow: { currentTopicNumber: number | null; behaviorResetSchedule: string } | null =
+		null;
+	try {
+		settingsRow = await db
+			.select({
+				currentTopicNumber: teacherSettings.currentTopicNumber,
+				behaviorResetSchedule: teacherSettings.behaviorResetSchedule,
+			})
+			.from(teacherSettings)
+			.where(eq(teacherSettings.userId, teacherId))
+			.limit(1)
+			.then((r) => r[0] ?? null);
+	} catch {
+		// DB schema may be behind — use defaults and continue
+	}
 	const topicOverride = settingsRow?.currentTopicNumber ?? null;
 
 	// ── Auto-reset behavior profiles if schedule requires it ─────────────────
