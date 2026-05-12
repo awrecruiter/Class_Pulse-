@@ -4,6 +4,7 @@ import {
 	ChevronDownIcon,
 	ChevronUpIcon,
 	DownloadIcon,
+	FileTextIcon,
 	LinkIcon,
 	UploadIcon,
 	XIcon,
@@ -12,6 +13,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 type ResourceType = "bell-ringer" | "cfu" | "exit-ticket" | "pacing";
+type InputMode = "link" | "file";
 
 const RESOURCE_OPTIONS: { value: ResourceType; label: string }[] = [
 	{ value: "bell-ringer", label: "Bell Ringer" },
@@ -19,6 +21,32 @@ const RESOURCE_OPTIONS: { value: ResourceType; label: string }[] = [
 	{ value: "exit-ticket", label: "Exit Ticket" },
 	{ value: "pacing", label: "Pacing Guide" },
 ];
+
+const ACCEPTED_FILE_TYPES = [
+	".pdf",
+	".doc",
+	".docx",
+	".ppt",
+	".pptx",
+	".xls",
+	".xlsx",
+	".jpg",
+	".jpeg",
+	".png",
+	".gif",
+	".txt",
+	"application/pdf",
+	"application/msword",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	"application/vnd.ms-powerpoint",
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	"application/vnd.ms-excel",
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	"image/jpeg",
+	"image/png",
+	"image/gif",
+	"text/plain",
+].join(",");
 
 interface UploadResult {
 	status: "success" | "partial_success" | "error";
@@ -39,17 +67,45 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 	const [resourceType, setResourceType] = useState<ResourceType>("bell-ringer");
 	const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
 
+	// Input mode toggle: link paste vs file upload
+	const [inputMode, setInputMode] = useState<InputMode>("link");
+
 	// URL-paste state
 	const [url, setUrl] = useState("");
 	const [savedUrl, setSavedUrl] = useState<string | null>(null);
 	const [savedLabel, setSavedLabel] = useState<string>("");
 	const [urlSaved, setUrlSaved] = useState(false);
 
+	// File upload state
+	const [pickedFile, setPickedFile] = useState<File | null>(null);
+	const [fileUploading, setFileUploading] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
 	// CSV section state
 	const [showCsv, setShowCsv] = useState(false);
 	const [uploading, setUploading] = useState(false);
 	const [result, setResult] = useState<UploadResult | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
+
+	// ── Shared: save a resolved URL as a resource record ────────────────────────
+	const saveResourceUrl = async (resolvedUrl: string) => {
+		const res = await fetch("/api/resources/upload", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ resourceType, date, url: resolvedUrl, classId }),
+		});
+		const json = await res.json();
+		if (!res.ok) {
+			toast.error((json as { error?: string }).error ?? "Save failed");
+			return;
+		}
+		toast.success("Resource saved");
+		const label = RESOURCE_OPTIONS.find((o) => o.value === resourceType)?.label ?? resourceType;
+		setSavedUrl(resolvedUrl);
+		setSavedLabel(`${label} — ${date}`);
+		setUrlSaved(true);
+		setTimeout(() => setUrlSaved(false), 2000);
+	};
 
 	// ── URL save ────────────────────────────────────────────────────────────────
 	const handleUrlSave = async () => {
@@ -63,27 +119,44 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 		}
 		setUploading(true);
 		try {
-			const res = await fetch("/api/resources/upload", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ resourceType, date, url: url.trim(), classId }),
-			});
-			const json = await res.json();
-			if (!res.ok) {
-				toast.error((json as { error?: string }).error ?? "Save failed");
-				return;
-			}
-			toast.success("Resource saved");
-			const label = RESOURCE_OPTIONS.find((o) => o.value === resourceType)?.label ?? resourceType;
-			setSavedUrl(url.trim());
-			setSavedLabel(`${label} — ${date}`);
+			await saveResourceUrl(url.trim());
 			setUrl("");
-			setUrlSaved(true);
-			setTimeout(() => setUrlSaved(false), 2000);
 		} catch {
 			toast.error("Save failed");
 		} finally {
 			setUploading(false);
+		}
+	};
+
+	// ── File upload ──────────────────────────────────────────────────────────────
+	const handleFileUpload = async () => {
+		if (!pickedFile) {
+			toast.error("Select a file first");
+			return;
+		}
+		if (!classId) {
+			toast.error("No class selected");
+			return;
+		}
+		setFileUploading(true);
+		try {
+			const form = new FormData();
+			form.append("file", pickedFile);
+
+			const res = await fetch("/api/resources/pdf", { method: "POST", body: form });
+			const json = await res.json();
+			if (!res.ok) {
+				toast.error((json as { error?: string }).error ?? "Upload failed");
+				return;
+			}
+			const { url: fileUrl } = json as { url: string };
+			await saveResourceUrl(fileUrl);
+			setPickedFile(null);
+			if (fileInputRef.current) fileInputRef.current.value = "";
+		} catch {
+			toast.error("Upload failed");
+		} finally {
+			setFileUploading(false);
 		}
 	};
 
@@ -126,6 +199,8 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 		}
 	};
 
+	const isBusy = uploading || fileUploading;
+
 	return (
 		<div
 			id="upload-panel"
@@ -154,7 +229,7 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 			{/* Collapsible body */}
 			{open && (
 				<div className="border-t border-slate-700 px-5 py-4 space-y-3">
-					{/* ── Primary row: URL paste ── */}
+					{/* ── Resource Type + Date row ── */}
 					<div className="flex flex-wrap gap-3 items-end">
 						{/* Resource type */}
 						<div className="flex flex-col gap-1">
@@ -188,42 +263,109 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 								className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 							/>
 						</div>
+					</div>
 
-						{/* URL input */}
-						<div className="flex flex-col gap-1 flex-1 min-w-48">
-							<label className="text-xs text-slate-400 font-medium" htmlFor="resource-url">
-								Link
-							</label>
-							<input
-								id="resource-url"
-								type="url"
-								value={url}
-								onChange={(e) => setUrl(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") handleUrlSave();
-								}}
-								placeholder="Paste Google Slides, OneDrive, or PDF link..."
-								className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-							/>
-						</div>
-
-						{/* Save button */}
+					{/* ── Link / File mode toggle ── */}
+					<div className="flex items-center gap-1 p-0.5 bg-slate-900 rounded-lg w-fit border border-slate-700">
 						<button
 							type="button"
-							onClick={handleUrlSave}
-							disabled={uploading}
-							className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-								urlSaved
-									? "bg-emerald-600 text-white"
-									: "bg-indigo-600 hover:bg-indigo-500 text-white"
+							onClick={() => setInputMode("link")}
+							className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+								inputMode === "link"
+									? "bg-indigo-600 text-white"
+									: "text-slate-400 hover:text-slate-200"
 							}`}
 						>
-							<LinkIcon className="h-3.5 w-3.5" />
-							{urlSaved ? "Saved!" : uploading ? "Saving…" : "Save"}
+							<LinkIcon className="h-3 w-3" />
+							Link
+						</button>
+						<button
+							type="button"
+							onClick={() => setInputMode("file")}
+							className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+								inputMode === "file"
+									? "bg-indigo-600 text-white"
+									: "text-slate-400 hover:text-slate-200"
+							}`}
+						>
+							<FileTextIcon className="h-3 w-3" />
+							File
 						</button>
 					</div>
 
-					{/* Saved URL chip */}
+					{/* ── Link mode: URL paste + Save ── */}
+					{inputMode === "link" && (
+						<div className="flex flex-wrap gap-3 items-end">
+							<div className="flex flex-col gap-1 flex-1 min-w-48">
+								<label className="text-xs text-slate-400 font-medium" htmlFor="resource-url">
+									Link
+								</label>
+								<input
+									id="resource-url"
+									type="url"
+									value={url}
+									onChange={(e) => setUrl(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") handleUrlSave();
+									}}
+									placeholder="Paste Google Slides, OneDrive, or PDF link..."
+									className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+								/>
+							</div>
+
+							<button
+								type="button"
+								onClick={handleUrlSave}
+								disabled={isBusy}
+								className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+									urlSaved
+										? "bg-emerald-600 text-white"
+										: "bg-indigo-600 hover:bg-indigo-500 text-white"
+								}`}
+							>
+								<LinkIcon className="h-3.5 w-3.5" />
+								{urlSaved ? "Saved!" : uploading ? "Saving…" : "Save"}
+							</button>
+						</div>
+					)}
+
+					{/* ── File mode: file picker + Upload button ── */}
+					{inputMode === "file" && (
+						<div className="flex flex-wrap gap-3 items-end">
+							<div className="flex flex-col gap-1 flex-1 min-w-48">
+								<label className="text-xs text-slate-400 font-medium" htmlFor="resource-file">
+									File
+									<span className="ml-1.5 text-slate-600 font-normal">
+										PDF, Word, PowerPoint, Excel, image — max 10 MB
+									</span>
+								</label>
+								<input
+									id="resource-file"
+									ref={fileInputRef}
+									type="file"
+									accept={ACCEPTED_FILE_TYPES}
+									onChange={(e) => setPickedFile(e.target.files?.[0] ?? null)}
+									className="text-sm text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 file:cursor-pointer"
+								/>
+							</div>
+
+							<button
+								type="button"
+								onClick={handleFileUpload}
+								disabled={isBusy || !pickedFile}
+								className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+									urlSaved
+										? "bg-emerald-600 text-white"
+										: "bg-indigo-600 hover:bg-indigo-500 text-white"
+								}`}
+							>
+								<FileTextIcon className="h-3.5 w-3.5" />
+								{urlSaved ? "Uploaded!" : fileUploading ? "Uploading…" : "Upload File"}
+							</button>
+						</div>
+					)}
+
+					{/* Saved URL chip — shown for both link and file modes */}
 					{savedUrl && (
 						<div className="flex items-center gap-2">
 							<a
@@ -280,7 +422,7 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 								<button
 									type="button"
 									onClick={handleUpload}
-									disabled={uploading}
+									disabled={isBusy}
 									className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
 								>
 									<UploadIcon className="h-3.5 w-3.5" />

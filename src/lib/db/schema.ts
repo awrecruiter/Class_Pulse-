@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
 	boolean,
+	customType,
 	index,
 	integer,
 	jsonb,
@@ -10,6 +11,13 @@ import {
 	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
+
+// Postgres BYTEA — stores binary data (PDFs, images, Office files, etc.)
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+	dataType() {
+		return "bytea";
+	},
+});
 
 // ─── Legacy profile/link data ───────────────────────────────────────────────
 
@@ -1055,6 +1063,17 @@ export const parentReportTokens = pgTable(
 		index("idx_parent_report_tokens_flag_id").on(table.flagId),
 	],
 );
+
+// ─── Lesson Resource Files (PDF / Office / image upload stored as BYTEA) ─────
+
+export const lessonResourceFiles = pgTable("lesson_resource_files", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	teacherId: text("teacher_id").notNull(),
+	filename: text("filename").notNull(),
+	mimeType: text("mime_type").notNull().default("application/pdf"),
+	data: bytea("data").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 // ─── Relations ───────────────────────────────────────────────────────────────
 
