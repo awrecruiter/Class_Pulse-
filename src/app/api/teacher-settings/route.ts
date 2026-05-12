@@ -13,6 +13,7 @@ const updateSettingsSchema = z.object({
 	confusionAlertPercent: z.number().int().min(10).max(90).optional(),
 	useAliasMode: z.boolean().optional(),
 	storeResetSchedule: z.enum(["daily", "weekly", "monthly", "quarterly", "manual"]).optional(),
+	behaviorResetSchedule: z.enum(["daily", "weekly", "monthly", "quarterly", "manual"]).optional(),
 	storeIsOpen: z.boolean().optional(),
 	diRewardAmount: z.number().int().min(1).max(500).optional(),
 	scheduleDocOpenMode: z.enum(["toast", "new-tab"]).optional(),

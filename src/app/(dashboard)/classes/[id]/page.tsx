@@ -7,6 +7,7 @@ import {
 	ClipboardListIcon,
 	CoinsIcon,
 	CopyIcon,
+	DownloadIcon,
 	HistoryIcon,
 	PencilIcon,
 	PhoneIcon,
@@ -1076,6 +1077,22 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 							</p>
 						</div>
 						<RamBucksPanel classId={id} />
+					</div>
+
+					{/* Behavior Incidents Export */}
+					<div className="flex items-center justify-between gap-2 py-1">
+						<div className="flex items-center gap-2">
+							<ActivityIcon className="h-4 w-4 text-slate-400" />
+							<p className="text-sm font-semibold text-slate-200">Behavior Incidents</p>
+						</div>
+						<a
+							href={`/api/classes/${id}/behavior/export`}
+							download
+							className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-[#0d1525] px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100 transition-colors"
+						>
+							<DownloadIcon className="h-3.5 w-3.5" />
+							Export CSV
+						</a>
 					</div>
 
 					{/* Parent Contacts */}

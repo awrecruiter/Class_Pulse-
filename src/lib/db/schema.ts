@@ -90,6 +90,8 @@ export const teacherSettings = pgTable("teacher_settings", {
 	voiceAppOpenMode: text("voice_app_open_mode").notNull().default("immediate"),
 	// Teacher-set current topic override (1–18). Null = auto-infer from YAAG dates.
 	currentTopicNumber: integer("current_topic_number"),
+	// Behavior ladder reset schedule: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'manual'
+	behaviorResetSchedule: text("behavior_reset_schedule").notNull().default("manual"),
 	// Currency branding — teachers set their school mascot name and emoji
 	currencyName: text("currency_name").notNull().default("RAM Bucks"),
 	currencyEmoji: text("currency_emoji").notNull().default("🐏"),

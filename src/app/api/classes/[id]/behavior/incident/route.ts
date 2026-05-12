@@ -334,6 +334,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 						status: smsResult.ok ? "sent" : "failed",
 						smsSid: smsResult.sid ?? null,
 					});
+					if (smsResult.ok && parentNotificationId) {
+						await db
+							.update(parentNotifications)
+							.set({ isSent: true })
+							.where(eq(parentNotifications.id, parentNotificationId));
+					}
 					smsAutoResult = { sent: smsResult.ok, reason: smsResult.error ?? null };
 				}
 			}

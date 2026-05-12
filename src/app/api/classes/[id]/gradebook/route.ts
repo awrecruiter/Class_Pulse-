@@ -54,15 +54,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const from = url.searchParams.get("from");
 	const to = url.searchParams.get("to");
 
-	// Range mode: ?from=YYYY-MM-DD&to=YYYY-MM-DD — returns class average per day
+	// Range mode: ?from=YYYY-MM-DD&to=YYYY-MM-DD[&rosterId=UUID] — returns average per day
 	if (from && to) {
 		if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
 			return NextResponse.json({ error: "from/to must be YYYY-MM-DD" }, { status: 400 });
 		}
+		const rosterIdFilter = url.searchParams.get("rosterId");
 		const rows = await db
 			.select({ date: cfuEntries.date, score: cfuEntries.score })
 			.from(cfuEntries)
-			.where(and(eq(cfuEntries.classId, classId), between(cfuEntries.date, from, to)))
+			.where(
+				and(
+					eq(cfuEntries.classId, classId),
+					between(cfuEntries.date, from, to),
+					rosterIdFilter ? eq(cfuEntries.rosterId, rosterIdFilter) : undefined,
+				),
+			)
 			.orderBy(cfuEntries.date);
 		// Aggregate: average score per date (exclude absent=0 from average)
 		const byDate: Record<string, { sum: number; count: number; dist: number[] }> = {};
@@ -190,5 +197,47 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		}
 	}
 
-	return NextResponse.json({ entries: inserted, count: inserted.length });
+	// Check absent alerts: students scored 0 (Absent) with 3+ absences in last 30 days
+	const absentRosterIds = entries.filter((e) => e.score === 0).map((e) => e.rosterId);
+	const absentAlerts: { rosterId: string; initials: string; absenceCount: number }[] = [];
+
+	if (absentRosterIds.length > 0) {
+		const thirtyDaysAgo = new Date();
+		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+		const fromDate = thirtyDaysAgo.toISOString().slice(0, 10);
+
+		for (const rid of absentRosterIds) {
+			const absences = await db
+				.select({ date: cfuEntries.date })
+				.from(cfuEntries)
+				.where(
+					and(
+						eq(cfuEntries.classId, classId),
+						eq(cfuEntries.rosterId, rid),
+						eq(cfuEntries.score, 0),
+						between(cfuEntries.date, fromDate, date),
+					),
+				);
+
+			if (absences.length >= 3) {
+				const [student] = await db
+					.select({
+						firstInitial: rosterEntries.firstInitial,
+						lastInitial: rosterEntries.lastInitial,
+					})
+					.from(rosterEntries)
+					.where(eq(rosterEntries.id, rid));
+
+				if (student) {
+					absentAlerts.push({
+						rosterId: rid,
+						initials: `${student.firstInitial}.${student.lastInitial}.`,
+						absenceCount: absences.length,
+					});
+				}
+			}
+		}
+	}
+
+	return NextResponse.json({ entries: inserted, count: inserted.length, absentAlerts });
 }

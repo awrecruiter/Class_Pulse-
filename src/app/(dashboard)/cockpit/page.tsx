@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import {
 	AlertTriangleIcon,
 	ArrowRightIcon,
@@ -19,6 +19,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
+	behaviorProfiles,
 	classes,
 	classSessions,
 	groupMemberships,
@@ -97,14 +98,54 @@ export default async function CockpitPage() {
 			.limit(20),
 	]);
 
-	// ── Teacher settings (topic override) ───────────────────────────────────
+	// ── Teacher settings (topic override + behavior reset schedule) ─────────
 	const settingsRow = await db
-		.select({ currentTopicNumber: teacherSettings.currentTopicNumber })
+		.select({
+			currentTopicNumber: teacherSettings.currentTopicNumber,
+			behaviorResetSchedule: teacherSettings.behaviorResetSchedule,
+		})
 		.from(teacherSettings)
 		.where(eq(teacherSettings.userId, teacherId))
 		.limit(1)
 		.then((r) => r[0] ?? null);
 	const topicOverride = settingsRow?.currentTopicNumber ?? null;
+
+	// ── Auto-reset behavior profiles if schedule requires it ─────────────────
+	// Uses teacherClasses[0] directly — primaryClass is declared later in this component
+	const behaviorResetSchedule = settingsRow?.behaviorResetSchedule ?? "manual";
+	const autoResetClass = teacherClasses[0] ?? null;
+	if (autoResetClass && behaviorResetSchedule !== "manual") {
+		try {
+			const now = new Date();
+			let cutoff: Date | null = null;
+			if (behaviorResetSchedule === "daily") {
+				cutoff = new Date(now);
+				cutoff.setHours(0, 0, 0, 0);
+			} else if (behaviorResetSchedule === "weekly") {
+				cutoff = new Date(now);
+				cutoff.setDate(cutoff.getDate() - 7);
+			} else if (behaviorResetSchedule === "monthly") {
+				cutoff = new Date(now);
+				cutoff.setMonth(cutoff.getMonth() - 1);
+			} else if (behaviorResetSchedule === "quarterly") {
+				cutoff = new Date(now);
+				cutoff.setDate(cutoff.getDate() - 90);
+			}
+			if (cutoff) {
+				await db
+					.update(behaviorProfiles)
+					.set({ currentStep: 0, lastResetAt: now, updatedAt: now })
+					.where(
+						and(
+							eq(behaviorProfiles.classId, autoResetClass.id),
+							or(isNull(behaviorProfiles.lastResetAt), lt(behaviorProfiles.lastResetAt, cutoff)),
+						),
+					);
+			}
+		} catch {
+			// Auto-reset must never crash the cockpit page
+		}
+	}
 
 	// ── Pacing ────────────────────────────────────────────────────────────────
 	const pacing = getTodayPacing(undefined, topicOverride);

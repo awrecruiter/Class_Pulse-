@@ -34,6 +34,7 @@ type Settings = {
 	confusionAlertPercent: number;
 	useAliasMode: boolean;
 	storeResetSchedule: "daily" | "weekly" | "monthly" | "quarterly" | "manual";
+	behaviorResetSchedule: "daily" | "weekly" | "monthly" | "quarterly" | "manual";
 	storeIsOpen: boolean;
 	diRewardAmount: number;
 	scheduleDocOpenMode: "toast" | "new-tab";
@@ -1082,6 +1083,36 @@ export default function SettingsPage() {
 					{feeSaving ? "Saving..." : "Save Fee Schedule"}
 				</Button>
 			</div>
+
+			{/* ── Behavior Reset Schedule ──────────────────────── */}
+			{settings && (
+				<div className="flex flex-col gap-3">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Behavior Ladder Reset
+					</h2>
+					<p className="text-xs text-slate-400 -mt-1">
+						How often to automatically reset all students&apos; behavior steps back to zero
+					</p>
+					<div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+						{(["daily", "weekly", "monthly", "quarterly", "manual"] as const).map((schedule) => (
+							<button
+								key={schedule}
+								type="button"
+								onClick={() =>
+									setSettings((s) => (s ? { ...s, behaviorResetSchedule: schedule } : s))
+								}
+								className={`rounded-lg border px-2 py-2 text-xs font-medium capitalize transition-colors ${
+									settings.behaviorResetSchedule === schedule
+										? "border-primary bg-indigo-500/20 text-indigo-400"
+										: "border-slate-800 bg-[#0d1525] text-slate-400 hover:bg-slate-800/50"
+								}`}
+							>
+								{schedule}
+							</button>
+						))}
+					</div>
+				</div>
+			)}
 
 			{/* ── Store Items ──────────────────────────────────── */}
 			<div className="flex flex-col gap-4">

@@ -19,9 +19,10 @@ type StandardPickerProps = {
 	value: string[];
 	onChange: (codes: string[]) => void;
 	defaultGrade?: 3 | 4 | 5;
+	label?: string;
 };
 
-export function StandardPicker({ value, onChange, defaultGrade }: StandardPickerProps) {
+export function StandardPicker({ value, onChange, defaultGrade, label }: StandardPickerProps) {
 	const [open, setOpen] = useState(false);
 	const [gradeFilter, setGradeFilter] = useState<number | null>(defaultGrade ?? null);
 
@@ -56,7 +57,7 @@ export function StandardPicker({ value, onChange, defaultGrade }: StandardPicker
 
 	return (
 		<div className="flex flex-col gap-1.5">
-			<span className="text-sm font-medium text-foreground">Today&apos;s standard(s)</span>
+			<span className="text-sm font-medium text-foreground">{label ?? "Today’s standard(s)"}</span>
 
 			{/* Trigger */}
 			<button

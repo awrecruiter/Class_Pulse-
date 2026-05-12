@@ -4,6 +4,7 @@ import { BarChart2Icon, DownloadIcon, LineChartIcon, RefreshCwIcon } from "lucid
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { StandardPicker } from "@/components/coach/standard-picker";
 import { Button } from "@/components/ui/button";
 
 type ClassOption = {
@@ -245,6 +246,11 @@ export default function GradebookPage() {
 		{ date: string; average: number; count: number; dist: number[] }[]
 	>([]);
 	const [trendLoading, setTrendLoading] = useState(false);
+	const [trendStudentId, setTrendStudentId] = useState<string>("");
+	const [studentTrend, setStudentTrend] = useState<
+		{ date: string; average: number; count: number; dist: number[] }[]
+	>([]);
+	const [studentTrendLoading, setStudentTrendLoading] = useState(false);
 
 	// Fetch class list
 	useEffect(() => {
@@ -276,6 +282,7 @@ export default function GradebookPage() {
 			setRoster([]);
 			setScores({});
 			setExistingEntries([]);
+			setTrendStudentId("");
 			return;
 		}
 		localStorage.setItem("activeClassId", selectedClassId);
@@ -322,6 +329,33 @@ export default function GradebookPage() {
 	useEffect(() => {
 		fetchTrend();
 	}, [fetchTrend]);
+
+	// Fetch per-student trend when student selector changes
+	const fetchStudentTrend = useCallback(async () => {
+		if (!selectedClassId || !trendStudentId) {
+			setStudentTrend([]);
+			return;
+		}
+		setStudentTrendLoading(true);
+		try {
+			const toDate = today();
+			const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+			const res = await fetch(
+				`/api/classes/${selectedClassId}/gradebook?from=${fromDate}&to=${toDate}&rosterId=${trendStudentId}`,
+			);
+			if (!res.ok) return;
+			const json = await res.json();
+			setStudentTrend(json.trend ?? []);
+		} catch {
+			// Silently fail
+		} finally {
+			setStudentTrendLoading(false);
+		}
+	}, [selectedClassId, trendStudentId]);
+
+	useEffect(() => {
+		fetchStudentTrend();
+	}, [fetchStudentTrend]);
 
 	// Fetch existing entries when class + date change
 	const fetchExisting = useCallback(async () => {
@@ -402,6 +436,11 @@ export default function GradebookPage() {
 
 			const json = await res.json();
 			toast.success(`Saved ${json.count} entries`);
+			for (const alert of json.absentAlerts ?? []) {
+				toast.warning(
+					`${alert.initials} has been absent ${alert.absenceCount} times in the last 30 days`,
+				);
+			}
 			fetchExisting();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Failed to save");
@@ -503,16 +542,14 @@ export default function GradebookPage() {
 
 					{/* Standard code */}
 					<div className="flex flex-col gap-1.5">
-						<label className="text-xs font-medium text-slate-400" htmlFor="standard-code">
-							Standard Code
-						</label>
-						<input
-							id="standard-code"
-							type="text"
-							placeholder="e.g. MA.5.FR.1.1"
-							value={standardCode}
-							onChange={(e) => setStandardCode(e.target.value.toUpperCase())}
-							className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+						<StandardPicker
+							label="Standard Code"
+							defaultGrade={5}
+							value={standardCode ? [standardCode] : []}
+							onChange={(codes) => {
+								const next = codes.find((c) => c !== standardCode) ?? "";
+								setStandardCode(next);
+							}}
 						/>
 					</div>
 				</div>
@@ -629,9 +666,28 @@ export default function GradebookPage() {
 				<section className="flex flex-col gap-3">
 					<div className="flex items-center justify-between">
 						<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-							Class Trend — Last 30 Days
+							{trendStudentId
+								? (() => {
+										const s = roster.find((r) => r.id === trendStudentId);
+										return s
+											? `${s.firstInitial}.${s.lastInitial}. — Last 30 Days`
+											: "Student Trend";
+									})()
+								: "Class Trend — Last 30 Days"}
 						</h2>
-						<div className="flex items-center gap-1">
+						<div className="flex items-center gap-2">
+							<select
+								value={trendStudentId}
+								onChange={(e) => setTrendStudentId(e.target.value)}
+								className="rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-ring"
+							>
+								<option value="">All students</option>
+								{roster.map((s) => (
+									<option key={s.id} value={s.id}>
+										{s.firstInitial}.{s.lastInitial}. ({s.studentId})
+									</option>
+								))}
+							</select>
 							<button
 								type="button"
 								onClick={() => setChartMode("line")}
@@ -651,12 +707,12 @@ export default function GradebookPage() {
 						</div>
 					</div>
 					<div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-						{trendLoading ? (
+						{(trendStudentId ? studentTrendLoading : trendLoading) ? (
 							<div className="h-32 flex items-center justify-center text-xs text-slate-500">
 								Loading trend data…
 							</div>
 						) : (
-							<TrendChart data={trend} mode={chartMode} />
+							<TrendChart data={trendStudentId ? studentTrend : trend} mode={chartMode} />
 						)}
 					</div>
 				</section>
