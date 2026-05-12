@@ -4,6 +4,8 @@ import {
 	CheckIcon,
 	ChevronRightIcon,
 	ClockIcon,
+	CopyIcon,
+	ExternalLinkIcon,
 	EyeIcon,
 	EyeOffIcon,
 	MessageSquareIcon,
@@ -11,6 +13,7 @@ import {
 	PhoneIcon,
 	PlusIcon,
 	SendIcon,
+	ShareIcon,
 	UserPlusIcon,
 	XCircleIcon,
 } from "lucide-react";
@@ -234,6 +237,9 @@ export function ParentCommsPanel({
 	const [hidden, setHidden] = useState(false);
 	const [sentMsgs, setSentMsgs] = useState<SentMessage[]>([]);
 	const [sentLoading, setSentLoading] = useState(false);
+	const [reportLinks, setReportLinks] = useState<Record<string, string>>({});
+	const [reportLinkExpanded, setReportLinkExpanded] = useState<Record<string, boolean>>({});
+	const [reportLinkLoading, setReportLinkLoading] = useState<Record<string, boolean>>({});
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isDictating, setIsDictating] = useState(false);
 	const dictationRef = useRef<SpeechRecognition | null>(null);
@@ -306,6 +312,33 @@ export function ParentCommsPanel({
 		},
 		[contacts, students],
 	);
+
+	async function shareReport(rosterId: string) {
+		// If already generated, just toggle expanded
+		if (reportLinks[rosterId]) {
+			setReportLinkExpanded((prev) => ({ ...prev, [rosterId]: !prev[rosterId] }));
+			return;
+		}
+		setReportLinkExpanded((prev) => ({ ...prev, [rosterId]: true }));
+		setReportLinkLoading((prev) => ({ ...prev, [rosterId]: true }));
+		try {
+			const res = await fetch("/api/report/token", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ rosterId, classId }),
+			});
+			const json = await res.json();
+			if (json.url) {
+				setReportLinks((prev) => ({ ...prev, [rosterId]: json.url }));
+			} else {
+				toast.error(json.error ?? "Could not generate report link");
+			}
+		} catch {
+			toast.error("Network error — could not generate report link");
+		} finally {
+			setReportLinkLoading((prev) => ({ ...prev, [rosterId]: false }));
+		}
+	}
 
 	addToQueueRef.current = addToQueue;
 
@@ -601,40 +634,104 @@ export function ParentCommsPanel({
 						) : rows.length === 0 ? (
 							<p className="text-[10px] text-slate-600">No students on roster.</p>
 						) : (
-							<div className="flex gap-1.5 flex-wrap">
+							<div className="flex flex-col gap-1">
 								{rows.map(({ student, contact }) => {
 									const isSelected = selectedRosterId === student.rosterId;
 									const hasContact = !!contact;
+									const linkUrl = reportLinks[student.rosterId];
+									const isExpanded = !!reportLinkExpanded[student.rosterId];
+									const isLoadingLink = !!reportLinkLoading[student.rosterId];
 									return (
-										<div key={student.rosterId} className="relative">
-											<button
-												type="button"
-												onClick={() => selectStudent(student.rosterId)}
-												className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-95 ${
-													isSelected
-														? "bg-indigo-600 text-white ring-2 ring-indigo-400/40"
-														: hasContact
-															? "bg-slate-800 border border-slate-700 text-slate-300 hover:border-indigo-500/50 hover:text-indigo-300"
-															: "bg-slate-900 border border-slate-800 text-slate-600 hover:border-slate-700"
-												}`}
-											>
-												{student.firstInitial}
-												{student.lastInitial}
-												{hasContact && (
-													<PhoneIcon
-														className={`h-2.5 w-2.5 ${isSelected ? "text-indigo-200" : "text-slate-600"}`}
-													/>
-												)}
-											</button>
-											{!hasContact && (
+										<div key={student.rosterId} className="flex flex-col gap-0.5">
+											<div className="flex items-center gap-1.5">
+												<div className="relative">
+													<button
+														type="button"
+														onClick={() => selectStudent(student.rosterId)}
+														className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-95 ${
+															isSelected
+																? "bg-indigo-600 text-white ring-2 ring-indigo-400/40"
+																: hasContact
+																	? "bg-slate-800 border border-slate-700 text-slate-300 hover:border-indigo-500/50 hover:text-indigo-300"
+																	: "bg-slate-900 border border-slate-800 text-slate-600 hover:border-slate-700"
+														}`}
+													>
+														{student.firstInitial}
+														{student.lastInitial}
+														{hasContact && (
+															<PhoneIcon
+																className={`h-2.5 w-2.5 ${isSelected ? "text-indigo-200" : "text-slate-600"}`}
+															/>
+														)}
+													</button>
+													{!hasContact && (
+														<button
+															type="button"
+															onClick={() => setAddingFor(student)}
+															title="Add phone"
+															className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-slate-700 flex items-center justify-center hover:bg-indigo-600 transition-colors"
+														>
+															<PlusIcon className="h-2 w-2 text-slate-400" />
+														</button>
+													)}
+												</div>
 												<button
 													type="button"
-													onClick={() => setAddingFor(student)}
-													title="Add phone"
-													className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-slate-700 flex items-center justify-center hover:bg-indigo-600 transition-colors"
+													onClick={() => shareReport(student.rosterId)}
+													title="Share parent report link"
+													disabled={isLoadingLink}
+													className={`h-5 w-5 rounded flex items-center justify-center transition-colors disabled:opacity-40 ${
+														linkUrl
+															? "text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20"
+															: "text-slate-600 hover:text-slate-400 bg-slate-800 hover:bg-slate-700"
+													}`}
 												>
-													<PlusIcon className="h-2 w-2 text-slate-400" />
+													{isLoadingLink ? (
+														<span className="h-2 w-2 rounded-full bg-slate-500 animate-pulse" />
+													) : (
+														<ShareIcon className="h-3 w-3" />
+													)}
 												</button>
+											</div>
+											{isExpanded && (
+												<div className="ml-1 rounded-lg border border-violet-500/20 bg-violet-500/5 px-2.5 py-2 flex flex-col gap-1.5">
+													{linkUrl ? (
+														<>
+															<p className="text-[10px] text-violet-300 font-semibold truncate max-w-[220px]">
+																{linkUrl}
+															</p>
+															<div className="flex gap-1.5">
+																<button
+																	type="button"
+																	onClick={() => {
+																		navigator.clipboard
+																			.writeText(linkUrl)
+																			.then(() => {
+																				toast.success("Link copied");
+																			})
+																			.catch(() => {
+																				toast.error("Copy failed");
+																			});
+																	}}
+																	className="flex items-center gap-1 rounded-md bg-slate-700 hover:bg-slate-600 px-2 py-1 text-[10px] font-semibold text-slate-300 transition-colors active:scale-95"
+																>
+																	<CopyIcon className="h-2.5 w-2.5" />
+																	Copy
+																</button>
+																<button
+																	type="button"
+																	onClick={() => window.open(linkUrl, "_blank")}
+																	className="flex items-center gap-1 rounded-md bg-violet-600 hover:bg-violet-500 px-2 py-1 text-[10px] font-semibold text-white transition-colors active:scale-95"
+																>
+																	<ExternalLinkIcon className="h-2.5 w-2.5" />
+																	Open
+																</button>
+															</div>
+														</>
+													) : (
+														<p className="text-[10px] text-slate-500">Generating link…</p>
+													)}
+												</div>
 											)}
 										</div>
 									);

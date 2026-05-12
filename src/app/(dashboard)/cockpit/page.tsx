@@ -1,14 +1,11 @@
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import {
-	AlertTriangleIcon,
 	ArrowRightIcon,
 	BookOpenIcon,
 	CalendarDaysIcon,
 	CalendarIcon,
 	CheckCircleIcon,
-	ClipboardListIcon,
 	FolderOpenIcon,
-	GraduationCapIcon,
 	MessageSquareIcon,
 	ShoppingBagIcon,
 	UsersIcon,
@@ -31,7 +28,6 @@ import {
 	teacherSettings,
 } from "@/lib/db/schema";
 import { getTodayPacing } from "@/lib/pacing";
-import { CollapsibleSection } from "./collapsible-section";
 import { CommsActions } from "./comms-actions";
 import { CockpitInfoStrip } from "./info-strip";
 import { PacingGuideCard } from "./pacing-guide-card";
@@ -314,6 +310,9 @@ export default async function CockpitPage() {
 								<p className="text-sm font-semibold text-slate-200 leading-tight">
 									Topic {pacing.topic.number}
 								</p>
+								{pacing.topic.title && (
+									<p className="text-xs text-slate-500 truncate">{pacing.topic.title}</p>
+								)}
 								<p className="text-xs text-slate-500">
 									{pacingStatus === "behind"
 										? `${pacing.daysLeft}d left — running late`
@@ -338,6 +337,9 @@ export default async function CockpitPage() {
 									? "FAST Review"
 									: "—"}
 						</p>
+						{pacing?.currentLesson?.title && (
+							<p className="text-xs text-slate-400 truncate">{pacing.currentLesson.title}</p>
+						)}
 						{pacing?.isFastWindow && <p className="text-xs text-yellow-400">FAST window active</p>}
 					</div>
 
