@@ -289,6 +289,16 @@ export function StudentSession({
 	const [pushedStandardCode, setPushedStandardCode] = useState<string | undefined>(undefined);
 	const [pushedId, setPushedId] = useState<string | null>(null);
 	const [showManip, setShowManip] = useState(false);
+	const [pushedQuestion, setPushedQuestion] = useState<{
+		pushId: string;
+		stem: string;
+		choices: string[] | null;
+		answer: string;
+		questionType: string;
+		standardCode: string | null;
+	} | null>(null);
+	const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+	const [questionAnswered, setQuestionAnswered] = useState(false);
 	const [sessionEnded, setSessionEnded] = useState(false);
 	const [storeIsOpen, setStoreIsOpen] = useState(false);
 	const [activeTab, setActiveTab] = useState<"pulse" | "store">("pulse");
@@ -365,6 +375,23 @@ export function StudentSession({
 						status: u.status,
 						newBalance: u.newBalance,
 					});
+					return;
+				}
+				if (parsed.type === "question-push") {
+					const qp = parsed as unknown as {
+						type: "question-push";
+						pushId: string;
+						question: {
+							stem: string;
+							choices: string[] | null;
+							answer: string;
+							questionType: string;
+							standardCode: string | null;
+						};
+					};
+					setPushedQuestion({ pushId: qp.pushId, ...qp.question });
+					setSelectedChoice(null);
+					setQuestionAnswered(false);
 					return;
 				}
 				if (parsed.spec) {
@@ -467,6 +494,115 @@ export function StudentSession({
 					</div>
 				)}
 			</div>
+
+			{/* Pushed question from teacher question bank */}
+			{pushedQuestion && (
+				<div className="w-full max-w-sm rounded-2xl bg-[#1a1d27] border border-indigo-500/40 shadow-2xl overflow-hidden">
+					<div className="px-5 py-4 border-b border-white/8 flex items-center justify-between">
+						<span className="text-xs font-bold uppercase tracking-widest text-indigo-400">
+							❓ Question
+						</span>
+						{pushedQuestion.standardCode && (
+							<span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded">
+								{pushedQuestion.standardCode}
+							</span>
+						)}
+					</div>
+					<div className="px-5 py-4 space-y-4">
+						<p className="text-slate-100 text-sm leading-relaxed">{pushedQuestion.stem}</p>
+
+						{/* MC choices */}
+						{pushedQuestion.questionType === "mc" && pushedQuestion.choices && (
+							<div className="space-y-2">
+								{pushedQuestion.choices.map((c) => {
+									const isCorrect = c.startsWith(pushedQuestion.answer);
+									const isSelected = selectedChoice === c;
+									let cls =
+										"w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ";
+									if (!questionAnswered) {
+										cls += isSelected
+											? "border-indigo-500 bg-indigo-500/20 text-white"
+											: "border-white/10 bg-white/5 text-slate-300 hover:border-indigo-400/50 hover:bg-white/8";
+									} else {
+										cls += isCorrect
+											? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
+											: isSelected
+												? "border-red-500/60 bg-red-500/10 text-red-300"
+												: "border-white/5 bg-white/3 text-slate-500";
+									}
+									return (
+										<button
+											key={c}
+											type="button"
+											disabled={questionAnswered}
+											className={cls}
+											onClick={() => {
+												setSelectedChoice(c);
+												setQuestionAnswered(true);
+											}}
+										>
+											{c}
+										</button>
+									);
+								})}
+								{questionAnswered && (
+									<p
+										className={`text-xs font-semibold text-center pt-1 ${selectedChoice?.startsWith(pushedQuestion.answer) ? "text-emerald-400" : "text-red-400"}`}
+									>
+										{selectedChoice?.startsWith(pushedQuestion.answer)
+											? "✅ Correct! Great work!"
+											: `❌ The answer is ${pushedQuestion.answer}`}
+									</p>
+								)}
+							</div>
+						)}
+
+						{/* Free response */}
+						{pushedQuestion.questionType === "free-response" && (
+							<div className="space-y-2">
+								{!questionAnswered ? (
+									<>
+										<textarea
+											className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
+											rows={3}
+											placeholder="Write your answer here…"
+											value={selectedChoice ?? ""}
+											onChange={(e) => setSelectedChoice(e.target.value)}
+										/>
+										<button
+											type="button"
+											disabled={!selectedChoice?.trim()}
+											onClick={() => setQuestionAnswered(true)}
+											className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-semibold transition-colors"
+										>
+											Submit
+										</button>
+									</>
+								) : (
+									<div className="space-y-2">
+										<div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3">
+											<p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1">
+												Expected Answer
+											</p>
+											<p className="text-sm text-emerald-200">{pushedQuestion.answer}</p>
+										</div>
+									</div>
+								)}
+							</div>
+						)}
+
+						{questionAnswered && (
+							<button
+								type="button"
+								onClick={() => setPushedQuestion(null)}
+								className="w-full py-2 rounded-xl border border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20 text-sm transition-colors"
+							>
+								Ready for next
+							</button>
+						)}
+					</div>
+				</div>
+			)}
 
 			{/* Pushed manipulative — key on pushId forces full remount when teacher sends a new push */}
 			{showManip && pushedSpec && (

@@ -1075,6 +1075,46 @@ export const lessonResourceFiles = pgTable("lesson_resource_files", {
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Question Bank ───────────────────────────────────────────────────────────
+
+export const questionBankItems = pgTable(
+	"question_bank_items",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		sourceUrl: text("source_url").notNull(),
+		sourceFilename: text("source_filename").notNull(),
+		resourceType: text("resource_type").notNull(), // "bell-ringer" | "cfu" | "exit-ticket"
+		standardCode: text("standard_code"),
+		stem: text("stem").notNull(),
+		choices: jsonb("choices"), // null = free-response; string[] for MC
+		answer: text("answer").notNull(),
+		questionType: text("question_type").notNull().default("free-response"), // "mc" | "free-response"
+		sortOrder: integer("sort_order").notNull().default(0),
+		extractedAt: timestamp("extracted_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_qbank_teacher_id").on(table.teacherId),
+		index("idx_qbank_resource_type").on(table.resourceType),
+	],
+);
+
+export const questionPushes = pgTable(
+	"question_pushes",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		sessionId: uuid("session_id")
+			.notNull()
+			.references(() => classSessions.id, { onDelete: "cascade" }),
+		questionId: uuid("question_id").references(() => questionBankItems.id, {
+			onDelete: "set null",
+		}),
+		questionJson: text("question_json").notNull(), // snapshot at push time
+		pushedAt: timestamp("pushed_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [index("idx_qpushes_session_id").on(table.sessionId)],
+);
+
 // ─── Relations ───────────────────────────────────────────────────────────────
 
 export const profilesRelations = relations(profiles, ({ many }) => ({

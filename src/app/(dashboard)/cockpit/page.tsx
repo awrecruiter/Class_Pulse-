@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { QuestionBankPanel } from "@/components/cockpit/question-bank-panel";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
@@ -172,7 +173,7 @@ export default async function CockpitPage() {
 	// Fetch groups for the first class (primary class)
 	const primaryClass = teacherClasses[0] ?? null;
 
-	const [groupRows, recentActivity, proficiencyRows] = await Promise.all([
+	const [groupRows, recentActivity, proficiencyRows, activeSessionRow] = await Promise.all([
 		primaryClass
 			? db.select().from(studentGroups).where(eq(studentGroups.classId, primaryClass.id))
 			: Promise.resolve([]),
@@ -207,6 +208,18 @@ export default async function CockpitPage() {
 					.where(eq(classSessions.classId, primaryClass.id))
 					.limit(200)
 			: Promise.resolve([]),
+
+		// Active (live) session for the primary class
+		primaryClass
+			? db
+					.select({ id: classSessions.id })
+					.from(classSessions)
+					.where(
+						and(eq(classSessions.classId, primaryClass.id), eq(classSessions.status, "active")),
+					)
+					.limit(1)
+					.then((r) => r[0] ?? null)
+			: Promise.resolve(null),
 	]);
 
 	// ── Group membership counts ───────────────────────────────────────────────
@@ -483,6 +496,7 @@ export default async function CockpitPage() {
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
 					<TodaysQuestionsPanel date={today} />
+					<QuestionBankPanel activeSessionId={activeSessionRow?.id ?? null} />
 				</div>
 
 				{/* Right column (1/3) */}

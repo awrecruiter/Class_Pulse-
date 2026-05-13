@@ -6,6 +6,7 @@ import {
 	classSessions,
 	manipulativePushes,
 	privilegePurchases,
+	questionPushes,
 	ramBuckAccounts,
 	teacherSettings,
 } from "@/lib/db/schema";
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 	const encoder = new TextEncoder();
 	let lastPushId: string | null = null;
+	let lastQuestionPushId: string | null = null;
 
 	const stream = new ReadableStream({
 		async start(controller) {
@@ -92,6 +94,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			await sendLatestPush(controller, encoder, sessionId, lastPushId, (id) => {
 				lastPushId = id;
 			});
+			await sendLatestQuestionPush(controller, encoder, sessionId, lastQuestionPushId, (id) => {
+				lastQuestionPushId = id;
+			});
 
 			// Send initial store status
 			let lastStoreOpen: boolean | null = null;
@@ -123,6 +128,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					}
 					await sendLatestPush(controller, encoder, sessionId, lastPushId, (id) => {
 						lastPushId = id;
+					});
+					await sendLatestQuestionPush(controller, encoder, sessionId, lastQuestionPushId, (id) => {
+						lastQuestionPushId = id;
 					});
 				} catch {
 					safeClose();
@@ -258,6 +266,36 @@ async function sendLatestPush(
 			spec: JSON.parse(latest.spec),
 			pushedAt: latest.pushedAt,
 			standardCode: latest.standardCode ?? null,
+		};
+		controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+	}
+}
+
+async function sendLatestQuestionPush(
+	controller: ReadableStreamDefaultController,
+	encoder: TextEncoder,
+	sessionId: string,
+	lastQuestionPushId: string | null,
+	setLastQuestionPushId: (id: string) => void,
+) {
+	const [latest] = await db
+		.select({
+			id: questionPushes.id,
+			questionJson: questionPushes.questionJson,
+			pushedAt: questionPushes.pushedAt,
+		})
+		.from(questionPushes)
+		.where(eq(questionPushes.sessionId, sessionId))
+		.orderBy(desc(questionPushes.pushedAt))
+		.limit(1);
+
+	if (latest && latest.id !== lastQuestionPushId) {
+		setLastQuestionPushId(latest.id);
+		const payload = {
+			type: "question-push",
+			pushId: latest.id,
+			question: JSON.parse(latest.questionJson),
+			pushedAt: latest.pushedAt,
 		};
 		controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
 	}

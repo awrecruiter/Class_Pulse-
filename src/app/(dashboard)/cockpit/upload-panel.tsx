@@ -166,6 +166,18 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 
 			// 3. Save the public S3 URL as a lesson resource record
 			await saveResourceUrl(objectUrl);
+
+			// 4. Fire-and-forget question extraction (only for PDFs, skip pacing guides)
+			const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
+			if (isPdf && resourceType !== "pacing") {
+				toast.info("Extracting questions in background…");
+				fetch("/api/questions/extract", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ url: objectUrl, filename: pickedFile.name, resourceType }),
+				}).catch(() => {});
+			}
+
 			setPickedFile(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 		} catch {
