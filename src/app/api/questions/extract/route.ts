@@ -54,11 +54,14 @@ export async function POST(request: NextRequest) {
 	}
 
 	// Bulk insert into question bank
+	const finalResourceType =
+		extracted.resourceType !== "unknown" ? extracted.resourceType : resourceType;
+
 	const rows = extracted.questions.map((q, i) => ({
 		teacherId: data.user.id,
 		sourceUrl: url,
 		sourceFilename: filename,
-		resourceType: extracted.resourceType !== "unknown" ? extracted.resourceType : resourceType,
+		resourceType: finalResourceType,
 		standardCode: q.standardCode ?? null,
 		stem: q.stem,
 		choices: q.choices ?? null,
@@ -68,7 +71,14 @@ export async function POST(request: NextRequest) {
 		topicDay: q.topicDay ?? null,
 	}));
 
-	const inserted = await db.insert(questionBankItems).values(rows).returning();
+	let inserted: (typeof questionBankItems.$inferSelect)[];
+	try {
+		inserted = await db.insert(questionBankItems).values(rows).returning();
+	} catch {
+		// topic_day / assigned_date columns may not exist yet in prod — retry without them
+		const legacyRows = rows.map(({ topicDay: _td, ...r }) => r);
+		inserted = await db.insert(questionBankItems).values(legacyRows).returning();
+	}
 
 	return NextResponse.json({ count: inserted.length, questions: inserted });
 }
