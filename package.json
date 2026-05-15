@@ -5,7 +5,6 @@
 	"scripts": {
 		"dev": "lsof -ti:3000 | xargs kill -9 2>/dev/null; next dev",
 		"build": "next build",
-		"vercel-build": "drizzle-kit migrate && next build",
 		"start": "next start",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
