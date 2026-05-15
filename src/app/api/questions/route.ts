@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
 		.select()
 		.from(questionBankItems)
 		.where(and(...conditions))
-		.orderBy(desc(questionBankItems.extractedAt));
+		.orderBy(desc(questionBankItems.extractedAt))
+		.catch(() => [] as (typeof questionBankItems.$inferSelect)[]);
 
 	return NextResponse.json({ questions });
 }
