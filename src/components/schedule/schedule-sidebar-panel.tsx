@@ -327,13 +327,13 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 				</div>
 			)}
 
-			{/* Today's Resources chips — colored if uploaded, grey/dim if not */}
+			{/* Today's Resources chips */}
 			{!dayIsOver && (
-				<div className="mx-3 mb-2">
-					<p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-						Today's Resources
+				<div className="mx-3 mb-3 rounded-lg border border-slate-700/60 bg-slate-800/40 p-2.5">
+					<p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+						Today&apos;s Resources
 					</p>
-					<div className="flex flex-wrap gap-1">
+					<div className="flex flex-wrap gap-1.5">
 						{ALL_RESOURCE_TYPES.map((rt) => {
 							const cfg = RESOURCE_CONFIG[rt];
 							const found = todayResources.find((s) => s.resourceType === rt);
@@ -344,22 +344,23 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 									<button
 										key={rt}
 										type="button"
-										onClick={() => window.open(found.url, "_blank")}
-										className="rounded-full px-2 py-0.5 text-[9px] font-semibold transition-opacity hover:opacity-80"
+										onClick={() => found.url && window.open(found.url, "_blank")}
+										title={found.url ? `Open ${cfg.label}` : cfg.label}
+										className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-opacity hover:opacity-80 flex items-center gap-1"
 										style={{
-											backgroundColor: `${solidColor}18`,
+											backgroundColor: `${solidColor}20`,
 											color: textColor,
-											border: `1px solid ${solidColor}40`,
+											border: `1px solid ${solidColor}50`,
 										}}
 									>
-										{cfg.label}
+										✓ {cfg.label}
 									</button>
 								);
 							}
 							return (
 								<span
 									key={rt}
-									className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-slate-600 bg-slate-800/40 border border-slate-700/30 cursor-not-allowed select-none"
+									className="rounded-md px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-800/60 border border-slate-700/40 cursor-not-allowed select-none"
 								>
 									{cfg.label}
 								</span>

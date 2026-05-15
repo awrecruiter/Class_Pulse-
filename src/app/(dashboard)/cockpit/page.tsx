@@ -35,6 +35,7 @@ import { PacingGuideCard } from "./pacing-guide-card";
 import { ScheduleManager } from "./schedule-manager";
 import { TodaysQuestionsPanel } from "./todays-questions-panel";
 import { UploadPanel } from "./upload-panel";
+import { getWeekDates, WeeklyResourcesPanel } from "./weekly-resources-panel";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,9 @@ export default async function CockpitPage() {
 
 	// ── Parallel data fetches ──────────────────────────────────────────────────
 
-	const [teacherClasses, todayResourceRows, draftFlags] = await Promise.all([
+	const weekDates = getWeekDates(today);
+
+	const [teacherClasses, todayResourceRows, draftFlags, weeklyResourceRows] = await Promise.all([
 		// All active classes for this teacher
 		db
 			.select()
@@ -93,6 +96,21 @@ export default async function CockpitPage() {
 			.where(eq(interventionFlags.status, "draft"))
 			.orderBy(desc(interventionFlags.detectedAt))
 			.limit(20),
+
+		// This week's resources (Mon–Fri) for the weekly overview grid
+		db
+			.select({
+				importDate: lessonResources.importDate,
+				resourceType: lessonResources.resourceType,
+				url: lessonResources.url,
+			})
+			.from(lessonResources)
+			.where(
+				and(
+					eq(lessonResources.teacherId, teacherId),
+					inArray(lessonResources.importDate, weekDates),
+				),
+			),
 	]);
 
 	// ── Teacher settings (topic override + behavior reset schedule) ─────────
@@ -445,53 +463,24 @@ export default async function CockpitPage() {
 						)}
 					</section>
 
-					{/* Today's Resources Card */}
-					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-						<div className="flex items-center justify-between mb-4">
-							<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-								<FolderOpenIcon className="h-4 w-4 text-slate-500" />
-								Today&apos;s Resources
-							</h2>
-							<span className="text-xs text-slate-500">{today}</span>
-						</div>
-						<div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-							{(
-								[
-									{ key: "bell-ringer", label: "Bell Ringer" },
-									{ key: "cfu", label: "CFU Set" },
-									{ key: "exit-ticket", label: "Exit Ticket" },
-									{ key: "pacing", label: "Pacing Guide" },
-								] as { key: ResourceTypeKey; label: string }[]
-							).map(({ key, label }) => {
-								const loaded = resourceReadiness[key];
-								return (
-									<div
-										key={key}
-										className={`rounded-lg border p-3 text-center ${
-											loaded
-												? "border-emerald-700/40 bg-emerald-900/20"
-												: "border-slate-700 bg-slate-900/40"
-										}`}
-									>
-										{loaded ? (
-											<CheckCircleIcon className="h-5 w-5 text-emerald-400 mx-auto mb-1" />
-										) : (
-											<XCircleIcon className="h-5 w-5 text-slate-600 mx-auto mb-1" />
-										)}
-										<p className="text-xs font-medium text-slate-300">{label}</p>
-										{!loaded && (
-											<a
-												href="#upload-panel"
-												className="mt-1 text-xs text-indigo-400 hover:text-indigo-300 block"
-											>
-												Upload
-											</a>
-										)}
-									</div>
-								);
-							})}
-						</div>
-					</section>
+					{/* Weekly Resources Overview */}
+					<WeeklyResourcesPanel
+						today={today}
+						weekDates={weekDates}
+						resources={(
+							weeklyResourceRows as {
+								importDate: string | null;
+								resourceType: string;
+								url: string;
+							}[]
+						)
+							.filter((r) => r.importDate !== null)
+							.map((r) => ({
+								importDate: r.importDate as string,
+								resourceType: r.resourceType,
+								url: r.url,
+							}))}
+					/>
 
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
