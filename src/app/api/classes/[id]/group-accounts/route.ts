@@ -69,9 +69,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	const { groupId, amount } = result.data;
 
 	await db
-		.update(groupAccounts)
-		.set({ balance: sql`${groupAccounts.balance} + ${amount}`, updatedAt: new Date() })
-		.where(and(eq(groupAccounts.classId, classId), eq(groupAccounts.groupId, groupId)));
+		.insert(groupAccounts)
+		.values({ classId, groupId, balance: amount })
+		.onConflictDoUpdate({
+			target: [groupAccounts.classId, groupAccounts.groupId],
+			set: {
+				balance: sql`${groupAccounts.balance} + ${amount}`,
+				updatedAt: new Date(),
+			},
+		});
 
 	return NextResponse.json({ ok: true });
 }
