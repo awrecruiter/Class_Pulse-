@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Claude PDF extraction can take 20-40 s
 
 import { sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
@@ -56,19 +57,20 @@ export async function POST(request: NextRequest) {
 	let pdfBase64: string;
 	try {
 		const res = await fetch(url);
-		if (!res.ok) return NextResponse.json({ error: "Failed to fetch PDF" }, { status: 502 });
+		if (!res.ok)
+			return NextResponse.json({ error: "Failed to fetch PDF from storage" }, { status: 502 });
 		const buffer = await res.arrayBuffer();
 		pdfBase64 = Buffer.from(buffer).toString("base64");
-	} catch {
-		return NextResponse.json({ error: "Failed to fetch PDF" }, { status: 502 });
+	} catch (e) {
+		return NextResponse.json({ error: `Storage fetch error: ${String(e)}` }, { status: 502 });
 	}
 
 	// Extract questions via Claude
 	let extracted: Awaited<ReturnType<typeof extractQuestionsFromPdf>>;
 	try {
 		extracted = await extractQuestionsFromPdf(pdfBase64, filename, resourceType);
-	} catch {
-		return NextResponse.json({ error: "Extraction failed" }, { status: 500 });
+	} catch (e) {
+		return NextResponse.json({ error: `Claude extraction error: ${String(e)}` }, { status: 500 });
 	}
 
 	if (extracted.questions.length === 0) {
@@ -96,14 +98,14 @@ export async function POST(request: NextRequest) {
 	let inserted: (typeof questionBankItems.$inferSelect)[];
 	try {
 		inserted = await db.insert(questionBankItems).values(rows).returning();
-	} catch {
+	} catch (e1) {
 		try {
 			// Table may not exist yet — create it and retry
 			await ensureQuestionBankTable();
 			inserted = await db.insert(questionBankItems).values(rows).returning();
-		} catch {
+		} catch (e2) {
 			return NextResponse.json(
-				{ error: "Database error — could not save questions" },
+				{ error: `DB error: ${String(e2)} (original: ${String(e1)})` },
 				{ status: 500 },
 			);
 		}
