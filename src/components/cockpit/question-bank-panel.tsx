@@ -144,6 +144,8 @@ export function QuestionBankPanel({ activeSessionId }: { activeSessionId: string
 
 	useEffect(() => {
 		fetchBank();
+		const interval = setInterval(fetchBank, 10_000);
+		return () => clearInterval(interval);
 	}, [fetchBank]);
 
 	const handleDelete = async (id: string) => {
