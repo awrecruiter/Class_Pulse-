@@ -65,9 +65,11 @@ interface UploadResult {
 export function UploadPanel({
 	classId,
 	inline = false,
+	onQuestionsReady,
 }: {
 	classId: string | null;
 	inline?: boolean;
+	onQuestionsReady?: () => void;
 }) {
 	const [open, setOpen] = useState(inline);
 	const [resourceType, setResourceType] = useState<ResourceType>("bell-ringer");
@@ -85,6 +87,7 @@ export function UploadPanel({
 	// File upload state
 	const [pickedFile, setPickedFile] = useState<File | null>(null);
 	const [fileUploading, setFileUploading] = useState(false);
+	const [extracting, setExtracting] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// CSV section state
@@ -173,19 +176,28 @@ export function UploadPanel({
 			// 3. Save the public S3 URL as a lesson resource record
 			await saveResourceUrl(objectUrl);
 
-			// 4. Fire-and-forget question extraction (only for PDFs, skip pacing guides)
-			const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
-			if (isPdf && resourceType !== "pacing") {
-				toast.info("Extracting questions in background…");
-				fetch("/api/questions/extract", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ url: objectUrl, filename: pickedFile.name, resourceType }),
-				}).catch(() => {});
-			}
-
 			setPickedFile(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
+
+			// 4. Await question extraction (only for PDFs, skip pacing guides)
+			const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
+			if (isPdf && resourceType !== "pacing") {
+				setFileUploading(false);
+				setExtracting(true);
+				try {
+					await fetch("/api/questions/extract", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ url: objectUrl, filename: pickedFile.name, resourceType }),
+					});
+					onQuestionsReady?.();
+				} catch {
+					toast.error("Question extraction failed");
+				} finally {
+					setExtracting(false);
+				}
+				return;
+			}
 		} catch {
 			toast.error("Upload failed");
 		} finally {
@@ -232,7 +244,7 @@ export function UploadPanel({
 		}
 	};
 
-	const isBusy = uploading || fileUploading;
+	const isBusy = uploading || fileUploading || extracting;
 
 	return (
 		<div
@@ -395,11 +407,13 @@ export function UploadPanel({
 								<FileTextIcon className="h-3.5 w-3.5" />
 								{urlSaved
 									? "Saved!"
-									: fileUploading
-										? "Uploading…"
-										: inline
-											? "Save"
-											: "Upload File"}
+									: extracting
+										? "Extracting…"
+										: fileUploading
+											? "Uploading…"
+											: inline
+												? "Save"
+												: "Upload File"}
 							</button>
 						</div>
 					)}

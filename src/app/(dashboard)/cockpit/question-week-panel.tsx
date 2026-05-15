@@ -459,7 +459,7 @@ export function QuestionWeekPanel({
 			{/* Collapsible upload section */}
 			{uploadOpen && (
 				<div className="border-b border-slate-700 bg-slate-900/30">
-					<UploadPanel classId={classId} inline />
+					<UploadPanel classId={classId} inline onQuestionsReady={fetchQuestions} />
 				</div>
 			)}
 
