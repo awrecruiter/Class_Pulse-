@@ -10,9 +10,19 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { BookOpenIcon, GripVerticalIcon, PlusIcon, SendIcon, XIcon } from "lucide-react";
+import {
+	BookOpenIcon,
+	ChevronDownIcon,
+	ChevronUpIcon,
+	GripVerticalIcon,
+	PlusIcon,
+	SendIcon,
+	UploadIcon,
+	XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { UploadPanel } from "./upload-panel";
 
 type QuestionBankItem = {
 	id: string;
@@ -33,6 +43,7 @@ type Props = {
 	weekDates: string[];
 	initialQuestions: QuestionBankItem[];
 	activeSessionId: string | null;
+	classId: string | null;
 };
 
 const RESOURCE_TABS = [
@@ -48,7 +59,7 @@ function groupByTopicDay(questions: QuestionBankItem[]): Map<number | null, Ques
 	for (const q of questions) {
 		const key = q.topicDay ?? null;
 		if (!map.has(key)) map.set(key, []);
-		map.get(key)!.push(q);
+		map.get(key)?.push(q);
 	}
 	// Sort keys: numbered days first ascending, then null
 	const sorted = new Map<number | null, QuestionBankItem[]>();
@@ -57,7 +68,7 @@ function groupByTopicDay(questions: QuestionBankItem[]): Map<number | null, Ques
 		if (b === null) return -1;
 		return a - b;
 	});
-	for (const k of keys) sorted.set(k, map.get(k)!);
+	for (const k of keys) sorted.set(k, map.get(k) ?? []);
 	return sorted;
 }
 
@@ -248,11 +259,18 @@ function DayColumn({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function QuestionWeekPanel({ today, weekDates, initialQuestions, activeSessionId }: Props) {
+export function QuestionWeekPanel({
+	today,
+	weekDates,
+	initialQuestions,
+	activeSessionId,
+	classId,
+}: Props) {
 	const [questions, setQuestions] = useState<QuestionBankItem[]>(initialQuestions);
 	const [activeTab, setActiveTab] = useState<"bell-ringer" | "cfu" | "exit-ticket">("bell-ringer");
 	const [sending, setSending] = useState<string | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const [uploadOpen, setUploadOpen] = useState(false);
 
 	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -390,14 +408,36 @@ export function QuestionWeekPanel({ today, weekDates, initialQuestions, activeSe
 						</button>
 					))}
 				</div>
-				<button
-					type="button"
-					onClick={fetchQuestions}
-					className="ml-auto text-xs text-slate-500 hover:text-slate-300 transition-colors"
-				>
-					Refresh
-				</button>
+				<div className="ml-auto flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => setUploadOpen((v) => !v)}
+						className="flex items-center gap-1.5 rounded-md border border-slate-600 px-2.5 py-1 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-400 transition-colors"
+					>
+						<UploadIcon className="h-3 w-3" />
+						Upload
+						{uploadOpen ? (
+							<ChevronUpIcon className="h-3 w-3" />
+						) : (
+							<ChevronDownIcon className="h-3 w-3" />
+						)}
+					</button>
+					<button
+						type="button"
+						onClick={fetchQuestions}
+						className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+					>
+						Refresh
+					</button>
+				</div>
 			</div>
+
+			{/* Collapsible upload section */}
+			{uploadOpen && (
+				<div className="border-b border-slate-700 bg-slate-900/30">
+					<UploadPanel classId={classId} />
+				</div>
+			)}
 
 			{/* Body */}
 			<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

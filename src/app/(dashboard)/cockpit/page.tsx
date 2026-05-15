@@ -33,7 +33,6 @@ import { CockpitInfoStrip } from "./info-strip";
 import { PacingGuideCard } from "./pacing-guide-card";
 import { QuestionWeekPanel } from "./question-week-panel";
 import { ScheduleManager } from "./schedule-manager";
-import { UploadPanel } from "./upload-panel";
 import { getWeekDates } from "./weekly-resources-panel";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -468,8 +467,6 @@ export default async function CockpitPage() {
 						)}
 					</section>
 
-					{/* Upload Panel */}
-					<UploadPanel classId={primaryClass?.id ?? null} />
 					<QuestionWeekPanel
 						today={today}
 						weekDates={weekDates}
@@ -489,6 +486,7 @@ export default async function CockpitPage() {
 							}[]
 						}
 						activeSessionId={activeSessionRow?.id ?? null}
+						classId={primaryClass?.id ?? null}
 					/>
 				</div>
 
