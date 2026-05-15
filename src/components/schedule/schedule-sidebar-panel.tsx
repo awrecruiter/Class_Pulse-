@@ -207,17 +207,21 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 			.catch(() => {});
 	}, []);
 
-	// Fetch today's uploaded resources for the chip row.
-	// Clears when the school day is over (sidebar shows tomorrow's schedule).
+	// Fetch today's uploaded resources for the chip row — poll every 30s so
+	// chips appear automatically after an upload without requiring a page reload.
 	useEffect(() => {
 		if (dayIsOver) {
 			setTodayResources([]);
 			return;
 		}
-		fetch("/api/resources/today")
-			.then((r) => (r.ok ? r.json() : { sections: [] }))
-			.then((j: { sections?: TodayResourceSection[] }) => setTodayResources(j.sections ?? []))
-			.catch(() => {});
+		const fetchResources = () =>
+			fetch("/api/resources/today")
+				.then((r) => (r.ok ? r.json() : { sections: [] }))
+				.then((j: { sections?: TodayResourceSection[] }) => setTodayResources(j.sections ?? []))
+				.catch(() => {});
+		fetchResources();
+		const interval = setInterval(fetchResources, 30_000);
+		return () => clearInterval(interval);
 	}, [dayIsOver]);
 
 	function handleDocTap(doc: ScheduleDocLink) {
