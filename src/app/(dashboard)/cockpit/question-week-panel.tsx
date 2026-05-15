@@ -379,6 +379,21 @@ export function QuestionWeekPanel({
 		}
 	}
 
+	async function handleClearAll() {
+		if (!confirm("Delete all questions from the bank? This cannot be undone.")) return;
+		try {
+			const res = await fetch("/api/questions/clear", { method: "DELETE" });
+			if (!res.ok) {
+				toast.error("Failed to clear questions");
+				return;
+			}
+			setQuestions([]);
+			toast.success("Question bank cleared");
+		} catch {
+			toast.error("Failed to clear questions");
+		}
+	}
+
 	const activeDragParts = activeId?.split(":");
 	const activeDragTopicDay = activeDragParts?.[2];
 	const activeDragCount =
@@ -422,6 +437,15 @@ export function QuestionWeekPanel({
 							<ChevronDownIcon className="h-3 w-3" />
 						)}
 					</button>
+					{questions.length > 0 && (
+						<button
+							type="button"
+							onClick={handleClearAll}
+							className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+						>
+							Clear all
+						</button>
+					)}
 					<button
 						type="button"
 						onClick={fetchQuestions}
