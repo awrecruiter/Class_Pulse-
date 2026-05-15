@@ -94,7 +94,7 @@ export default async function CockpitPage() {
 			.orderBy(desc(interventionFlags.detectedAt))
 			.limit(20),
 
-		// Question bank items for this teacher
+		// Question bank items — guarded: new columns may not exist in prod yet
 		db
 			.select({
 				id: questionBankItems.id,
@@ -112,7 +112,8 @@ export default async function CockpitPage() {
 			.from(questionBankItems)
 			.where(eq(questionBankItems.teacherId, teacherId))
 			.orderBy(desc(questionBankItems.extractedAt))
-			.limit(200),
+			.limit(200)
+			.catch(() => []),
 	]);
 
 	const weekDates = getWeekDates(today);
