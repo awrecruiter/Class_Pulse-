@@ -185,14 +185,19 @@ export function UploadPanel({
 				setFileUploading(false);
 				setExtracting(true);
 				try {
-					await fetch("/api/questions/extract", {
+					const extractRes = await fetch("/api/questions/extract", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ url: objectUrl, filename: pickedFile.name, resourceType }),
 					});
-					onQuestionsReady?.();
+					if (extractRes.ok) {
+						onQuestionsReady?.();
+					} else {
+						const errJson = await extractRes.json().catch(() => ({}));
+						toast.error((errJson as { error?: string }).error ?? "Extraction failed");
+					}
 				} catch {
-					toast.error("Question extraction failed");
+					toast.error("Question extraction failed — check console");
 				} finally {
 					setExtracting(false);
 				}
