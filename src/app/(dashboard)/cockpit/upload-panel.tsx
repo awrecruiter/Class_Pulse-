@@ -62,8 +62,14 @@ interface UploadResult {
 	}>;
 }
 
-export function UploadPanel({ classId }: { classId: string | null }) {
-	const [open, setOpen] = useState(false);
+export function UploadPanel({
+	classId,
+	inline = false,
+}: {
+	classId: string | null;
+	inline?: boolean;
+}) {
+	const [open, setOpen] = useState(inline);
 	const [resourceType, setResourceType] = useState<ResourceType>("bell-ringer");
 	const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
 
@@ -387,7 +393,13 @@ export function UploadPanel({ classId }: { classId: string | null }) {
 								}`}
 							>
 								<FileTextIcon className="h-3.5 w-3.5" />
-								{urlSaved ? "Uploaded!" : fileUploading ? "Uploading…" : "Upload File"}
+								{urlSaved
+									? "Saved!"
+									: fileUploading
+										? "Uploading…"
+										: inline
+											? "Save"
+											: "Upload File"}
 							</button>
 						</div>
 					)}
