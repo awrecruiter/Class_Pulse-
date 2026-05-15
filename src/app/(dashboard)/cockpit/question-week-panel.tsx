@@ -166,7 +166,7 @@ function DayColumn({
 	const topicDay = assignedQuestions[0]?.topicDay ?? null;
 
 	return (
-		<div className={`flex-1 min-w-[96px] flex flex-col ${isToday ? "bg-indigo-950/20" : ""}`}>
+		<div className={`min-w-[96px] flex flex-col min-h-0 ${isToday ? "bg-indigo-950/20" : ""}`}>
 			{/* Column header */}
 			<div
 				className={`px-2 py-2 border-b text-center ${
@@ -196,7 +196,7 @@ function DayColumn({
 			{/* Drop zone */}
 			<div
 				ref={setNodeRef}
-				className={`flex-1 p-2 min-h-[120px] transition-colors ${
+				className={`overflow-y-auto p-2 transition-colors ${
 					isOver
 						? "bg-indigo-900/20 ring-2 ring-inset ring-indigo-500/50"
 						: isEmpty
@@ -441,9 +441,9 @@ export function QuestionWeekPanel({
 
 			{/* Body */}
 			<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-				<div className="flex divide-x divide-slate-700">
+				<div className="flex divide-x divide-slate-700" style={{ height: 400 }}>
 					{/* Left: Bank */}
-					<div className="w-64 shrink-0 p-3 space-y-2.5 max-h-[480px] overflow-y-auto">
+					<div className="w-64 shrink-0 p-3 space-y-2.5 overflow-y-auto">
 						{groups.size === 0 ? (
 							<p className="text-slate-600 text-xs text-center mt-10">
 								Upload a PDF to extract questions

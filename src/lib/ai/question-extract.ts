@@ -43,7 +43,7 @@ Rules:
 - choices: array of choice strings if MC (include the letter prefix like "A."); null for free-response.
 - answer: the correct answer. For MC include the letter (e.g. "A"). For free-response include the expected answer or expression.
 - standardCode: FL BEST standard code if visible (e.g. "MA.5.NSO.1.1"); otherwise null.
-- topicDay: integer day number from the section heading "Topic X: Day N" that appears above this question's page/section (e.g., 2 for "Topic 1: Day 2"). null if no day heading is visible for this question.
+- topicDay: integer day number extracted from ANY section/page heading that indicates a day (e.g. "Day 1", "Day 2", "Bell Ringer Day 3", "Topic 1: Day 2", "Monday Day 1"). Use the nearest heading above the question. null if no day label is visible.
 - If no questions are found, return an empty questions array.
 - Do NOT include directions, headings, or non-question content as stems.`;
 
