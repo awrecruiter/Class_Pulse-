@@ -1091,6 +1091,8 @@ export const questionBankItems = pgTable(
 		answer: text("answer").notNull(),
 		questionType: text("question_type").notNull().default("free-response"), // "mc" | "free-response"
 		sortOrder: integer("sort_order").notNull().default(0),
+		topicDay: integer("topic_day"),
+		assignedDate: text("assigned_date"),
 		extractedAt: timestamp("extracted_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [

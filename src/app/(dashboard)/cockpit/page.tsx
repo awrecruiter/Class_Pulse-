@@ -9,11 +9,9 @@ import {
 	MessageSquareIcon,
 	ShoppingBagIcon,
 	UsersIcon,
-	XCircleIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { QuestionBankPanel } from "@/components/cockpit/question-bank-panel";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
@@ -24,6 +22,7 @@ import {
 	interventionFlags,
 	lessonResources,
 	masteryRecords,
+	questionBankItems,
 	rosterEntries,
 	studentGroups,
 	teacherSettings,
@@ -32,9 +31,10 @@ import { getTodayPacing } from "@/lib/pacing";
 import { CommsActions } from "./comms-actions";
 import { CockpitInfoStrip } from "./info-strip";
 import { PacingGuideCard } from "./pacing-guide-card";
+import { QuestionWeekPanel } from "./question-week-panel";
 import { ScheduleManager } from "./schedule-manager";
-import { TodaysQuestionsPanel } from "./todays-questions-panel";
 import { UploadPanel } from "./upload-panel";
+import { getWeekDates } from "./weekly-resources-panel";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ export default async function CockpitPage() {
 
 	// ── Parallel data fetches ──────────────────────────────────────────────────
 
-	const [teacherClasses, todayResourceRows, draftFlags] = await Promise.all([
+	const [teacherClasses, todayResourceRows, draftFlags, questionBankRows] = await Promise.all([
 		// All active classes for this teacher
 		db
 			.select()
@@ -93,7 +93,29 @@ export default async function CockpitPage() {
 			.where(eq(interventionFlags.status, "draft"))
 			.orderBy(desc(interventionFlags.detectedAt))
 			.limit(20),
+
+		// Question bank items for this teacher
+		db
+			.select({
+				id: questionBankItems.id,
+				stem: questionBankItems.stem,
+				choices: questionBankItems.choices,
+				answer: questionBankItems.answer,
+				questionType: questionBankItems.questionType,
+				standardCode: questionBankItems.standardCode,
+				resourceType: questionBankItems.resourceType,
+				sourceFilename: questionBankItems.sourceFilename,
+				topicDay: questionBankItems.topicDay,
+				assignedDate: questionBankItems.assignedDate,
+				extractedAt: questionBankItems.extractedAt,
+			})
+			.from(questionBankItems)
+			.where(eq(questionBankItems.teacherId, teacherId))
+			.orderBy(desc(questionBankItems.extractedAt))
+			.limit(200),
 	]);
+
+	const weekDates = getWeekDates(today);
 
 	// ── Teacher settings (topic override + behavior reset schedule) ─────────
 	let settingsRow: { currentTopicNumber: number | null; behaviorResetSchedule: string } | null =
@@ -447,8 +469,26 @@ export default async function CockpitPage() {
 
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
-					<TodaysQuestionsPanel date={today} />
-					<QuestionBankPanel activeSessionId={activeSessionRow?.id ?? null} />
+					<QuestionWeekPanel
+						today={today}
+						weekDates={weekDates}
+						initialQuestions={
+							questionBankRows as unknown as {
+								id: string;
+								stem: string;
+								choices: string[] | null;
+								answer: string;
+								questionType: string;
+								standardCode: string | null;
+								resourceType: string;
+								sourceFilename: string;
+								topicDay: number | null;
+								assignedDate: string | null;
+								extractedAt: string;
+							}[]
+						}
+						activeSessionId={activeSessionRow?.id ?? null}
+					/>
 				</div>
 
 				{/* Right column (1/3) */}

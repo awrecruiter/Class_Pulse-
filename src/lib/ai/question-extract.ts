@@ -12,6 +12,7 @@ export type ExtractedQuestion = {
 	answer: string;
 	standardCode: string | null;
 	questionType: "mc" | "free-response";
+	topicDay: number | null;
 };
 
 export type ExtractionResult = {
@@ -30,7 +31,8 @@ Respond with ONLY valid JSON (no markdown fences, no explanation):
       "questionType": "mc" | "free-response",
       "choices": ["A. ...", "B. ...", "C. ...", "D. ..."] | null,
       "answer": "the correct answer or answer key value",
-      "standardCode": "MA.5.NSO.1.1" | null
+      "standardCode": "MA.5.NSO.1.1" | null,
+      "topicDay": 2
     }
   ]
 }
@@ -41,6 +43,7 @@ Rules:
 - choices: array of choice strings if MC (include the letter prefix like "A."); null for free-response.
 - answer: the correct answer. For MC include the letter (e.g. "A"). For free-response include the expected answer or expression.
 - standardCode: FL BEST standard code if visible (e.g. "MA.5.NSO.1.1"); otherwise null.
+- topicDay: integer day number from the section heading "Topic X: Day N" that appears above this question's page/section (e.g., 2 for "Topic 1: Day 2"). null if no day heading is visible for this question.
 - If no questions are found, return an empty questions array.
 - Do NOT include directions, headings, or non-question content as stems.`;
 

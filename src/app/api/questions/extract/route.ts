@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
 		answer: q.answer,
 		questionType: q.questionType,
 		sortOrder: i,
+		topicDay: q.topicDay ?? null,
 	}));
 
 	const inserted = await db.insert(questionBankItems).values(rows).returning();
