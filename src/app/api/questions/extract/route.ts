@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { extractQuestionsFromPdf } from "@/lib/ai/question-extract";
@@ -13,6 +14,27 @@ const bodySchema = z.object({
 	filename: z.string().min(1),
 	resourceType: z.string().default("unknown"),
 });
+
+async function ensureQuestionBankTable() {
+	await db.execute(sql`
+		CREATE TABLE IF NOT EXISTS question_bank_items (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			teacher_id text NOT NULL,
+			source_url text NOT NULL,
+			source_filename text NOT NULL,
+			resource_type text NOT NULL,
+			standard_code text,
+			stem text NOT NULL,
+			choices jsonb,
+			answer text NOT NULL,
+			question_type text NOT NULL DEFAULT 'free-response',
+			sort_order integer NOT NULL DEFAULT 0,
+			topic_day integer,
+			assigned_date text,
+			extracted_at timestamptz NOT NULL DEFAULT now()
+		)
+	`);
+}
 
 export async function POST(request: NextRequest) {
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
@@ -75,9 +97,16 @@ export async function POST(request: NextRequest) {
 	try {
 		inserted = await db.insert(questionBankItems).values(rows).returning();
 	} catch {
-		// topic_day / assigned_date columns may not exist yet in prod — retry without them
-		const legacyRows = rows.map(({ topicDay: _td, ...r }) => r);
-		inserted = await db.insert(questionBankItems).values(legacyRows).returning();
+		try {
+			// Table may not exist yet — create it and retry
+			await ensureQuestionBankTable();
+			inserted = await db.insert(questionBankItems).values(rows).returning();
+		} catch {
+			return NextResponse.json(
+				{ error: "Database error — could not save questions" },
+				{ status: 500 },
+			);
+		}
 	}
 
 	return NextResponse.json({ count: inserted.length, questions: inserted });

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -26,7 +26,32 @@ export async function GET(request: NextRequest) {
 		.from(questionBankItems)
 		.where(and(...conditions))
 		.orderBy(desc(questionBankItems.extractedAt))
-		.catch(() => [] as (typeof questionBankItems.$inferSelect)[]);
+		.catch(async () => {
+			// Table doesn't exist yet — create it so the next extraction works
+			try {
+				await db.execute(sql`
+					CREATE TABLE IF NOT EXISTS question_bank_items (
+						id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+						teacher_id text NOT NULL,
+						source_url text NOT NULL,
+						source_filename text NOT NULL,
+						resource_type text NOT NULL,
+						standard_code text,
+						stem text NOT NULL,
+						choices jsonb,
+						answer text NOT NULL,
+						question_type text NOT NULL DEFAULT 'free-response',
+						sort_order integer NOT NULL DEFAULT 0,
+						topic_day integer,
+						assigned_date text,
+						extracted_at timestamptz NOT NULL DEFAULT now()
+					)
+				`);
+			} catch {
+				// ignore
+			}
+			return [] as (typeof questionBankItems.$inferSelect)[];
+		});
 
 	return NextResponse.json({ questions });
 }
