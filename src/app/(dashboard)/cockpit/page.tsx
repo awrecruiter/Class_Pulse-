@@ -35,7 +35,6 @@ import { PacingGuideCard } from "./pacing-guide-card";
 import { ScheduleManager } from "./schedule-manager";
 import { TodaysQuestionsPanel } from "./todays-questions-panel";
 import { UploadPanel } from "./upload-panel";
-import { getWeekDates, WeeklyResourcesPanel } from "./weekly-resources-panel";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,9 +62,7 @@ export default async function CockpitPage() {
 
 	// ── Parallel data fetches ──────────────────────────────────────────────────
 
-	const weekDates = getWeekDates(today);
-
-	const [teacherClasses, todayResourceRows, draftFlags, weeklyResourceRows] = await Promise.all([
+	const [teacherClasses, todayResourceRows, draftFlags] = await Promise.all([
 		// All active classes for this teacher
 		db
 			.select()
@@ -96,21 +93,6 @@ export default async function CockpitPage() {
 			.where(eq(interventionFlags.status, "draft"))
 			.orderBy(desc(interventionFlags.detectedAt))
 			.limit(20),
-
-		// This week's resources (Mon–Fri) for the weekly overview grid
-		db
-			.select({
-				importDate: lessonResources.importDate,
-				resourceType: lessonResources.resourceType,
-				url: lessonResources.url,
-			})
-			.from(lessonResources)
-			.where(
-				and(
-					eq(lessonResources.teacherId, teacherId),
-					inArray(lessonResources.importDate, weekDates),
-				),
-			),
 	]);
 
 	// ── Teacher settings (topic override + behavior reset schedule) ─────────
@@ -462,25 +444,6 @@ export default async function CockpitPage() {
 							</div>
 						)}
 					</section>
-
-					{/* Weekly Resources Overview */}
-					<WeeklyResourcesPanel
-						today={today}
-						weekDates={weekDates}
-						resources={(
-							weeklyResourceRows as {
-								importDate: string | null;
-								resourceType: string;
-								url: string;
-							}[]
-						)
-							.filter((r) => r.importDate !== null)
-							.map((r) => ({
-								importDate: r.importDate as string,
-								resourceType: r.resourceType,
-								url: r.url,
-							}))}
-					/>
 
 					{/* Upload Panel */}
 					<UploadPanel classId={primaryClass?.id ?? null} />
