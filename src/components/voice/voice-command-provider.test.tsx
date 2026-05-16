@@ -124,7 +124,7 @@ describe("VoiceCommandProvider", () => {
 		});
 	});
 
-	it("silently turns commands off after an aborted browser stop (no toast)", async () => {
+	it("ignores aborted errors so mic-manager can auto-restart after file picker or focus loss", async () => {
 		renderProvider();
 
 		await waitFor(() => expect(latestVoiceErrorHandler).toBeTypeOf("function"));
@@ -134,7 +134,8 @@ describe("VoiceCommandProvider", () => {
 			latestVoiceErrorHandler?.("aborted");
 		});
 
-		expect(screen.getByTestId("commands-enabled")).toHaveTextContent("false");
+		// Commands stay enabled — mic-manager restarts recognition via its onend handler
+		expect(screen.getByTestId("commands-enabled")).toHaveTextContent("true");
 		expect(toastError).not.toHaveBeenCalled();
 	});
 

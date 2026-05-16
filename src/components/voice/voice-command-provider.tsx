@@ -1166,12 +1166,10 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			// triggers onerror("aborted") which must not fire toasts on the incoming page.
 			if (!mountedRef.current) return;
 			if (error === "no-speech") return;
-			// "aborted" fires whenever the browser interrupts recognition (file picker, focus
-			// change, tab switch) — silently disable so the user can re-enable with Command.
-			if (error === "aborted") {
-				setCommandsEnabled(false);
-				return;
-			}
+			// "aborted" fires when the browser interrupts recognition (file picker, focus
+			// change, tab switch). The mic-manager auto-restarts via its onend handler,
+			// so no action is needed — commands resume within 300 ms.
+			if (error === "aborted") return;
 			if (error === "not-supported") {
 				toast.error("Voice commands are not supported in this browser");
 				return;
