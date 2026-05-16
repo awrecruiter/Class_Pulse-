@@ -285,12 +285,42 @@ export function QuestionWeekPanel({
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [uploadOpen, setUploadOpen] = useState(false);
 
+	// Live session ID — kept fresh via polling so cockpit staleness is not an issue
+	const [liveSessionId, setLiveSessionId] = useState(activeSessionId);
+
+	// Sync if the RSC prop ever changes (e.g. hard navigation)
+	useEffect(() => {
+		setLiveSessionId(activeSessionId);
+	}, [activeSessionId]);
+
+	// Poll the active-session endpoint every 10 s so "Send Next" activates without a page reload
+	useEffect(() => {
+		if (!classId) return;
+		let cancelled = false;
+		const poll = async () => {
+			try {
+				const res = await fetch(`/api/classes/${classId}/session/active`);
+				if (!res.ok || cancelled) return;
+				const { id } = (await res.json()) as { id: string | null };
+				if (!cancelled) setLiveSessionId(id ?? null);
+			} catch {
+				// non-fatal
+			}
+		};
+		poll();
+		const interval = setInterval(poll, 10_000);
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
+	}, [classId]);
+
 	// Tracks which question IDs have been pushed this session — reset when session changes
 	const pushedIdsRef = useRef<Set<string>>(new Set());
-	// biome-ignore lint/correctness/useExhaustiveDependencies: activeSessionId is an intentional reactive trigger — effect body clears the ref when session changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: liveSessionId is an intentional reactive trigger — effect body clears the ref when session changes
 	useEffect(() => {
 		pushedIdsRef.current = new Set();
-	}, [activeSessionId]);
+	}, [liveSessionId]);
 
 	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -379,10 +409,10 @@ export function QuestionWeekPanel({
 	}
 
 	async function handlePush(questionId: string) {
-		if (!activeSessionId || sending) return;
+		if (!liveSessionId || sending) return;
 		setSending(questionId);
 		try {
-			const res = await fetch(`/api/sessions/${activeSessionId}/question-push`, {
+			const res = await fetch(`/api/sessions/${liveSessionId}/question-push`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ questionId }),
@@ -527,7 +557,7 @@ export function QuestionWeekPanel({
 									dayShort={DAY_SHORT[i] ?? ""}
 									isToday={date === today}
 									assignedQuestions={weekAssignments[date] ?? []}
-									activeSessionId={activeSessionId}
+									activeSessionId={liveSessionId}
 									sending={sending}
 									onPush={handlePush}
 									onUnassign={() => handleUnassign(date)}
