@@ -124,7 +124,7 @@ describe("VoiceCommandProvider", () => {
 		});
 	});
 
-	it("turns commands off after an aborted browser stop and tells the user to re-enable them", async () => {
+	it("silently turns commands off after an aborted browser stop (no toast)", async () => {
 		renderProvider();
 
 		await waitFor(() => expect(latestVoiceErrorHandler).toBeTypeOf("function"));
@@ -135,9 +135,7 @@ describe("VoiceCommandProvider", () => {
 		});
 
 		expect(screen.getByTestId("commands-enabled")).toHaveTextContent("false");
-		expect(toastError).toHaveBeenCalledWith(
-			"Voice commands were stopped by the browser — tap Command to re-enable them",
-		);
+		expect(toastError).not.toHaveBeenCalled();
 	});
 
 	it("emits a start-session event when the voice agent returns start_session", async () => {

@@ -66,10 +66,10 @@ export function ScheduleManager({ activeSessionId }: { activeSessionId?: string 
 
 		const fetchResources = () =>
 			fetch("/api/resources/today")
-				.then((r) => (r.ok ? r.json() : { resources: [] }))
-				.then((j: { resources?: { resourceType: string; url: string }[] }) => {
+				.then((r) => (r.ok ? r.json() : { sections: [] }))
+				.then((j: { sections?: { resourceType: string; url: string }[] }) => {
 					const map: Record<string, string> = {};
-					for (const r of j.resources ?? []) map[r.resourceType] = r.url;
+					for (const r of j.sections ?? []) map[r.resourceType] = r.url;
 					setTodayResources(map);
 				})
 				.catch(() => {});
