@@ -69,11 +69,16 @@ export default async function CockpitPage() {
 			.from(classes)
 			.where(and(eq(classes.teacherId, teacherId), eq(classes.isArchived, false))),
 
-		// Today's lesson resources (imported for today or topicNumber=0 with importDate=today)
+		// Today's lesson resources — guarded: class_id column may not exist in prod yet
 		db
-			.select()
+			.select({
+				resourceType: lessonResources.resourceType,
+				resourceData: lessonResources.resourceData,
+				url: lessonResources.url,
+			})
 			.from(lessonResources)
-			.where(and(eq(lessonResources.teacherId, teacherId), eq(lessonResources.importDate, today))),
+			.where(and(eq(lessonResources.teacherId, teacherId), eq(lessonResources.importDate, today)))
+			.catch(() => []),
 
 		// Draft intervention flags (parent comms queue)
 		db
