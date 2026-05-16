@@ -65,9 +65,10 @@ export async function extractQuestionsFromPdf(
 		text: EXTRACTION_PROMPT,
 	};
 
-	const response = await client.messages.create({
+	const response = await client.beta.messages.create({
 		model: "claude-sonnet-4-6",
 		max_tokens: 4000,
+		betas: ["pdfs-2024-09-25"],
 		messages: [
 			{
 				role: "user",
