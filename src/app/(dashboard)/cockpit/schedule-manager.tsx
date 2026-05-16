@@ -1,6 +1,15 @@
 "use client";
 
-import { AlertCircleIcon, CalendarIcon, PlayIcon, XIcon } from "lucide-react";
+import {
+	AlertCircleIcon,
+	CalendarIcon,
+	ChevronDownIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	ExternalLinkIcon,
+	PlayIcon,
+	XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
@@ -32,7 +41,12 @@ type ProposedBlock = {
 	color: string;
 };
 
-type QuestionBankItem = { id: string; resourceType: string; assignedDate: string | null };
+type QuestionBankItem = {
+	id: string;
+	resourceType: string;
+	assignedDate: string | null;
+	stem: string;
+};
 
 export function ScheduleManager({ activeSessionId }: { activeSessionId?: string | null }) {
 	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
@@ -46,6 +60,8 @@ export function ScheduleManager({ activeSessionId }: { activeSessionId?: string 
 	const [todayResources, setTodayResources] = useState<Record<string, string>>({});
 	const [todayQuestions, setTodayQuestions] = useState<Record<string, QuestionBankItem[]>>({});
 	const [pushedIds, setPushedIds] = useState<Set<string>>(new Set());
+	const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+	const [weekOffset, setWeekOffset] = useState(0);
 
 	const fetchBlocks = useCallback(async () => {
 		try {
@@ -119,6 +135,20 @@ export function ScheduleManager({ activeSessionId }: { activeSessionId?: string 
 			toast.success(`Q${sent} sent`);
 		} else {
 			toast.error("Failed to push question");
+		}
+	}
+
+	async function sendQuestion(questionId: string) {
+		if (!activeSessionId) return;
+		const res = await fetch(`/api/sessions/${activeSessionId}/question-push`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ questionId }),
+		});
+		if (res.ok) {
+			setPushedIds((prev) => new Set([...prev, questionId]));
+		} else {
+			toast.error("Failed to send question");
 		}
 	}
 
@@ -265,6 +295,17 @@ export function ScheduleManager({ activeSessionId }: { activeSessionId?: string 
 		}
 	}
 
+	function weekLabel(): string {
+		const today = new Date();
+		const dow = today.getDay();
+		const monday = new Date(today);
+		monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + weekOffset * 7);
+		const friday = new Date(monday);
+		friday.setDate(monday.getDate() + 4);
+		const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		return weekOffset === 0 ? "This Week" : `${fmt(monday)} – ${fmt(friday)}`;
+	}
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex gap-2 flex-wrap">
@@ -331,60 +372,138 @@ export function ScheduleManager({ activeSessionId }: { activeSessionId?: string 
 				</div>
 			)}
 
-			{/* Today's Resources */}
-			{(["bell-ringer", "cfu", "exit-ticket"] as const).some(
-				(rt) => todayResources[rt] || todayQuestions[rt]?.length,
-			) && (
-				<div className="flex gap-2 flex-wrap">
-					{(["bell-ringer", "cfu", "exit-ticket"] as const).map((rt) => {
-						const label =
-							rt === "bell-ringer" ? "Bell Ringer" : rt === "cfu" ? "CFU" : "Exit Ticket";
-						const url = todayResources[rt];
-						const qs = todayQuestions[rt] ?? [];
-						const remaining = qs.filter((q) => !pushedIds.has(q.id));
-						if (!url && !qs.length) return null;
-						return (
-							<div key={rt} className="flex items-center gap-1">
-								{url ? (
+			{/* Today's Resources — expandable DI-group-style cards (current week only) */}
+			{weekOffset === 0 &&
+				(["bell-ringer", "cfu", "exit-ticket"] as const).map((rt) => {
+					const label = rt === "bell-ringer" ? "Bell Ringer" : rt === "cfu" ? "CFU" : "Exit Ticket";
+					const url = todayResources[rt];
+					const qs = todayQuestions[rt] ?? [];
+					const remaining = qs.filter((q) => !pushedIds.has(q.id));
+					if (!url && !qs.length) return null;
+					const isExpanded = !!expanded[rt];
+					return (
+						<div
+							key={rt}
+							className="rounded-xl border border-slate-700 bg-slate-800/60 overflow-hidden"
+						>
+							{/* Card header */}
+							<div className="flex items-center gap-2 px-3 py-1.5">
+								<button
+									type="button"
+									onClick={() => setExpanded((prev) => ({ ...prev, [rt]: !prev[rt] }))}
+									className="flex items-center gap-1.5 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+								>
+									{isExpanded ? (
+										<ChevronDownIcon className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+									) : (
+										<ChevronRightIcon className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+									)}
+									<span className="text-xs font-medium text-slate-200">{label}</span>
+									{qs.length > 0 && (
+										<span className="text-[10px] text-slate-500 ml-0.5">
+											· {remaining.length}/{qs.length} left
+										</span>
+									)}
+								</button>
+								{url && (
 									<a
 										href={url}
 										target="_blank"
 										rel="noreferrer"
-										className="flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+										className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-emerald-400 hover:bg-emerald-500/10 transition-colors shrink-0"
+										title="Open PDF"
 									>
-										✓ {label}
-										{qs.length > 0 && (
-											<span className="text-[10px] opacity-70">{qs.length} qs</span>
-										)}
+										<ExternalLinkIcon className="h-3 w-3" />
+										PDF
 									</a>
-								) : (
-									<span className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-400">
-										{label}
-										{qs.length > 0 && (
-											<span className="text-[10px] opacity-70">{qs.length} qs</span>
-										)}
-									</span>
 								)}
 								{qs.length > 0 && (
 									<button
 										type="button"
-										onClick={() => sendNextQuestion(rt)}
+										onClick={() => void sendNextQuestion(rt)}
 										disabled={!activeSessionId || remaining.length === 0}
 										title={
 											activeSessionId ? `Send next (${remaining.length} left)` : "No active session"
 										}
-										className="rounded p-1 text-slate-400 hover:text-white hover:bg-slate-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+										className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
 									>
 										<PlayIcon className="h-3 w-3" />
+										Send Next
 									</button>
 								)}
 							</div>
-						);
-					})}
-				</div>
-			)}
 
-			<ScheduleCalendar blocks={blocks} onBlocksChange={setBlocks} />
+							{/* Expanded question list */}
+							{isExpanded && qs.length > 0 && (
+								<div className="border-t border-slate-700/50">
+									{qs.map((q, i) => {
+										const sent = pushedIds.has(q.id);
+										return (
+											<div
+												key={q.id}
+												className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-700/30 last:border-b-0"
+											>
+												<span
+													className={`h-2 w-2 rounded-full shrink-0 ${sent ? "bg-emerald-400" : "bg-slate-600"}`}
+												/>
+												<span className="text-xs text-slate-300 flex-1 truncate">
+													{i + 1}. {q.stem ?? "(no stem)"}
+												</span>
+												<button
+													type="button"
+													onClick={() => void sendQuestion(q.id)}
+													disabled={!activeSessionId || sent}
+													title={sent ? "Already sent" : "Send this question"}
+													className="rounded p-1 text-slate-400 hover:text-white hover:bg-slate-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+												>
+													<PlayIcon className="h-3 w-3" />
+												</button>
+											</div>
+										);
+									})}
+								</div>
+							)}
+
+							{isExpanded && qs.length === 0 && (
+								<p className="px-3 py-2 text-xs text-slate-500 border-t border-slate-700/50">
+									No questions assigned for today
+								</p>
+							)}
+						</div>
+					);
+				})}
+
+			{/* Week navigation */}
+			<div className="flex items-center gap-2">
+				<button
+					type="button"
+					onClick={() => setWeekOffset((o) => o - 1)}
+					className="rounded p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+					title="Previous week"
+				>
+					<ChevronLeftIcon className="h-4 w-4" />
+				</button>
+				<span className="text-xs text-slate-400 min-w-[90px] text-center">{weekLabel()}</span>
+				<button
+					type="button"
+					onClick={() => setWeekOffset((o) => o + 1)}
+					className="rounded p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+					title="Next week"
+				>
+					<ChevronRightIcon className="h-4 w-4" />
+				</button>
+				{weekOffset !== 0 && (
+					<button
+						type="button"
+						onClick={() => setWeekOffset(0)}
+						className="ml-1 rounded px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors"
+					>
+						Today
+					</button>
+				)}
+			</div>
+
+			<ScheduleCalendar blocks={blocks} onBlocksChange={setBlocks} weekOffset={weekOffset} />
 		</div>
 	);
 }

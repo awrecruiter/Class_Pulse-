@@ -518,9 +518,26 @@ function DragGhost({ block }: { block: ScheduleBlockRow }) {
 type ScheduleCalendarProps = {
 	blocks: ScheduleBlockRow[];
 	onBlocksChange: (blocks: ScheduleBlockRow[]) => void;
+	weekOffset?: number;
 };
 
-export function ScheduleCalendar({ blocks, onBlocksChange }: ScheduleCalendarProps) {
+function getWeekDates(weekOffset: number): Date[] {
+	const today = new Date();
+	const dow = today.getDay();
+	const monday = new Date(today);
+	monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + weekOffset * 7);
+	return Array.from({ length: 5 }, (_, i) => {
+		const d = new Date(monday);
+		d.setDate(monday.getDate() + i);
+		return d;
+	});
+}
+
+export function ScheduleCalendar({
+	blocks,
+	onBlocksChange,
+	weekOffset = 0,
+}: ScheduleCalendarProps) {
 	const [localBlocks, setLocalBlocks] = useState<ScheduleBlockRow[]>(blocks);
 	const [editingBlock, setEditingBlock] = useState<ScheduleBlockRow | null>(null);
 	const [resizingId, setResizingId] = useState<string | null>(null);
@@ -532,6 +549,7 @@ export function ScheduleCalendar({ blocks, onBlocksChange }: ScheduleCalendarPro
 		return d.getHours() * 60 + d.getMinutes();
 	});
 	const todayDow = new Date().getDay();
+	const weekDates = getWeekDates(weekOffset);
 
 	useEffect(() => {
 		localBlocksRef.current = localBlocks;
@@ -729,8 +747,12 @@ export function ScheduleCalendar({ blocks, onBlocksChange }: ScheduleCalendarPro
 				{/* Day header row */}
 				<div className="flex border-b border-slate-700/60 bg-slate-900">
 					<div className="w-14 shrink-0" />
-					{DAYS.map((d) => {
-						const isToday = d.dayOfWeek === todayDow;
+					{DAYS.map((d, i) => {
+						const colDate = weekDates[i];
+						const isToday =
+							weekOffset === 0 &&
+							d.dayOfWeek === todayDow &&
+							colDate?.toDateString() === new Date().toDateString();
 						return (
 							<div
 								key={d.dayOfWeek}
@@ -746,13 +768,11 @@ export function ScheduleCalendar({ blocks, onBlocksChange }: ScheduleCalendarPro
 								</span>
 								{isToday ? (
 									<span className="mt-0.5 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-[11px] font-bold text-white">
-										{new Date().getDate()}
+										{colDate?.getDate()}
 									</span>
 								) : (
 									<span className="mt-0.5 w-6 h-6 flex items-center justify-center text-[11px] text-slate-500">
-										{new Date(
-											new Date().setDate(new Date().getDate() - new Date().getDay() + d.dayOfWeek),
-										).getDate()}
+										{colDate?.getDate()}
 									</span>
 								)}
 							</div>
@@ -797,8 +817,8 @@ export function ScheduleCalendar({ blocks, onBlocksChange }: ScheduleCalendarPro
 								);
 							})}
 
-							{/* Now line — circle in gutter */}
-							{nowMinutes >= GRID_START && nowMinutes <= GRID_END && (
+							{/* Now line — circle in gutter (current week only) */}
+							{weekOffset === 0 && nowMinutes >= GRID_START && nowMinutes <= GRID_END && (
 								<div
 									className="absolute right-0 z-30 pointer-events-none flex items-center"
 									style={{ top: `${minutesToPx(nowMinutes) - 4}px` }}
@@ -809,64 +829,77 @@ export function ScheduleCalendar({ blocks, onBlocksChange }: ScheduleCalendarPro
 						</div>
 
 						{/* Day columns */}
-						{DAYS.map((d) => (
-							<div
-								key={d.dayOfWeek}
-								className={cn(
-									"flex-1 relative border-l border-slate-700/40 min-w-0",
-									d.dayOfWeek === todayDow && "bg-slate-900/40",
-								)}
-							>
-								{/* Drop targets / slot lines */}
-								{Array.from({ length: TOTAL_SLOTS }, (_, i) => (
-									<SlotDropTarget
-										key={`slot-${d.dayOfWeek}-${i}`}
-										dayOfWeek={d.dayOfWeek}
-										slotIndex={i}
-										onClick={() => createBlock(d.dayOfWeek, i)}
-									/>
-								))}
+						{DAYS.map((d, i) => {
+							const colDate = weekDates[i];
+							const colDateISO = colDate?.toISOString().slice(0, 10) ?? "";
+							const isToday =
+								weekOffset === 0 &&
+								d.dayOfWeek === todayDow &&
+								colDate?.toDateString() === new Date().toDateString();
+							return (
+								<div
+									key={d.dayOfWeek}
+									className={cn(
+										"flex-1 relative border-l border-slate-700/40 min-w-0",
+										isToday && "bg-slate-900/40",
+									)}
+								>
+									{/* Drop targets / slot lines */}
+									{Array.from({ length: TOTAL_SLOTS }, (_, si) => (
+										<SlotDropTarget
+											key={`slot-${d.dayOfWeek}-${si}`}
+											dayOfWeek={d.dayOfWeek}
+											slotIndex={si}
+											onClick={() => createBlock(d.dayOfWeek, si)}
+										/>
+									))}
 
-								{/* Calendar blocks */}
-								{(() => {
-									const dayBlocks = localBlocks.filter(
-										(b) => b.dayOfWeek === d.dayOfWeek && b.specificDate === null,
-									);
-									const layout = computeOverlapLayout(dayBlocks);
-									return dayBlocks.map((block) => {
-										const current = editingBlock?.id === block.id ? editingBlock : block;
-										const { col, totalCols } = layout.get(block.id) ?? { col: 0, totalCols: 1 };
-										return (
-											<CalendarBlock
-												key={block.id}
-												block={current}
-												col={col}
-												_totalCols={totalCols}
-												isEditing={editingBlock?.id === block.id}
-												onEdit={setEditingBlock}
-												onEditClose={() => setEditingBlock(null)}
-												onResizeStart={handleResizeStart}
-												isResizing={resizingId === block.id}
-												onUpdate={(patch) => commitUpdate(block.id, patch)}
-												onDelete={() => deleteBlock(block.id)}
-												onAddDoc={addDoc}
-												onDeleteDoc={deleteDoc}
-											/>
+									{/* Calendar blocks */}
+									{(() => {
+										const dayBlocks = localBlocks.filter(
+											(b) =>
+												(b.dayOfWeek === d.dayOfWeek && b.specificDate === null) ||
+												b.specificDate === colDateISO,
 										);
-									});
-								})()}
+										const layout = computeOverlapLayout(dayBlocks);
+										return dayBlocks.map((block) => {
+											const current = editingBlock?.id === block.id ? editingBlock : block;
+											const { col, totalCols } = layout.get(block.id) ?? { col: 0, totalCols: 1 };
+											return (
+												<CalendarBlock
+													key={block.id}
+													block={current}
+													col={col}
+													_totalCols={totalCols}
+													isEditing={editingBlock?.id === block.id}
+													onEdit={setEditingBlock}
+													onEditClose={() => setEditingBlock(null)}
+													onResizeStart={handleResizeStart}
+													isResizing={resizingId === block.id}
+													onUpdate={(patch) => commitUpdate(block.id, patch)}
+													onDelete={() => deleteBlock(block.id)}
+													onAddDoc={addDoc}
+													onDeleteDoc={deleteDoc}
+												/>
+											);
+										});
+									})()}
 
-								{/* Now line — full-width in all columns */}
-								{nowMinutes >= GRID_START && nowMinutes <= GRID_END && (
-									<div
-										className="absolute inset-x-0 z-20 pointer-events-none"
-										style={{ top: `${minutesToPx(nowMinutes)}px` }}
-									>
-										<div className="h-px bg-red-500" />
-									</div>
-								)}
-							</div>
-						))}
+									{/* Now line — only visible on current week */}
+									{weekOffset === 0 &&
+										isToday &&
+										nowMinutes >= GRID_START &&
+										nowMinutes <= GRID_END && (
+											<div
+												className="absolute inset-x-0 z-20 pointer-events-none"
+												style={{ top: `${minutesToPx(nowMinutes)}px` }}
+											>
+												<div className="h-px bg-red-500" />
+											</div>
+										)}
+								</div>
+							);
+						})}
 					</div>
 				</div>
 			</div>
