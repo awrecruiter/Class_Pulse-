@@ -188,7 +188,12 @@ export function UploadPanel({
 					const extractRes = await fetch("/api/questions/extract", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ url: objectUrl, filename: pickedFile.name, resourceType }),
+						body: JSON.stringify({
+							url: objectUrl,
+							filename: pickedFile.name,
+							resourceType,
+							startDate: date,
+						}),
 					});
 					if (extractRes.ok) {
 						onQuestionsReady?.();

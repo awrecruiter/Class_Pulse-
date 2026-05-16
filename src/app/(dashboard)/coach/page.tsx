@@ -1110,6 +1110,7 @@ export default function CoachPage() {
 												setShowGroups(true);
 												setInputMode("ask");
 											}}
+											activeSessionId={activeSessionId}
 										/>
 									</div>
 								</div>

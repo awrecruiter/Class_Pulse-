@@ -1,11 +1,21 @@
 "use client";
 
+import { PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { TodayResourceSection } from "@/app/api/resources/today/route";
 import type { ScheduleDocLink } from "@/hooks/use-schedule-today";
 import { useScheduleToday } from "@/hooks/use-schedule-today";
 import { getTodayPacing } from "@/lib/pacing";
+
+// ─── Local types ───────────────────────────────────────────────────────────────
+
+type QuestionBankItem = {
+	id: string;
+	stem: string;
+	resourceType: string;
+	assignedDate: string | null;
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -118,7 +128,13 @@ function nextWeekday(from: Date): Date {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () => void }) {
+export function ScheduleSidebarPanel({
+	onShowDiGroups,
+	activeSessionId,
+}: {
+	onShowDiGroups?: () => void;
+	activeSessionId?: string | null;
+}) {
 	const { blocks, loading } = useScheduleToday();
 	const [scheduleDocOpenMode, setScheduleDocOpenMode] = useState<"toast" | "new-tab">("toast");
 	const [topicOverride, setTopicOverride] = useState<number | null>(null);
@@ -127,6 +143,8 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 	const [tomorrowBlocks, setTomorrowBlocks] = useState<typeof blocks>([]);
 	const [tomorrowLoading, setTomorrowLoading] = useState(false);
 	const [todayResources, setTodayResources] = useState<TodayResourceSection[]>([]);
+	const [todayQuestions, setTodayQuestions] = useState<Record<string, QuestionBankItem[]>>({});
+	const [pushedIds, setPushedIds] = useState<Set<string>>(new Set());
 
 	const [nowMinutes, setNowMinutes] = useState(() => {
 		const d = new Date();
@@ -223,6 +241,49 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 		const interval = setInterval(fetchResources, 30_000);
 		return () => clearInterval(interval);
 	}, [dayIsOver]);
+
+	// Fetch today's questions for the Send button — poll every 30s alongside resources.
+	useEffect(() => {
+		if (dayIsOver) {
+			setTodayQuestions({});
+			return;
+		}
+		const todayISO = new Date().toISOString().slice(0, 10);
+		const fetchQuestions = () =>
+			fetch(`/api/questions?date=${todayISO}`)
+				.then((r) => (r.ok ? r.json() : { questions: [] }))
+				.then((j: { questions?: QuestionBankItem[] }) => {
+					const grouped: Record<string, QuestionBankItem[]> = {};
+					for (const q of j.questions ?? []) {
+						if (!grouped[q.resourceType]) grouped[q.resourceType] = [];
+						grouped[q.resourceType].push(q);
+					}
+					setTodayQuestions(grouped);
+				})
+				.catch(() => {});
+		fetchQuestions();
+		const interval = setInterval(fetchQuestions, 30_000);
+		return () => clearInterval(interval);
+	}, [dayIsOver]);
+
+	async function sendNextQuestion(type: string) {
+		const qs = (todayQuestions[type] ?? []).filter((q) => !pushedIds.has(q.id));
+		if (!qs.length || !activeSessionId) return;
+		const next = qs[0];
+		const res = await fetch(`/api/sessions/${activeSessionId}/question-push`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ questionId: next.id }),
+		});
+		if (res.ok) {
+			setPushedIds((prev) => new Set([...prev, next.id]));
+			const totalForType = todayQuestions[type]?.length ?? 0;
+			const alreadySent = totalForType - qs.length;
+			toast.success(`Q${alreadySent + 1} sent`);
+		} else {
+			toast.error("Failed to push question");
+		}
+	}
 
 	function handleDocTap(doc: ScheduleDocLink) {
 		if (scheduleDocOpenMode === "new-tab") {
@@ -340,21 +401,48 @@ export function ScheduleSidebarPanel({ onShowDiGroups }: { onShowDiGroups?: () =
 							const solidColor = COLOR_SOLID[cfg.colorKey] ?? COLOR_SOLID.blue;
 							const textColor = COLOR_TEXT[cfg.colorKey] ?? COLOR_TEXT.blue;
 							if (found) {
+								const qsForType = rt !== "pacing" ? (todayQuestions[rt] ?? []) : [];
+								const remaining = qsForType.filter((q) => !pushedIds.has(q.id));
+								const hasQuestions = qsForType.length > 0;
 								return (
-									<button
-										key={rt}
-										type="button"
-										onClick={() => found.url && window.open(found.url, "_blank")}
-										title={found.url ? `Open ${cfg.label}` : cfg.label}
-										className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-opacity hover:opacity-80 flex items-center gap-1"
-										style={{
-											backgroundColor: `${solidColor}20`,
-											color: textColor,
-											border: `1px solid ${solidColor}50`,
-										}}
-									>
-										✓ {cfg.label}
-									</button>
+									<div key={rt} className="flex items-center gap-1">
+										<button
+											type="button"
+											onClick={() => found.url && window.open(found.url, "_blank")}
+											title={found.url ? `Open ${cfg.label}` : cfg.label}
+											className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-opacity hover:opacity-80 flex items-center gap-1"
+											style={{
+												backgroundColor: `${solidColor}20`,
+												color: textColor,
+												border: `1px solid ${solidColor}50`,
+											}}
+										>
+											✓ {cfg.label}
+											{hasQuestions && (
+												<span className="text-[10px] font-normal opacity-70">
+													{qsForType.length} qs
+												</span>
+											)}
+										</button>
+										{hasQuestions && (
+											<button
+												type="button"
+												onClick={() => sendNextQuestion(rt)}
+												disabled={!activeSessionId || remaining.length === 0}
+												title={
+													!activeSessionId
+														? "No active session"
+														: remaining.length === 0
+															? "All questions sent"
+															: `Send next question (${remaining.length} left)`
+												}
+												className="rounded p-0.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10"
+												style={{ color: textColor }}
+											>
+												<PlayIcon className="h-3 w-3" />
+											</button>
+										)}
+									</div>
 								);
 							}
 							return (

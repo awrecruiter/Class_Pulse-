@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Claude PDF extraction can take 20-40 s
 
-import { sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { extractQuestionsFromPdf } from "@/lib/ai/question-extract";
@@ -14,7 +14,19 @@ const bodySchema = z.object({
 	url: z.string().url(),
 	filename: z.string().min(1),
 	resourceType: z.string().default("unknown"),
+	startDate: z.string().optional().default(new Date().toISOString().slice(0, 10)),
 });
+
+function addWeekdays(base: Date, n: number): Date {
+	const d = new Date(base);
+	let added = 0;
+	while (added < n) {
+		d.setDate(d.getDate() + 1);
+		const dow = d.getDay();
+		if (dow !== 0 && dow !== 6) added++;
+	}
+	return d;
+}
 
 async function ensureQuestionBankTable() {
 	await db.execute(sql`
@@ -51,7 +63,7 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 	}
 
-	const { url, filename, resourceType } = result.data;
+	const { url, filename, resourceType, startDate } = result.data;
 
 	// Fetch PDF from S3 (bucket is public-read)
 	let pdfBase64: string;
@@ -109,6 +121,31 @@ export async function POST(request: NextRequest) {
 				{ status: 500 },
 			);
 		}
+	}
+
+	// Auto-assign dates by topicDay using weekday offsets from startDate
+	const byDay = new Map<number, string[]>();
+	for (const q of inserted) {
+		if (q.topicDay == null) continue;
+		if (!byDay.has(q.topicDay)) byDay.set(q.topicDay, []);
+		byDay.get(q.topicDay)!.push(q.id);
+	}
+
+	const base = new Date(startDate);
+	for (const [day, ids] of byDay) {
+		const assignedDate = addWeekdays(base, day - 1)
+			.toISOString()
+			.slice(0, 10);
+		await db
+			.update(questionBankItems)
+			.set({ assignedDate })
+			.where(
+				and(
+					eq(questionBankItems.teacherId, data.user.id),
+					eq(questionBankItems.topicDay, day),
+					inArray(questionBankItems.id, ids),
+				),
+			);
 	}
 
 	return NextResponse.json({ count: inserted.length, questions: inserted });
