@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -37,11 +37,13 @@ export async function GET(request: NextRequest) {
 	const { data } = await auth.getSession();
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-	const dateParam = new URL(request.url).searchParams.get("date");
+	const searchParams = new URL(request.url).searchParams;
+	const dateParam = searchParams.get("date");
 	const date =
 		dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
 			? dateParam
 			: new Date().toISOString().slice(0, 10);
+	const classIdParam = searchParams.get("classId") ?? "";
 
 	const rows = await db
 		.select({
@@ -50,7 +52,13 @@ export async function GET(request: NextRequest) {
 			url: lessonResources.url,
 		})
 		.from(lessonResources)
-		.where(and(eq(lessonResources.teacherId, data.user.id), eq(lessonResources.importDate, date)));
+		.where(
+			and(
+				eq(lessonResources.teacherId, data.user.id),
+				eq(lessonResources.importDate, date),
+				or(eq(lessonResources.classId, ""), eq(lessonResources.classId, classIdParam)),
+			),
+		);
 
 	const sections: TodayResourceSection[] = [];
 

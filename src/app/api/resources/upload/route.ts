@@ -426,7 +426,8 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { resourceType, date: importDate, url } = parsed.data;
+		const { resourceType, date: importDate, url, classId: rawClassId } = parsed.data;
+		const classId = rawClassId ?? "";
 		try {
 			await db
 				.insert(lessonResources)
@@ -441,6 +442,7 @@ export async function POST(request: NextRequest) {
 					sortOrder: 0,
 					resourceData: null,
 					importDate,
+					classId,
 				})
 				.onConflictDoUpdate({
 					target: [
@@ -448,6 +450,7 @@ export async function POST(request: NextRequest) {
 						lessonResources.topicNumber,
 						lessonResources.lessonNumber,
 						lessonResources.resourceType,
+						lessonResources.classId,
 					],
 					set: {
 						url,
@@ -551,6 +554,7 @@ export async function POST(request: NextRequest) {
 				sortOrder: 0,
 				resourceData: { rows: parsedData } as unknown as Record<string, unknown>,
 				importDate,
+				classId,
 			})
 			.onConflictDoUpdate({
 				target: [
@@ -558,6 +562,7 @@ export async function POST(request: NextRequest) {
 					lessonResources.topicNumber,
 					lessonResources.lessonNumber,
 					lessonResources.resourceType,
+					lessonResources.classId,
 				],
 				set: {
 					resourceData: { rows: parsedData } as unknown as Record<string, unknown>,

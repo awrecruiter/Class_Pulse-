@@ -540,6 +540,7 @@ type ScheduleCalendarProps = {
 	blocks: ScheduleBlockRow[];
 	onBlocksChange: (blocks: ScheduleBlockRow[]) => void;
 	weekOffset?: number;
+	classId?: string | null;
 };
 
 function getWeekDates(weekOffset: number): Date[] {
@@ -558,6 +559,7 @@ export function ScheduleCalendar({
 	blocks,
 	onBlocksChange,
 	weekOffset = 0,
+	classId,
 }: ScheduleCalendarProps) {
 	const [localBlocks, setLocalBlocks] = useState<ScheduleBlockRow[]>(blocks);
 	const [editingBlock, setEditingBlock] = useState<ScheduleBlockRow | null>(null);
@@ -603,9 +605,10 @@ export function ScheduleCalendar({
 	// Fetch resource presence for each day of the displayed week
 	useEffect(() => {
 		const dates = getWeekDates(weekOffset).map((d) => d.toISOString().slice(0, 10));
+		const classParam = classId ? `&classId=${encodeURIComponent(classId)}` : "";
 		Promise.all(
 			dates.map((date) =>
-				fetch(`/api/resources/today?date=${date}`)
+				fetch(`/api/resources/today?date=${date}${classParam}`)
 					.then((r) => r.json())
 					.then((j) => ({
 						date,
@@ -620,7 +623,7 @@ export function ScheduleCalendar({
 			for (const { date, types } of results) map[date] = types;
 			setResourcesByDate(map);
 		});
-	}, [weekOffset]);
+	}, [weekOffset, classId]);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

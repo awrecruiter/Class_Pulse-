@@ -956,6 +956,8 @@ export const lessonResources = pgTable(
 		resourceData: jsonb("resource_data"),
 		// Date this resource was imported for (YYYY-MM-DD); null = no specific date
 		importDate: text("import_date"),
+		// '' = applies to all classes; a class UUID = scoped to one class
+		classId: text("class_id").notNull().default(""),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
@@ -965,6 +967,7 @@ export const lessonResources = pgTable(
 			table.topicNumber,
 			table.lessonNumber,
 			table.resourceType,
+			table.classId,
 		),
 		index("idx_lesson_resources_teacher_id").on(table.teacherId),
 	],

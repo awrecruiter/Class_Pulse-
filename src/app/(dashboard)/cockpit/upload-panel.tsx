@@ -62,6 +62,10 @@ interface UploadResult {
 	}>;
 }
 
+type PendingUpload =
+	| { kind: "url"; url: string }
+	| { kind: "file"; objectUrl: string; filename: string; isPdf: boolean };
+
 export function UploadPanel({
 	classId,
 	inline = false,
@@ -96,12 +100,15 @@ export function UploadPanel({
 	const [result, setResult] = useState<UploadResult | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 
+	// Scope prompt — set after URL paste or after S3 upload completes
+	const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
+
 	// ── Shared: save a resolved URL as a resource record ────────────────────────
-	const saveResourceUrl = async (resolvedUrl: string) => {
+	const saveResourceUrl = async (resolvedUrl: string, scopeClassId: string) => {
 		const res = await fetch("/api/resources/upload", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ resourceType, date, url: resolvedUrl, classId }),
+			body: JSON.stringify({ resourceType, date, url: resolvedUrl, classId: scopeClassId }),
 		});
 		const json = await res.json();
 		if (!res.ok) {
@@ -116,8 +123,8 @@ export function UploadPanel({
 		setTimeout(() => setUrlSaved(false), 2000);
 	};
 
-	// ── URL save ────────────────────────────────────────────────────────────────
-	const handleUrlSave = async () => {
+	// ── URL save: stage URL then show scope prompt ───────────────────────────────
+	const handleUrlSave = () => {
 		if (!url.trim()) {
 			toast.error("Paste a URL first");
 			return;
@@ -126,18 +133,11 @@ export function UploadPanel({
 			toast.error("No class selected");
 			return;
 		}
-		setUploading(true);
-		try {
-			await saveResourceUrl(url.trim());
-			setUrl("");
-		} catch {
-			toast.error("Save failed");
-		} finally {
-			setUploading(false);
-		}
+		setPendingUpload({ kind: "url", url: url.trim() });
+		setUrl("");
 	};
 
-	// ── File upload (presigned S3 PUT — bypasses Vercel payload limit) ──────────
+	// ── File upload: presign + S3, then show scope prompt ───────────────────────
 	const handleFileUpload = async () => {
 		if (!pickedFile) {
 			toast.error("Select a file first");
@@ -173,24 +173,52 @@ export function UploadPanel({
 				return;
 			}
 
-			// 3. Save the public S3 URL as a lesson resource record
-			await saveResourceUrl(objectUrl);
-
+			// 3. Show scope prompt before saving the resource record
+			const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
+			setPendingUpload({ kind: "file", objectUrl, filename: pickedFile.name, isPdf });
 			setPickedFile(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
+		} catch {
+			toast.error("Upload failed");
+		} finally {
+			setFileUploading(false);
+		}
+	};
 
-			// 4. Await question extraction (only for PDFs, skip pacing guides)
-			const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
-			if (isPdf && resourceType !== "pacing") {
-				setFileUploading(false);
+	// ── Scope choice: fires after teacher picks "this class" or "all classes" ───
+	const handleScopeChoice = async (scopeClassId: string) => {
+		const upload = pendingUpload;
+		if (!upload) return;
+		setPendingUpload(null);
+
+		if (upload.kind === "url") {
+			setUploading(true);
+			try {
+				await saveResourceUrl(upload.url, scopeClassId);
+			} catch {
+				toast.error("Save failed");
+			} finally {
+				setUploading(false);
+			}
+		} else if (upload.kind === "file") {
+			setUploading(true);
+			try {
+				await saveResourceUrl(upload.objectUrl, scopeClassId);
+			} catch {
+				toast.error("Save failed");
+			} finally {
+				setUploading(false);
+			}
+			// Kick off PDF question extraction after saving the record
+			if (upload.isPdf && resourceType !== "pacing") {
 				setExtracting(true);
 				try {
 					const extractRes = await fetch("/api/questions/extract", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
-							url: objectUrl,
-							filename: pickedFile.name,
+							url: upload.objectUrl,
+							filename: upload.filename,
 							resourceType,
 							startDate: date,
 						}),
@@ -206,12 +234,7 @@ export function UploadPanel({
 				} finally {
 					setExtracting(false);
 				}
-				return;
 			}
-		} catch {
-			toast.error("Upload failed");
-		} finally {
-			setFileUploading(false);
 		}
 	};
 
@@ -371,7 +394,7 @@ export function UploadPanel({
 							<button
 								type="button"
 								onClick={handleUrlSave}
-								disabled={isBusy}
+								disabled={isBusy || !!pendingUpload}
 								className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
 									urlSaved
 										? "bg-emerald-600 text-white"
@@ -407,7 +430,7 @@ export function UploadPanel({
 							<button
 								type="button"
 								onClick={handleFileUpload}
-								disabled={isBusy || !pickedFile}
+								disabled={isBusy || !pickedFile || !!pendingUpload}
 								className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
 									urlSaved
 										? "bg-emerald-600 text-white"
@@ -425,6 +448,37 @@ export function UploadPanel({
 												? "Save"
 												: "Upload File"}
 							</button>
+						</div>
+					)}
+
+					{/* ── Scope prompt — appears after URL paste or file S3 upload ── */}
+					{pendingUpload && (
+						<div className="rounded-lg border border-amber-600/40 bg-amber-900/20 px-4 py-3 space-y-2.5">
+							<p className="text-xs font-medium text-amber-300">Apply this resource to:</p>
+							<div className="flex gap-2">
+								<button
+									type="button"
+									onClick={() => handleScopeChoice(classId ?? "")}
+									className="flex-1 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors"
+								>
+									This class only
+								</button>
+								<button
+									type="button"
+									onClick={() => handleScopeChoice("")}
+									className="flex-1 px-3 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+								>
+									All classes
+								</button>
+								<button
+									type="button"
+									onClick={() => setPendingUpload(null)}
+									className="p-2 rounded-lg border border-slate-700 text-slate-500 hover:text-slate-300 transition-colors"
+									aria-label="Cancel"
+								>
+									<XIcon className="h-3.5 w-3.5" />
+								</button>
+							</div>
 						</div>
 					)}
 

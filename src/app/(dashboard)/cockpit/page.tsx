@@ -580,7 +580,7 @@ export default async function CockpitPage() {
 					<CalendarIcon className="h-4 w-4 text-slate-500" />
 					Schedule
 				</h2>
-				<ScheduleManager />
+				<ScheduleManager classId={primaryClass?.id ?? null} />
 			</section>
 
 			{/* ── Pacing Guide (full width) ───────────────────────────────────── */}

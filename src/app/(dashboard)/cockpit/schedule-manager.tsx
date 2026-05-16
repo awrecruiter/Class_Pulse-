@@ -38,7 +38,7 @@ type ProposedBlock = {
 	color: string;
 };
 
-export function ScheduleManager() {
+export function ScheduleManager({ classId }: { classId?: string | null }) {
 	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
 	const [importing, setImporting] = useState(false);
 	const [extractStatus, setExtractStatus] = useState<{
@@ -320,7 +320,12 @@ export function ScheduleManager() {
 				)}
 			</div>
 
-			<ScheduleCalendar blocks={blocks} onBlocksChange={setBlocks} weekOffset={weekOffset} />
+			<ScheduleCalendar
+				blocks={blocks}
+				onBlocksChange={setBlocks}
+				weekOffset={weekOffset}
+				classId={classId}
+			/>
 		</div>
 	);
 }
