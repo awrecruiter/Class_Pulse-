@@ -13,6 +13,8 @@ import {
 import {
 	BookOpenIcon,
 	ChevronDownIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
 	ChevronUpIcon,
 	GripVerticalIcon,
 	PlusIcon,
@@ -54,6 +56,19 @@ const RESOURCE_TABS = [
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
+function computeWeekDates(todayISO: string, weekOffset: number): string[] {
+	const d = new Date(`${todayISO}T12:00:00`);
+	const dow = d.getDay();
+	const toMonday = dow === 0 ? -6 : 1 - dow;
+	const monday = new Date(d);
+	monday.setDate(d.getDate() + toMonday + weekOffset * 7);
+	return Array.from({ length: 5 }, (_, i) => {
+		const day = new Date(monday);
+		day.setDate(monday.getDate() + i);
+		return day.toISOString().slice(0, 10);
+	});
+}
+
 function groupByTopicDay(questions: QuestionBankItem[]): Map<number | null, QuestionBankItem[]> {
 	const map = new Map<number | null, QuestionBankItem[]>();
 	for (const q of questions) {
@@ -61,7 +76,6 @@ function groupByTopicDay(questions: QuestionBankItem[]): Map<number | null, Ques
 		if (!map.has(key)) map.set(key, []);
 		map.get(key)?.push(q);
 	}
-	// Sort keys: numbered days first ascending, then null
 	const sorted = new Map<number | null, QuestionBankItem[]>();
 	const keys = Array.from(map.keys()).sort((a, b) => {
 		if (a === null) return 1;
@@ -79,7 +93,7 @@ function buildWeekAssignments(
 	const result: Record<string, QuestionBankItem[]> = {};
 	for (const date of weekDates) result[date] = [];
 	for (const q of questions) {
-		if (q.assignedDate && result[q.assignedDate]) {
+		if (q.assignedDate && result[q.assignedDate] !== undefined) {
 			result[q.assignedDate].push(q);
 		}
 	}
@@ -139,6 +153,52 @@ function DayGroupSection({
 	);
 }
 
+// ─── DraggableQuestion ────────────────────────────────────────────────────────
+
+function DraggableQuestion({
+	question,
+	isToday,
+	activeSessionId,
+	sending,
+	onPush,
+}: {
+	question: QuestionBankItem;
+	isToday: boolean;
+	activeSessionId: string | null;
+	sending: string | null;
+	onPush: (questionId: string) => void;
+}) {
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+		id: `question:${question.id}`,
+	});
+
+	return (
+		<div
+			ref={setNodeRef}
+			{...attributes}
+			{...listeners}
+			className={`rounded bg-slate-800/60 px-2 py-1.5 flex items-start gap-1.5 cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-30" : ""}`}
+		>
+			<GripVerticalIcon className="h-3 w-3 text-slate-600 shrink-0 mt-0.5" />
+			<p className="text-[10px] text-slate-300 line-clamp-2 leading-snug flex-1">{question.stem}</p>
+			{isToday && activeSessionId && (
+				<button
+					type="button"
+					onClick={(e) => {
+						e.stopPropagation();
+						onPush(question.id);
+					}}
+					disabled={sending === question.id}
+					className="shrink-0 text-indigo-400 hover:text-indigo-200 disabled:opacity-40 transition-colors mt-0.5"
+					aria-label="Push to students"
+				>
+					<SendIcon className="h-3 w-3" />
+				</button>
+			)}
+		</div>
+	);
+}
+
 // ─── DayColumn ───────────────────────────────────────────────────────────────
 
 function DayColumn({
@@ -164,7 +224,6 @@ function DayColumn({
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `day-col:${date}` });
 	const isEmpty = assignedQuestions.length === 0;
-
 	const topicDay = assignedQuestions[0]?.topicDay ?? null;
 
 	return (
@@ -241,27 +300,16 @@ function DayColumn({
 							</button>
 						</div>
 
-						{/* Question list */}
+						{/* Individual draggable question tiles */}
 						{assignedQuestions.map((q) => (
-							<div
+							<DraggableQuestion
 								key={q.id}
-								className="rounded bg-slate-800/60 px-2 py-1.5 flex items-start gap-1.5"
-							>
-								<p className="text-[10px] text-slate-300 line-clamp-2 leading-snug flex-1">
-									{q.stem}
-								</p>
-								{isToday && activeSessionId && (
-									<button
-										type="button"
-										onClick={() => onPush(q.id)}
-										disabled={sending === q.id}
-										className="shrink-0 text-indigo-400 hover:text-indigo-200 disabled:opacity-40 transition-colors mt-0.5"
-										aria-label="Push to students"
-									>
-										<SendIcon className="h-3 w-3" />
-									</button>
-								)}
-							</div>
+								question={q}
+								isToday={isToday}
+								activeSessionId={activeSessionId}
+								sending={sending}
+								onPush={onPush}
+							/>
 						))}
 					</div>
 				)}
@@ -274,7 +322,7 @@ function DayColumn({
 
 export function QuestionWeekPanel({
 	today,
-	weekDates,
+	weekDates: _initialWeekDates,
 	initialQuestions,
 	activeSessionId,
 	classId,
@@ -284,6 +332,9 @@ export function QuestionWeekPanel({
 	const [sending, setSending] = useState<string | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [uploadOpen, setUploadOpen] = useState(false);
+	const [weekOffset, setWeekOffset] = useState(0);
+
+	const displayedWeekDates = computeWeekDates(today, weekOffset);
 
 	// Live session ID — kept fresh via polling so cockpit staleness is not an issue
 	const [liveSessionId, setLiveSessionId] = useState(activeSessionId);
@@ -342,8 +393,10 @@ export function QuestionWeekPanel({
 	}, [fetchQuestions]);
 
 	const filteredBank = questions.filter((q) => q.resourceType === activeTab);
-	const groups = groupByTopicDay(filteredBank);
-	const weekAssignments = buildWeekAssignments(filteredBank, weekDates);
+	// Bank panel shows only unassigned questions — assigned ones live in their day columns
+	const unassignedBank = filteredBank.filter((q) => q.assignedDate === null);
+	const groups = groupByTopicDay(unassignedBank);
+	const weekAssignments = buildWeekAssignments(filteredBank, displayedWeekDates);
 
 	function handleDragStart({ active }: { active: { id: string | number } }) {
 		setActiveId(String(active.id));
@@ -357,12 +410,38 @@ export function QuestionWeekPanel({
 		const activeStr = String(active.id);
 		const overStr = String(over.id);
 
-		if (!activeStr.startsWith("day-group:") || !overStr.startsWith("day-col:")) return;
+		if (!overStr.startsWith("day-col:")) return;
+		const date = overStr.replace("day-col:", "");
+
+		// ── Single question drag (from any column to another) ──
+		if (activeStr.startsWith("question:")) {
+			const questionId = activeStr.replace("question:", "");
+			const current = questions.find((q) => q.id === questionId);
+			if (!current || current.assignedDate === date) return;
+
+			setQuestions((prev) =>
+				prev.map((q) => (q.id === questionId ? { ...q, assignedDate: date } : q)),
+			);
+
+			fetch("/api/questions/assign-date", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ questionIds: [questionId], date }),
+			}).catch(() => {
+				setQuestions((prev) =>
+					prev.map((q) => (q.id === questionId ? { ...q, assignedDate: current.assignedDate } : q)),
+				);
+				toast.error("Failed to save assignment");
+			});
+			return;
+		}
+
+		// ── Group drag (from bank left panel) ──
+		if (!activeStr.startsWith("day-group:")) return;
 
 		const parts = activeStr.split(":");
 		const resourceType = parts[1];
 		const topicDayStr = parts[2];
-		const date = overStr.replace("day-col:", "");
 		const topicDay = topicDayStr === "null" ? null : Number(topicDayStr);
 
 		const ids = questions
@@ -381,7 +460,6 @@ export function QuestionWeekPanel({
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ questionIds: ids, date }),
 		}).catch(() => {
-			// Revert on failure
 			setQuestions((prev) =>
 				prev.map((q) => (ids.includes(q.id) ? { ...q, assignedDate: null } : q)),
 			);
@@ -458,11 +536,21 @@ export function QuestionWeekPanel({
 	}
 
 	const activeDragParts = activeId?.split(":");
-	const activeDragTopicDay = activeDragParts?.[2];
+	const activeDragTopicDay = activeId?.startsWith("day-group:") ? activeDragParts?.[2] : undefined;
 	const activeDragCount =
 		activeDragTopicDay !== undefined
 			? (groups.get(activeDragTopicDay === "null" ? null : Number(activeDragTopicDay))?.length ?? 0)
 			: 0;
+	const activeDragQuestion = activeId?.startsWith("question:")
+		? questions.find((q) => q.id === activeId.replace("question:", ""))
+		: undefined;
+
+	const weekLabel = (() => {
+		const start = displayedWeekDates[0];
+		const end = displayedWeekDates[4];
+		if (!start || !end) return "";
+		return `${formatMmDd(start)} – ${formatMmDd(end)}`;
+	})();
 
 	return (
 		<div className="rounded-xl border border-slate-700 bg-slate-800/50 overflow-hidden">
@@ -533,7 +621,9 @@ export function QuestionWeekPanel({
 					<div className="w-64 shrink-0 p-3 space-y-2.5 overflow-y-auto">
 						{groups.size === 0 ? (
 							<p className="text-slate-600 text-xs text-center mt-10">
-								Upload a PDF to extract questions
+								{filteredBank.length > 0
+									? "All questions assigned — drag between columns to move"
+									: "Upload a PDF to extract questions"}
 							</p>
 						) : (
 							Array.from(groups.entries()).map(([topicDay, qs]) => (
@@ -548,33 +638,72 @@ export function QuestionWeekPanel({
 					</div>
 
 					{/* Right: Week columns */}
-					<div className="flex-1 min-w-0 overflow-x-auto">
-						<div className="flex divide-x divide-slate-700/50 min-w-[480px] h-full">
-							{weekDates.map((date, i) => (
-								<DayColumn
-									key={date}
-									date={date}
-									dayShort={DAY_SHORT[i] ?? ""}
-									isToday={date === today}
-									assignedQuestions={weekAssignments[date] ?? []}
-									activeSessionId={liveSessionId}
-									sending={sending}
-									onPush={handlePush}
-									onUnassign={() => handleUnassign(date)}
-									onSendNext={date === today ? handleSendNext : undefined}
-								/>
-							))}
+					<div className="flex-1 min-w-0 flex flex-col">
+						{/* Week navigation bar */}
+						<div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-700/50 bg-slate-800/30 shrink-0">
+							<button
+								type="button"
+								onClick={() => setWeekOffset((v) => v - 1)}
+								className="p-0.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+								aria-label="Previous week"
+							>
+								<ChevronLeftIcon className="h-4 w-4" />
+							</button>
+							<span className="text-[10px] text-slate-500 font-mono select-none">
+								{weekOffset === 0
+									? "This week"
+									: weekOffset === 1
+										? "Next week"
+										: weekOffset === -1
+											? "Last week"
+											: weekLabel}
+								{weekOffset !== 0 && <span className="ml-1 text-slate-600">({weekLabel})</span>}
+							</span>
+							<button
+								type="button"
+								onClick={() => setWeekOffset((v) => v + 1)}
+								className="p-0.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+								aria-label="Next week"
+							>
+								<ChevronRightIcon className="h-4 w-4" />
+							</button>
+						</div>
+
+						{/* Day columns */}
+						<div className="flex-1 overflow-x-auto min-h-0">
+							<div className="flex divide-x divide-slate-700/50 min-w-[480px] h-full">
+								{displayedWeekDates.map((date, i) => (
+									<DayColumn
+										key={date}
+										date={date}
+										dayShort={DAY_SHORT[i] ?? ""}
+										isToday={date === today}
+										assignedQuestions={weekAssignments[date] ?? []}
+										activeSessionId={liveSessionId}
+										sending={sending}
+										onPush={handlePush}
+										onUnassign={() => handleUnassign(date)}
+										onSendNext={date === today ? handleSendNext : undefined}
+									/>
+								))}
+							</div>
 						</div>
 					</div>
 				</div>
 
 				<DragOverlay dropAnimation={null}>
-					{activeId && activeDragTopicDay !== undefined && (
+					{activeDragQuestion ? (
+						<div className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 text-[10px] shadow-xl rotate-1 pointer-events-none max-w-[200px] leading-snug">
+							{activeDragQuestion.stem.length > 80
+								? `${activeDragQuestion.stem.slice(0, 80)}…`
+								: activeDragQuestion.stem}
+						</div>
+					) : activeDragTopicDay !== undefined ? (
 						<div className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shadow-xl rotate-2 pointer-events-none">
 							{activeDragTopicDay === "null" ? "Unassigned" : `Day ${activeDragTopicDay}`} ·{" "}
 							{activeDragCount} Qs
 						</div>
-					)}
+					) : null}
 				</DragOverlay>
 			</DndContext>
 		</div>
