@@ -86,6 +86,13 @@ const COLOR_SWATCH: Record<string, string> = {
 
 const COLOR_NAMES = Object.keys(COLOR_BG);
 
+const RESOURCE_CHIP: Record<string, string> = {
+	"bell-ringer": "bg-amber-400",
+	cfu: "bg-indigo-400",
+	"exit-ticket": "bg-emerald-400",
+	pacing: "bg-blue-400",
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeToMinutes(hhmm: string): number {
@@ -542,6 +549,7 @@ export function ScheduleCalendar({
 	const [editingBlock, setEditingBlock] = useState<ScheduleBlockRow | null>(null);
 	const [resizingId, setResizingId] = useState<string | null>(null);
 	const [activeBlock, setActiveBlock] = useState<ScheduleBlockRow | null>(null);
+	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>({});
 	const localBlocksRef = useRef(localBlocks);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [nowMinutes, setNowMinutes] = useState(() => {
@@ -577,6 +585,28 @@ export function ScheduleCalendar({
 		const scrollTop = minutesToPx(targetMins);
 		scrollRef.current.scrollTop = scrollTop;
 	}, []);
+
+	// Fetch resource presence for each day of the displayed week
+	useEffect(() => {
+		const dates = getWeekDates(weekOffset).map((d) => d.toISOString().slice(0, 10));
+		Promise.all(
+			dates.map((date) =>
+				fetch(`/api/resources/today?date=${date}`)
+					.then((r) => r.json())
+					.then((j) => ({
+						date,
+						types: (j.sections ?? []).map(
+							(s: { resourceType: string }) => s.resourceType,
+						) as string[],
+					}))
+					.catch(() => ({ date, types: [] as string[] })),
+			),
+		).then((results) => {
+			const map: Record<string, string[]> = {};
+			for (const { date, types } of results) map[date] = types;
+			setResourcesByDate(map);
+		});
+	}, [weekOffset]);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -775,6 +805,25 @@ export function ScheduleCalendar({
 										{colDate?.getDate()}
 									</span>
 								)}
+								{(() => {
+									const dateISO = colDate?.toISOString().slice(0, 10) ?? "";
+									const types = resourcesByDate[dateISO] ?? [];
+									if (types.length === 0) return null;
+									return (
+										<div className="flex gap-0.5 mt-1">
+											{types.map((type) => (
+												<span
+													key={type}
+													title={type}
+													className={cn(
+														"w-1.5 h-1.5 rounded-full",
+														RESOURCE_CHIP[type] ?? "bg-slate-400",
+													)}
+												/>
+											))}
+										</div>
+									);
+								})()}
 							</div>
 						);
 					})}
