@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, CalendarIcon, XIcon } from "lucide-react";
+import { AlertCircleIcon, CalendarIcon, PlayIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ScheduleCalendar } from "@/components/schedule/schedule-calendar";
@@ -32,7 +32,9 @@ type ProposedBlock = {
 	color: string;
 };
 
-export function ScheduleManager() {
+type QuestionBankItem = { id: string; resourceType: string; assignedDate: string | null };
+
+export function ScheduleManager({ activeSessionId }: { activeSessionId?: string | null }) {
 	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
 	const [importing, setImporting] = useState(false);
 	const [extractStatus, setExtractStatus] = useState<{
@@ -41,6 +43,9 @@ export function ScheduleManager() {
 	} | null>(null);
 	const photoInputRef = useRef<HTMLInputElement>(null);
 	const icsInputRef = useRef<HTMLInputElement>(null);
+	const [todayResources, setTodayResources] = useState<Record<string, string>>({});
+	const [todayQuestions, setTodayQuestions] = useState<Record<string, QuestionBankItem[]>>({});
+	const [pushedIds, setPushedIds] = useState<Set<string>>(new Set());
 
 	const fetchBlocks = useCallback(async () => {
 		try {
@@ -56,11 +61,65 @@ export function ScheduleManager() {
 		fetchBlocks();
 	}, [fetchBlocks]);
 
+	useEffect(() => {
+		const todayISO = new Date().toISOString().slice(0, 10);
+
+		const fetchResources = () =>
+			fetch("/api/resources/today")
+				.then((r) => (r.ok ? r.json() : { resources: [] }))
+				.then((j: { resources?: { resourceType: string; url: string }[] }) => {
+					const map: Record<string, string> = {};
+					for (const r of j.resources ?? []) map[r.resourceType] = r.url;
+					setTodayResources(map);
+				})
+				.catch(() => {});
+
+		const fetchQuestions = () =>
+			fetch(`/api/questions?date=${todayISO}`)
+				.then((r) => (r.ok ? r.json() : { questions: [] }))
+				.then((j: { questions?: QuestionBankItem[] }) => {
+					const grouped: Record<string, QuestionBankItem[]> = {};
+					for (const q of j.questions ?? []) {
+						if (!grouped[q.resourceType]) grouped[q.resourceType] = [];
+						grouped[q.resourceType].push(q);
+					}
+					setTodayQuestions(grouped);
+				})
+				.catch(() => {});
+
+		fetchResources();
+		fetchQuestions();
+		const ri = setInterval(fetchResources, 30_000);
+		const qi = setInterval(fetchQuestions, 30_000);
+		return () => {
+			clearInterval(ri);
+			clearInterval(qi);
+		};
+	}, []);
+
 	function todayWeekday(): number {
 		const d = new Date().getDay();
 		if (d === 0) return 1;
 		if (d === 6) return 5;
 		return d;
+	}
+
+	async function sendNextQuestion(type: string) {
+		const qs = (todayQuestions[type] ?? []).filter((q) => !pushedIds.has(q.id));
+		if (!qs.length || !activeSessionId) return;
+		const next = qs[0];
+		const res = await fetch(`/api/sessions/${activeSessionId}/question-push`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ questionId: next.id }),
+		});
+		if (res.ok) {
+			setPushedIds((prev) => new Set([...prev, next.id]));
+			const sent = (todayQuestions[type] ?? []).length - qs.length + 1;
+			toast.success(`Q${sent} sent`);
+		} else {
+			toast.error("Failed to push question");
+		}
 	}
 
 	async function handlePhotoImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -269,6 +328,59 @@ export function ScheduleManager() {
 				>
 					<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
 					{extractStatus.msg}
+				</div>
+			)}
+
+			{/* Today's Resources */}
+			{(["bell-ringer", "cfu", "exit-ticket"] as const).some(
+				(rt) => todayResources[rt] || todayQuestions[rt]?.length,
+			) && (
+				<div className="flex gap-2 flex-wrap">
+					{(["bell-ringer", "cfu", "exit-ticket"] as const).map((rt) => {
+						const label =
+							rt === "bell-ringer" ? "Bell Ringer" : rt === "cfu" ? "CFU" : "Exit Ticket";
+						const url = todayResources[rt];
+						const qs = todayQuestions[rt] ?? [];
+						const remaining = qs.filter((q) => !pushedIds.has(q.id));
+						if (!url && !qs.length) return null;
+						return (
+							<div key={rt} className="flex items-center gap-1">
+								{url ? (
+									<a
+										href={url}
+										target="_blank"
+										rel="noreferrer"
+										className="flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+									>
+										✓ {label}
+										{qs.length > 0 && (
+											<span className="text-[10px] opacity-70">{qs.length} qs</span>
+										)}
+									</a>
+								) : (
+									<span className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-400">
+										{label}
+										{qs.length > 0 && (
+											<span className="text-[10px] opacity-70">{qs.length} qs</span>
+										)}
+									</span>
+								)}
+								{qs.length > 0 && (
+									<button
+										type="button"
+										onClick={() => sendNextQuestion(rt)}
+										disabled={!activeSessionId || remaining.length === 0}
+										title={
+											activeSessionId ? `Send next (${remaining.length} left)` : "No active session"
+										}
+										className="rounded p-1 text-slate-400 hover:text-white hover:bg-slate-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+									>
+										<PlayIcon className="h-3 w-3" />
+									</button>
+								)}
+							</div>
+						);
+					})}
 				</div>
 			)}
 

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SessionBar } from "@/components/cockpit/session-bar";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
@@ -234,7 +235,7 @@ export default async function CockpitPage() {
 		// Active (live) session for the primary class
 		primaryClass
 			? db
-					.select({ id: classSessions.id })
+					.select({ id: classSessions.id, joinCode: classSessions.joinCode })
 					.from(classSessions)
 					.where(
 						and(eq(classSessions.classId, primaryClass.id), eq(classSessions.status, "active")),
@@ -467,6 +468,17 @@ export default async function CockpitPage() {
 						)}
 					</section>
 
+					{primaryClass && (
+						<SessionBar
+							classId={primaryClass.id}
+							initialSession={
+								activeSessionRow
+									? { id: activeSessionRow.id, joinCode: activeSessionRow.joinCode }
+									: null
+							}
+						/>
+					)}
+
 					<QuestionWeekPanel
 						today={today}
 						weekDates={weekDates}
@@ -568,7 +580,7 @@ export default async function CockpitPage() {
 					<CalendarIcon className="h-4 w-4 text-slate-500" />
 					Schedule
 				</h2>
-				<ScheduleManager />
+				<ScheduleManager activeSessionId={activeSessionRow?.id ?? null} />
 			</section>
 
 			{/* ── Pacing Guide (full width) ───────────────────────────────────── */}
