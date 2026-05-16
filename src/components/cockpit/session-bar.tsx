@@ -93,9 +93,21 @@ export function SessionBar({ classId, initialSession }: Props) {
 		});
 	}
 
-	function handleOpenStudentTab() {
+	async function handleOpenStudentTab() {
 		if (!session) return;
-		window.open(`/student?code=${session.joinCode}`, "_blank");
+		try {
+			// preview-join sets the student cookie then returns the redirect URL,
+			// so the teacher can view the student screen without a real roster entry.
+			const res = await fetch(`/api/sessions/${session.id}/preview-join`, { method: "POST" });
+			if (!res.ok) {
+				toast.error("Could not open student preview");
+				return;
+			}
+			const { redirectUrl } = (await res.json()) as { redirectUrl: string };
+			window.open(redirectUrl, "_blank");
+		} catch {
+			toast.error("Could not open student preview");
+		}
 	}
 
 	if (session) {
