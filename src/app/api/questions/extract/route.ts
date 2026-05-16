@@ -65,6 +65,28 @@ export async function POST(request: NextRequest) {
 
 	const { url, filename, resourceType, startDate } = result.data;
 
+	// Reject duplicate — same filename already extracted for this teacher
+	const duplicate = await db
+		.select({ id: questionBankItems.id })
+		.from(questionBankItems)
+		.where(
+			and(
+				eq(questionBankItems.teacherId, data.user.id),
+				eq(questionBankItems.sourceFilename, filename),
+			),
+		)
+		.limit(1)
+		.catch(() => [] as { id: string }[]);
+
+	if (duplicate.length > 0) {
+		return NextResponse.json(
+			{
+				error: `"${filename}" is already in the bank — clear existing questions first if you want to re-extract`,
+			},
+			{ status: 409 },
+		);
+	}
+
 	// Fetch PDF from S3 (bucket is public-read)
 	let pdfBase64: string;
 	try {
