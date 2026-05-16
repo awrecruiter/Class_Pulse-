@@ -20,7 +20,7 @@ import {
 	UploadIcon,
 	XIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UploadPanel } from "./upload-panel";
 
@@ -150,6 +150,7 @@ function DayColumn({
 	sending,
 	onPush,
 	onUnassign,
+	onSendNext,
 }: {
 	date: string;
 	dayShort: string;
@@ -159,6 +160,7 @@ function DayColumn({
 	sending: string | null;
 	onPush: (questionId: string) => void;
 	onUnassign: () => void;
+	onSendNext?: () => void;
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `day-col:${date}` });
 	const isEmpty = assignedQuestions.length === 0;
@@ -169,9 +171,9 @@ function DayColumn({
 		<div className={`min-w-[96px] flex flex-col min-h-0 ${isToday ? "bg-indigo-950/20" : ""}`}>
 			{/* Column header */}
 			<div
-				className={`px-2 py-2 border-b text-center ${
+				className={`px-2 py-2 border-b ${
 					isToday ? "border-indigo-700/50" : "border-slate-700/50"
-				}`}
+				} ${isToday && activeSessionId && onSendNext && !isEmpty ? "flex items-center gap-1.5" : "text-center"}`}
 			>
 				<div
 					className={`inline-flex flex-col items-center rounded-lg px-1.5 py-0.5 ${
@@ -191,6 +193,17 @@ function DayColumn({
 						{formatMmDd(date)}
 					</span>
 				</div>
+				{isToday && activeSessionId && onSendNext && !isEmpty && (
+					<button
+						type="button"
+						onClick={onSendNext}
+						className="ml-auto flex items-center gap-1 rounded-md bg-indigo-600/80 hover:bg-indigo-500 px-1.5 py-0.5 text-[10px] font-semibold text-white transition-colors shrink-0"
+						aria-label="Send next question to students"
+					>
+						<SendIcon className="h-3 w-3" />
+						Send Next
+					</button>
+				)}
 			</div>
 
 			{/* Drop zone */}
@@ -271,6 +284,13 @@ export function QuestionWeekPanel({
 	const [sending, setSending] = useState<string | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [uploadOpen, setUploadOpen] = useState(false);
+
+	// Tracks which question IDs have been pushed this session — reset when session changes
+	const pushedIdsRef = useRef<Set<string>>(new Set());
+	// biome-ignore lint/correctness/useExhaustiveDependencies: activeSessionId is an intentional reactive trigger — effect body clears the ref when session changes
+	useEffect(() => {
+		pushedIdsRef.current = new Set();
+	}, [activeSessionId]);
 
 	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -371,12 +391,25 @@ export function QuestionWeekPanel({
 				toast.error("Failed to push question");
 				return;
 			}
+			pushedIdsRef.current.add(questionId);
 			toast.success("Question sent to students");
 		} catch {
 			toast.error("Failed to push question");
 		} finally {
 			setSending(null);
 		}
+	}
+
+	async function handleSendNext() {
+		const todayQuestions = (weekAssignments[today] ?? []).filter(
+			(q) => q.resourceType === activeTab,
+		);
+		const next = todayQuestions.find((q) => !pushedIdsRef.current.has(q.id));
+		if (!next) {
+			toast.info("No more questions to send for today");
+			return;
+		}
+		await handlePush(next.id);
 	}
 
 	async function handleClearAll() {
@@ -498,6 +531,7 @@ export function QuestionWeekPanel({
 									sending={sending}
 									onPush={handlePush}
 									onUnassign={() => handleUnassign(date)}
+									onSendNext={date === today ? handleSendNext : undefined}
 								/>
 							))}
 						</div>

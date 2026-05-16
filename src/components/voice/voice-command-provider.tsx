@@ -18,6 +18,7 @@ import {
 	getVoiceSurface,
 	getVoiceSurfaceSummary,
 	matchNavigationDestination,
+	matchSendQuestionCommand,
 	matchTodayResourceCommand,
 } from "@/lib/voice/registry";
 import type { LessonResource } from "@/types";
@@ -54,6 +55,9 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			mountedRef.current = false;
 		};
 	}, []);
+
+	// Tracks question IDs pushed to students this session — persists across renders, reset on page reload
+	const pushedIdsRef = useRef<Set<string>>(new Set());
 
 	// Keep a stable ref to activeClassId so async callbacks always see the latest
 	const activeClassIdRef = useRef(activeClassId);
@@ -304,6 +308,50 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 			}
 		} catch {
 			toast.error("Could not load today's resources");
+		}
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+	// ── Question push helper ─────────────────────────────────────────────────────
+
+	const PUSH_QUESTION_LABELS: Record<string, string> = {
+		"bell-ringer": "Bell ringer",
+		cfu: "CFU",
+		"exit-ticket": "Exit ticket",
+	};
+
+	const pushNextQuestion = useCallback(async (resourceType: string) => {
+		const activeSessionId =
+			typeof window !== "undefined" ? sessionStorage.getItem("activeSessionId") : null;
+		const label = PUSH_QUESTION_LABELS[resourceType] ?? resourceType;
+		if (!activeSessionId) {
+			toast.info("Start a session first");
+			return;
+		}
+		const today = new Date().toISOString().slice(0, 10);
+		try {
+			const res = await fetch(`/api/questions?date=${today}&resourceType=${resourceType}`);
+			if (!res.ok) throw new Error("fetch failed");
+			const { questions } = (await res.json()) as { questions: Array<{ id: string }> };
+			const next = questions.find((q) => !pushedIdsRef.current.has(q.id));
+			if (!next) {
+				toast.info(`No more ${label} questions for today`);
+				return;
+			}
+			const pushRes = await fetch(`/api/sessions/${activeSessionId}/question-push`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ questionId: next.id }),
+			});
+			if (!mountedRef.current) return;
+			if (pushRes.ok) {
+				pushedIdsRef.current.add(next.id);
+				const idx = questions.findIndex((q) => q.id === next.id) + 1;
+				toast.success(`${label} Q${idx} sent to students`);
+			} else {
+				toast.error("Failed to push question");
+			}
+		} catch {
+			if (mountedRef.current) toast.error("Could not load questions");
 		}
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -668,6 +716,13 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				return;
 			}
 
+			// Fast-path: "send [question type]" — push next unsent question to student screens
+			const sendQuestionType = matchSendQuestionCommand(transcript);
+			if (sendQuestionType) {
+				void pushNextQuestion(sendQuestionType);
+				return;
+			}
+
 			// Fast-path: "open [resource type]" — open today's lesson resource without AI
 			const openResourceMatch =
 				/\bopen\s+(slides?|slide\s*deck|powerpoint|ppt|book|textbook|worksheet|video)\b/i.exec(
@@ -887,7 +942,14 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 				if (mountedRef.current) setAgentThinking(false);
 			}
 		},
-		[setAgentThinking, handleCommand, refreshAgentContext, handleNavigate, openTodayResource],
+		[
+			setAgentThinking,
+			handleCommand,
+			refreshAgentContext,
+			handleNavigate,
+			openTodayResource,
+			pushNextQuestion,
+		],
 	);
 
 	const callVoiceAgentRef = useRef(callVoiceAgent);

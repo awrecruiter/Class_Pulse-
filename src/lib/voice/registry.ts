@@ -50,6 +50,9 @@ export const VOICE_SURFACES: VoiceSurface[] = [
 			"open worksheet",
 			"open video",
 			"open resource",
+			"send bell ringer",
+			"send CFU",
+			"send exit ticket",
 		],
 	},
 	{
@@ -196,6 +199,41 @@ export function matchTodayResourceCommand(transcript: string): TodayResourceComm
 		/\bopen\s+(?:the\s+)?pacing\b/.test(lower)
 	) {
 		return "pacing";
+	}
+
+	return null;
+}
+
+// ─── Today's daily question push commands ────────────────────────────────────
+
+/**
+ * Synchronous regex matcher for "send [daily question type]" voice commands.
+ * Returns the resource type to push to students, or null if no match.
+ * Runs before the AI voice agent — zero latency, no API call.
+ * Note: "pacing" is excluded — only question-bank types are pushable.
+ */
+export function matchSendQuestionCommand(
+	transcript: string,
+): Exclude<TodayResourceCommandType, "pacing"> | null {
+	const lower = transcript.toLowerCase().trim();
+
+	// Bell ringer / warm up
+	if (/\bsend\s+bell.?ringer\b/.test(lower) || /\bsend\s+warm.?up\b/.test(lower)) {
+		return "bell-ringer";
+	}
+
+	// CFU / check for understanding / check
+	if (
+		/\bsend\s+cfu\b/.test(lower) ||
+		/\bsend\s+check\s+for\s+understanding\b/.test(lower) ||
+		/\bsend\s+check\b/.test(lower)
+	) {
+		return "cfu";
+	}
+
+	// Exit ticket
+	if (/\bsend\s+exit\s+ticket\b/.test(lower)) {
+		return "exit-ticket";
 	}
 
 	return null;
