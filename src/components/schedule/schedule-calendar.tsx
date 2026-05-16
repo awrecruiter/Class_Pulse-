@@ -86,13 +86,6 @@ const COLOR_SWATCH: Record<string, string> = {
 
 const COLOR_NAMES = Object.keys(COLOR_BG);
 
-const RESOURCE_CHIP: Record<string, string> = {
-	"bell-ringer": "bg-amber-400",
-	cfu: "bg-indigo-400",
-	"exit-ticket": "bg-emerald-400",
-	pacing: "bg-blue-400",
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeToMinutes(hhmm: string): number {
@@ -388,6 +381,13 @@ function computeOverlapLayout(
 
 // ─── CalendarBlock ─────────────────────────────────────────────────────────────
 
+const RESOURCE_CHIP_LABEL: Record<string, string> = {
+	"bell-ringer": "Bell Ringer",
+	cfu: "CFU",
+	"exit-ticket": "Exit Ticket",
+	pacing: "Pacing",
+};
+
 function CalendarBlock({
 	block,
 	col,
@@ -401,6 +401,7 @@ function CalendarBlock({
 	onDelete,
 	onAddDoc,
 	onDeleteDoc,
+	dayResources,
 }: {
 	block: ScheduleBlockRow;
 	col: number;
@@ -414,6 +415,7 @@ function CalendarBlock({
 	onDelete: () => void;
 	onAddDoc: (blockId: string, label: string, url: string, linkType: string) => Promise<void>;
 	onDeleteDoc: (blockId: string, docId: string) => Promise<void>;
+	dayResources: string[];
 }) {
 	const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
 		id: block.id,
@@ -466,6 +468,18 @@ function CalendarBlock({
 					{height >= 48 && (
 						<div className="px-1.5 text-[10px] opacity-60 tabular-nums pointer-events-none leading-tight">
 							{block.startTime}–{block.endTime}
+						</div>
+					)}
+					{height >= 72 && dayResources.length > 0 && (
+						<div className="px-1.5 pt-1 flex flex-wrap gap-1 pointer-events-none">
+							{dayResources.map((type) => (
+								<span
+									key={type}
+									className="rounded px-1.5 py-0.5 text-[9px] font-bold bg-white/20 text-white leading-none"
+								>
+									{RESOURCE_CHIP_LABEL[type] ?? type}
+								</span>
+							))}
 						</div>
 					)}
 					{/* Resize handle */}
@@ -805,25 +819,6 @@ export function ScheduleCalendar({
 										{colDate?.getDate()}
 									</span>
 								)}
-								{(() => {
-									const dateISO = colDate?.toISOString().slice(0, 10) ?? "";
-									const types = resourcesByDate[dateISO] ?? [];
-									if (types.length === 0) return null;
-									return (
-										<div className="flex gap-0.5 mt-1">
-											{types.map((type) => (
-												<span
-													key={type}
-													title={type}
-													className={cn(
-														"w-1.5 h-1.5 rounded-full",
-														RESOURCE_CHIP[type] ?? "bg-slate-400",
-													)}
-												/>
-											))}
-										</div>
-									);
-								})()}
 							</div>
 						);
 					})}
@@ -929,6 +924,7 @@ export function ScheduleCalendar({
 													onDelete={() => deleteBlock(block.id)}
 													onAddDoc={addDoc}
 													onDeleteDoc={deleteDoc}
+													dayResources={resourcesByDate[colDateISO] ?? []}
 												/>
 											);
 										});
