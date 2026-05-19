@@ -5,6 +5,7 @@ import {
 	CalendarIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	RefreshCwIcon,
 	XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -48,6 +49,8 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 	const photoInputRef = useRef<HTMLInputElement>(null);
 	const icsInputRef = useRef<HTMLInputElement>(null);
 	const [weekOffset, setWeekOffset] = useState(0);
+	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>({});
+	const [loadingResources, setLoadingResources] = useState(false);
 
 	const fetchBlocks = useCallback(async () => {
 		try {
@@ -62,6 +65,47 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 	useEffect(() => {
 		fetchBlocks();
 	}, [fetchBlocks]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: weekOffset is the trigger, setResourcesByDate is stable
+	useEffect(() => {
+		setResourcesByDate({});
+	}, [weekOffset]);
+
+	const loadResources = useCallback(async () => {
+		setLoadingResources(true);
+		try {
+			const today = new Date();
+			const dow = today.getDay();
+			const monday = new Date(today);
+			monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + weekOffset * 7);
+			const dates = Array.from({ length: 5 }, (_, i) => {
+				const d = new Date(monday);
+				d.setDate(monday.getDate() + i);
+				return d.toISOString().slice(0, 10);
+			});
+			const classParam = classId ? `&classId=${encodeURIComponent(classId)}` : "";
+			const results = await Promise.all(
+				dates.map((date) =>
+					fetch(`/api/resources/today?date=${date}${classParam}`)
+						.then((r) => r.json())
+						.then((j) => ({
+							date,
+							types: (j.sections ?? []).map(
+								(s: { resourceType: string }) => s.resourceType,
+							) as string[],
+						}))
+						.catch(() => ({ date, types: [] as string[] })),
+				),
+			);
+			const map: Record<string, string[]> = {};
+			for (const { date, types } of results) map[date] = types;
+			setResourcesByDate(map);
+			const total = Object.values(map).reduce((n, arr) => n + arr.length, 0);
+			if (total === 0) toast.info("No resources uploaded for this week");
+		} finally {
+			setLoadingResources(false);
+		}
+	}, [weekOffset, classId]);
 
 	function todayWeekday(): number {
 		const d = new Date().getDay();
@@ -318,6 +362,15 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 						Today
 					</button>
 				)}
+				<button
+					type="button"
+					onClick={loadResources}
+					disabled={loadingResources}
+					className="ml-auto flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
+				>
+					<RefreshCwIcon className={`h-3.5 w-3.5 ${loadingResources ? "animate-spin" : ""}`} />
+					{loadingResources ? "Loading…" : "Load Resources"}
+				</button>
 			</div>
 
 			<ScheduleCalendar
@@ -325,6 +378,7 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 				onBlocksChange={setBlocks}
 				weekOffset={weekOffset}
 				classId={classId}
+				resourcesByDate={resourcesByDate}
 			/>
 		</div>
 	);

@@ -541,6 +541,7 @@ type ScheduleCalendarProps = {
 	onBlocksChange: (blocks: ScheduleBlockRow[]) => void;
 	weekOffset?: number;
 	classId?: string | null;
+	resourcesByDate?: Record<string, string[]>;
 };
 
 function getWeekDates(weekOffset: number): Date[] {
@@ -560,12 +561,12 @@ export function ScheduleCalendar({
 	onBlocksChange,
 	weekOffset = 0,
 	classId,
+	resourcesByDate = {},
 }: ScheduleCalendarProps) {
 	const [localBlocks, setLocalBlocks] = useState<ScheduleBlockRow[]>(blocks);
 	const [editingBlock, setEditingBlock] = useState<ScheduleBlockRow | null>(null);
 	const [resizingId, setResizingId] = useState<string | null>(null);
 	const [activeBlock, setActiveBlock] = useState<ScheduleBlockRow | null>(null);
-	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>({});
 	const localBlocksRef = useRef(localBlocks);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [nowMinutes, setNowMinutes] = useState(() => {
@@ -601,39 +602,6 @@ export function ScheduleCalendar({
 		const scrollTop = minutesToPx(targetMins);
 		scrollRef.current.scrollTop = scrollTop;
 	}, []);
-
-	// Fetch resource presence for each day of the displayed week
-	useEffect(() => {
-		const dates = getWeekDates(weekOffset).map((d) => d.toISOString().slice(0, 10));
-		const classParam = classId ? `&classId=${encodeURIComponent(classId)}` : "";
-		Promise.all(
-			dates.map((date) =>
-				fetch(`/api/resources/today?date=${date}${classParam}`)
-					.then((r) => r.json())
-					.then((j) => ({
-						date,
-						types: (j.sections ?? []).map(
-							(s: { resourceType: string }) => s.resourceType,
-						) as string[],
-					}))
-					.catch(() => ({ date, types: [] as string[] })),
-			),
-		).then((results) => {
-			const map: Record<string, string[]> = {};
-			for (const { date, types } of results) map[date] = types;
-			setResourcesByDate(map);
-			const total = Object.values(map).reduce((n, arr) => n + arr.length, 0);
-			if (total > 0) {
-				const summary = results
-					.filter((r) => r.types.length > 0)
-					.map((r) => `${r.date}: ${r.types.join(", ")}`)
-					.join(" | ");
-				toast.success(`Resources found — ${summary}`, { duration: 6000 });
-			} else {
-				toast.info("No resources found for this week's dates", { duration: 4000 });
-			}
-		});
-	}, [weekOffset, classId]);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
