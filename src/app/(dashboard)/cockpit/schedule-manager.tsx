@@ -377,7 +377,6 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 				blocks={blocks}
 				onBlocksChange={setBlocks}
 				weekOffset={weekOffset}
-				classId={classId}
 				resourcesByDate={resourcesByDate}
 			/>
 		</div>

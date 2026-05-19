@@ -540,7 +540,6 @@ type ScheduleCalendarProps = {
 	blocks: ScheduleBlockRow[];
 	onBlocksChange: (blocks: ScheduleBlockRow[]) => void;
 	weekOffset?: number;
-	classId?: string | null;
 	resourcesByDate?: Record<string, string[]>;
 };
 
@@ -560,7 +559,6 @@ export function ScheduleCalendar({
 	blocks,
 	onBlocksChange,
 	weekOffset = 0,
-	classId,
 	resourcesByDate = {},
 }: ScheduleCalendarProps) {
 	const [localBlocks, setLocalBlocks] = useState<ScheduleBlockRow[]>(blocks);
