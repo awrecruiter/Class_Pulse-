@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
 				eq(lessonResources.importDate, date),
 				or(eq(lessonResources.classId, ""), eq(lessonResources.classId, classIdParam)),
 			),
-		);
+		)
+		.catch(() => []);
 
 	const sections: TodayResourceSection[] = [];
 
