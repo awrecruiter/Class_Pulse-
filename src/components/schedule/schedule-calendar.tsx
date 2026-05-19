@@ -470,7 +470,7 @@ function CalendarBlock({
 							{block.startTime}–{block.endTime}
 						</div>
 					)}
-					{height >= 72 && dayResources.length > 0 && (
+					{dayResources.length > 0 && (
 						<div className="px-1.5 pt-1 flex flex-wrap gap-1 pointer-events-none">
 							{dayResources.map((type) => (
 								<span
@@ -541,7 +541,6 @@ type ScheduleCalendarProps = {
 	onBlocksChange: (blocks: ScheduleBlockRow[]) => void;
 	weekOffset?: number;
 	classId?: string | null;
-	onResourcesChange?: (byDate: Record<string, string[]>) => void;
 };
 
 function getWeekDates(weekOffset: number): Date[] {
@@ -561,7 +560,6 @@ export function ScheduleCalendar({
 	onBlocksChange,
 	weekOffset = 0,
 	classId,
-	onResourcesChange,
 }: ScheduleCalendarProps) {
 	const [localBlocks, setLocalBlocks] = useState<ScheduleBlockRow[]>(blocks);
 	const [editingBlock, setEditingBlock] = useState<ScheduleBlockRow | null>(null);
@@ -624,9 +622,8 @@ export function ScheduleCalendar({
 			const map: Record<string, string[]> = {};
 			for (const { date, types } of results) map[date] = types;
 			setResourcesByDate(map);
-			onResourcesChange?.(map);
 		});
-	}, [weekOffset, classId, onResourcesChange]);
+	}, [weekOffset, classId]);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
