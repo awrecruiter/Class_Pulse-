@@ -541,6 +541,7 @@ type ScheduleCalendarProps = {
 	onBlocksChange: (blocks: ScheduleBlockRow[]) => void;
 	weekOffset?: number;
 	classId?: string | null;
+	onResourcesChange?: (byDate: Record<string, string[]>) => void;
 };
 
 function getWeekDates(weekOffset: number): Date[] {
@@ -560,6 +561,7 @@ export function ScheduleCalendar({
 	onBlocksChange,
 	weekOffset = 0,
 	classId,
+	onResourcesChange,
 }: ScheduleCalendarProps) {
 	const [localBlocks, setLocalBlocks] = useState<ScheduleBlockRow[]>(blocks);
 	const [editingBlock, setEditingBlock] = useState<ScheduleBlockRow | null>(null);
@@ -622,8 +624,9 @@ export function ScheduleCalendar({
 			const map: Record<string, string[]> = {};
 			for (const { date, types } of results) map[date] = types;
 			setResourcesByDate(map);
+			onResourcesChange?.(map);
 		});
-	}, [weekOffset, classId]);
+	}, [weekOffset, classId, onResourcesChange]);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

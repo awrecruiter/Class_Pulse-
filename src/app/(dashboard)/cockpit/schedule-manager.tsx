@@ -41,6 +41,10 @@ type ProposedBlock = {
 export function ScheduleManager({ classId }: { classId?: string | null }) {
 	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
 	const [importing, setImporting] = useState(false);
+	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>({});
+	const hasBellRinger = Object.values(resourcesByDate).some((types) =>
+		types.includes("bell-ringer"),
+	);
 	const [extractStatus, setExtractStatus] = useState<{
 		type: "success" | "warning" | "error";
 		msg: string;
@@ -318,6 +322,11 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 						Today
 					</button>
 				)}
+				{hasBellRinger && (
+					<span className="ml-auto rounded px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+						Bell Ringer ✓
+					</span>
+				)}
 			</div>
 
 			<ScheduleCalendar
@@ -325,6 +334,7 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 				onBlocksChange={setBlocks}
 				weekOffset={weekOffset}
 				classId={classId}
+				onResourcesChange={setResourcesByDate}
 			/>
 		</div>
 	);
