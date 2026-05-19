@@ -606,21 +606,29 @@ export function ScheduleCalendar({
 	useEffect(() => {
 		const dates = getWeekDates(weekOffset).map((d) => d.toISOString().slice(0, 10));
 		const classParam = classId ? `&classId=${encodeURIComponent(classId)}` : "";
+		console.log("[schedule-calendar] fetching resources for dates", dates, "classId", classId);
 		Promise.all(
 			dates.map((date) =>
 				fetch(`/api/resources/today?date=${date}${classParam}`)
 					.then((r) => r.json())
-					.then((j) => ({
-						date,
-						types: (j.sections ?? []).map(
-							(s: { resourceType: string }) => s.resourceType,
-						) as string[],
-					}))
-					.catch(() => ({ date, types: [] as string[] })),
+					.then((j) => {
+						console.log("[schedule-calendar] date", date, "sections", j.sections);
+						return {
+							date,
+							types: (j.sections ?? []).map(
+								(s: { resourceType: string }) => s.resourceType,
+							) as string[],
+						};
+					})
+					.catch((err) => {
+						console.error("[schedule-calendar] fetch error for date", date, err);
+						return { date, types: [] as string[] };
+					}),
 			),
 		).then((results) => {
 			const map: Record<string, string[]> = {};
 			for (const { date, types } of results) map[date] = types;
+			console.log("[schedule-calendar] resourcesByDate", map);
 			setResourcesByDate(map);
 		});
 	}, [weekOffset, classId]);
