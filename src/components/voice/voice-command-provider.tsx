@@ -292,7 +292,9 @@ export function VoiceCommandProvider({ children }: { children: React.ReactNode }
 
 	const openTodayResource = useCallback(async (resourceType: string, transcript: string) => {
 		try {
-			const res = await fetch("/api/resources/today");
+			const classId = activeClassIdRef.current;
+			const classParam = classId ? `?classId=${encodeURIComponent(classId)}` : "";
+			const res = await fetch(`/api/resources/today${classParam}`);
 			if (!res.ok) throw new Error("fetch failed");
 			const { sections } = (await res.json()) as {
 				sections: Array<{ resourceType: string; url: string }>;
