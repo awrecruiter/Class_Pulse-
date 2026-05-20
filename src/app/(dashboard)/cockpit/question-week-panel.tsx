@@ -574,6 +574,12 @@ export function QuestionWeekPanel({
 			}
 			setQuestions([]);
 			toast.success("Question bank cleared");
+			window.dispatchEvent(new CustomEvent("load-resources"));
+			try {
+				localStorage.removeItem("schedule-resources");
+			} catch {
+				/* ignore */
+			}
 		} catch {
 			toast.error("Failed to clear questions");
 		}
