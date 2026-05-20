@@ -17,6 +17,7 @@ import {
 	ChevronRightIcon,
 	ChevronUpIcon,
 	GripVerticalIcon,
+	LayersIcon,
 	PlusIcon,
 	SendIcon,
 	UploadIcon,
@@ -575,6 +576,14 @@ export function QuestionWeekPanel({
 					))}
 				</div>
 				<div className="ml-auto flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => window.dispatchEvent(new CustomEvent("load-resources"))}
+						className="flex items-center gap-1.5 rounded-md border border-indigo-700/60 px-2.5 py-1 text-xs text-indigo-400 hover:text-indigo-200 hover:border-indigo-500 transition-colors"
+					>
+						<LayersIcon className="h-3 w-3" />
+						Load Resources
+					</button>
 					<button
 						type="button"
 						onClick={() => setUploadOpen((v) => !v)}

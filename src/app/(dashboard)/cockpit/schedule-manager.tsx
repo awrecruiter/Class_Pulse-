@@ -107,6 +107,15 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 		}
 	}, [weekOffset, classId]);
 
+	// Listen for the "load-resources" event dispatched by the question bank panel
+	useEffect(() => {
+		const handler = () => {
+			loadResources();
+		};
+		window.addEventListener("load-resources", handler);
+		return () => window.removeEventListener("load-resources", handler);
+	}, [loadResources]);
+
 	function todayWeekday(): number {
 		const d = new Date().getDay();
 		if (d === 0) return 1;
@@ -364,12 +373,12 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 				)}
 				<button
 					type="button"
-					onClick={loadResources}
+					onClick={fetchBlocks}
 					disabled={loadingResources}
 					className="ml-auto flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
 				>
 					<RefreshCwIcon className={`h-3.5 w-3.5 ${loadingResources ? "animate-spin" : ""}`} />
-					{loadingResources ? "Loading…" : "Load Resources"}
+					Refresh
 				</button>
 			</div>
 
