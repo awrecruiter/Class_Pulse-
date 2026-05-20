@@ -191,16 +191,20 @@ function DraggableQuestion({
 	activeSessionId,
 	sending,
 	onPush,
+	cropMap,
 }: {
 	question: QuestionBankItem;
 	isToday: boolean;
 	activeSessionId: string | null;
 	sending: string | null;
 	onPush: (questionId: string) => void;
+	cropMap: Map<string, { pageIndex: number; pageTotal: number }>;
 }) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 		id: `question:${question.id}`,
 	});
+	const { pageIndex, pageTotal } = cropMap.get(question.id) ?? { pageIndex: 0, pageTotal: 1 };
+	const bgPositionY = pageTotal <= 1 ? 0 : (pageIndex / (pageTotal - 1)) * 100;
 
 	return (
 		<div
@@ -211,11 +215,14 @@ function DraggableQuestion({
 		>
 			<GripVerticalIcon className="h-3 w-3 text-slate-600 shrink-0 mt-0.5" />
 			{question.imageUrl ? (
-				<img
-					src={question.imageUrl}
-					alt="Question"
-					className="flex-1 min-w-0 h-10 w-full object-cover object-top rounded"
-					draggable={false}
+				<div
+					className="flex-1 min-w-0 h-10 rounded"
+					style={{
+						backgroundImage: `url(${question.imageUrl})`,
+						backgroundSize: `100% ${pageTotal * 100}%`,
+						backgroundPosition: `0% ${bgPositionY}%`,
+						backgroundRepeat: "no-repeat",
+					}}
 				/>
 			) : (
 				<p className="text-[10px] text-slate-300 line-clamp-2 leading-snug flex-1">
@@ -252,6 +259,7 @@ function DayColumn({
 	onPush,
 	onUnassign,
 	onSendNext,
+	cropMap,
 }: {
 	date: string;
 	dayShort: string;
@@ -262,6 +270,7 @@ function DayColumn({
 	onPush: (questionId: string) => void;
 	onUnassign: () => void;
 	onSendNext?: () => void;
+	cropMap: Map<string, { pageIndex: number; pageTotal: number }>;
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `day-col:${date}` });
 	const isEmpty = assignedQuestions.length === 0;
@@ -350,6 +359,7 @@ function DayColumn({
 								activeSessionId={activeSessionId}
 								sending={sending}
 								onPush={onPush}
+								cropMap={cropMap}
 							/>
 						))}
 					</div>
@@ -460,8 +470,9 @@ export function QuestionWeekPanel({
 	const bankCropMap = useMemo(() => {
 		// Group by imageUrl so questions sharing the same page image get cropped to their slice.
 		// Questions without an imageUrl are excluded (get default pageTotal=1 = no crop).
+		// Use filteredBank (not just unassigned) so assigned day-column cards also get crop data.
 		const groups = new Map<string, QuestionBankItem[]>();
-		for (const q of unassignedBank) {
+		for (const q of filteredBank) {
 			if (!q.imageUrl) continue;
 			const key = q.imageUrl;
 			if (!groups.has(key)) groups.set(key, []);
@@ -475,7 +486,7 @@ export function QuestionWeekPanel({
 			});
 		}
 		return map;
-	}, [unassignedBank]);
+	}, [filteredBank]);
 
 	function handleDragStart({ active }: { active: { id: string | number } }) {
 		setActiveId(String(active.id));
@@ -741,6 +752,7 @@ export function QuestionWeekPanel({
 										onPush={handlePush}
 										onUnassign={() => handleUnassign(date)}
 										onSendNext={date === today ? handleSendNext : undefined}
+										cropMap={bankCropMap}
 									/>
 								))}
 							</div>
