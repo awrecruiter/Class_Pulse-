@@ -352,10 +352,17 @@ export function QuestionWeekPanel({
 	useEffect(() => {
 		if (!activeClassId) return;
 		let cancelled = false;
+		let intervalId: ReturnType<typeof setInterval> | null = null;
 		const poll = async () => {
 			try {
 				const res = await fetch(`/api/classes/${activeClassId}/session/active`);
-				if (!res.ok || cancelled) return;
+				if (cancelled) return;
+				if (res.status === 401) {
+					// Session expired — stop polling to avoid console spam
+					if (intervalId) clearInterval(intervalId);
+					return;
+				}
+				if (!res.ok) return;
 				const { id } = (await res.json()) as { id: string | null };
 				if (!cancelled) setLiveSessionId(id ?? null);
 			} catch {
@@ -363,10 +370,10 @@ export function QuestionWeekPanel({
 			}
 		};
 		poll();
-		const interval = setInterval(poll, 10_000);
+		intervalId = setInterval(poll, 10_000);
 		return () => {
 			cancelled = true;
-			clearInterval(interval);
+			if (intervalId) clearInterval(intervalId);
 		};
 	}, [activeClassId]);
 
