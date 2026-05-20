@@ -288,6 +288,10 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 		}
 	}
 
+	const hasBellRinger = Object.values(resourcesByDate).some((types) =>
+		types.includes("bell-ringer"),
+	);
+
 	function weekLabel(): string {
 		const today = new Date();
 		const dow = today.getDay();
@@ -392,6 +396,11 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 					>
 						Today
 					</button>
+				)}
+				{hasBellRinger && (
+					<span className="rounded px-2 py-0.5 text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+						Bell Ringer ✓
+					</span>
 				)}
 				<button
 					type="button"
