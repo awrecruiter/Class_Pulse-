@@ -467,6 +467,7 @@ export default async function CockpitPage() {
 								extractedAt: string;
 								imageUrl: string | null;
 								sourcePage: number | null;
+								sortOrder: number;
 							}[]
 						}
 						activeSessionId={activeSessionRow?.id ?? null}

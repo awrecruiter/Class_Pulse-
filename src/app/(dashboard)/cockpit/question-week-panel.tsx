@@ -23,7 +23,7 @@ import {
 	UploadIcon,
 	XIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UploadPanel } from "./upload-panel";
 
@@ -41,6 +41,7 @@ type QuestionBankItem = {
 	extractedAt: string;
 	imageUrl: string | null;
 	sourcePage: number | null;
+	sortOrder: number;
 };
 
 type Props = {
@@ -90,13 +91,57 @@ function formatMmDd(isoDate: string): string {
 	return isoDate.slice(5).replace("-", "/");
 }
 
+// ─── DragGhost ────────────────────────────────────────────────────────────────
+// Drag overlay ghost card — uses same page-crop logic as BankQuestionCard.
+
+function DragGhost({
+	question,
+	cropMap,
+}: {
+	question: QuestionBankItem;
+	cropMap: Map<string, { pageIndex: number; pageTotal: number }>;
+}) {
+	const crop = cropMap.get(question.id) ?? { pageIndex: 0, pageTotal: 1 };
+	const bgPos = crop.pageTotal <= 1 ? 0 : (crop.pageIndex / (crop.pageTotal - 1)) * 100;
+	return (
+		<div className="rounded-lg border border-slate-600 bg-slate-700 shadow-xl rotate-1 pointer-events-none w-48 overflow-hidden">
+			{question.imageUrl ? (
+				<div
+					style={{
+						height: 100,
+						backgroundImage: `url(${question.imageUrl})`,
+						backgroundSize: `100% ${crop.pageTotal * 100}%`,
+						backgroundPosition: `0% ${bgPos}%`,
+						backgroundRepeat: "no-repeat",
+					}}
+				/>
+			) : (
+				<div className="px-3 py-2 text-slate-200 text-[10px] leading-snug">
+					{question.stem.length > 80 ? `${question.stem.slice(0, 80)}…` : question.stem}
+				</div>
+			)}
+		</div>
+	);
+}
+
 // ─── BankQuestionCard ─────────────────────────────────────────────────────────
 // Individual draggable card shown in the left bank panel.
 
-function BankQuestionCard({ question }: { question: QuestionBankItem }) {
+function BankQuestionCard({
+	question,
+	pageIndex = 0,
+	pageTotal = 1,
+}: {
+	question: QuestionBankItem;
+	pageIndex?: number;
+	pageTotal?: number;
+}) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 		id: `question:${question.id}`,
 	});
+
+	// When multiple questions share the same page image, crop to this question's vertical slice
+	const bgPositionY = pageTotal <= 1 ? 0 : (pageIndex / (pageTotal - 1)) * 100;
 
 	return (
 		<div
@@ -106,12 +151,14 @@ function BankQuestionCard({ question }: { question: QuestionBankItem }) {
 			className={`rounded-lg border border-slate-700 bg-slate-800/60 overflow-hidden cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-30" : ""}`}
 		>
 			{question.imageUrl ? (
-				<img
-					src={question.imageUrl}
-					alt="Question"
-					className="w-full object-cover object-top"
-					style={{ maxHeight: 160 }}
-					draggable={false}
+				<div
+					style={{
+						height: 140,
+						backgroundImage: `url(${question.imageUrl})`,
+						backgroundSize: `100% ${pageTotal * 100}%`,
+						backgroundPosition: `0% ${bgPositionY}%`,
+						backgroundRepeat: "no-repeat",
+					}}
 				/>
 			) : (
 				<div className="px-3 py-2.5">
@@ -408,6 +455,25 @@ export function QuestionWeekPanel({
 	const unassignedBank = filteredBank.filter((q) => q.assignedDate === null);
 	const weekAssignments = buildWeekAssignments(filteredBank, displayedWeekDates);
 
+	// For each bank question: how many questions share its page image and what is its index within
+	// that page group. Used to crop the shared page thumbnail to show only one question at a time.
+	const bankCropMap = useMemo(() => {
+		const groups = new Map<number | string, QuestionBankItem[]>();
+		for (const q of unassignedBank) {
+			const key = q.sourcePage != null ? q.sourcePage : `solo-${q.id}`;
+			if (!groups.has(key)) groups.set(key, []);
+			(groups.get(key) as QuestionBankItem[]).push(q);
+		}
+		for (const g of groups.values()) g.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+		const map = new Map<string, { pageIndex: number; pageTotal: number }>();
+		for (const g of groups.values()) {
+			g.forEach((q, i) => {
+				map.set(q.id, { pageIndex: i, pageTotal: g.length });
+			});
+		}
+		return map;
+	}, [unassignedBank]);
+
 	function handleDragStart({ active }: { active: { id: string | number } }) {
 		setActiveId(String(active.id));
 	}
@@ -604,7 +670,17 @@ export function QuestionWeekPanel({
 										: "Upload a PDF to extract questions"}
 								</p>
 							) : (
-								unassignedBank.map((q) => <BankQuestionCard key={q.id} question={q} />)
+								unassignedBank.map((q) => {
+									const crop = bankCropMap.get(q.id) ?? { pageIndex: 0, pageTotal: 1 };
+									return (
+										<BankQuestionCard
+											key={q.id}
+											question={q}
+											pageIndex={crop.pageIndex}
+											pageTotal={crop.pageTotal}
+										/>
+									);
+								})
 							)}
 						</div>
 					)}
@@ -664,24 +740,7 @@ export function QuestionWeekPanel({
 				</div>
 
 				<DragOverlay dropAnimation={null}>
-					{activeDragQuestion ? (
-						<div className="rounded-lg border border-slate-600 bg-slate-700 shadow-xl rotate-1 pointer-events-none w-48 overflow-hidden">
-							{activeDragQuestion.imageUrl ? (
-								<img
-									src={activeDragQuestion.imageUrl}
-									alt="Question"
-									className="w-full object-cover object-top"
-									style={{ maxHeight: 100 }}
-								/>
-							) : (
-								<div className="px-3 py-2 text-slate-200 text-[10px] leading-snug">
-									{activeDragQuestion.stem.length > 80
-										? `${activeDragQuestion.stem.slice(0, 80)}…`
-										: activeDragQuestion.stem}
-								</div>
-							)}
-						</div>
-					) : null}
+					{activeDragQuestion && <DragGhost question={activeDragQuestion} cropMap={bankCropMap} />}
 				</DragOverlay>
 			</DndContext>
 		</div>
