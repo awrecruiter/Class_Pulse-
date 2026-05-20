@@ -4,7 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import { lessonResources } from "@/lib/db/schema";
+import { lessonResources, questionBankItems } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
 
 export type TodayQuestion = {
@@ -94,6 +94,25 @@ export async function GET(request: NextRequest) {
 
 		// Always push — even empty-question rows let the chip show as "uploaded"
 		sections.push({ resourceType: rt, questions, url: row.url });
+	}
+
+	// Also check question bank items assigned to this date — each unique resource
+	// type with at least one assigned question gets a chip even without an upload URL.
+	const qbankRows = await db
+		.select({ resourceType: questionBankItems.resourceType })
+		.from(questionBankItems)
+		.where(
+			and(eq(questionBankItems.teacherId, data.user.id), eq(questionBankItems.assignedDate, date)),
+		)
+		.catch(() => []);
+
+	const coveredTypes = new Set(sections.map((s) => s.resourceType));
+	for (const row of qbankRows) {
+		const rt = row.resourceType as TodayResourceSection["resourceType"];
+		if (!["bell-ringer", "cfu", "exit-ticket"].includes(rt)) continue;
+		if (coveredTypes.has(rt)) continue;
+		coveredTypes.add(rt);
+		sections.push({ resourceType: rt, questions: [], url: "" });
 	}
 
 	return NextResponse.json({ date, sections });
