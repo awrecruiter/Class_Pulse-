@@ -228,7 +228,7 @@ function DayColumn({
 	const topicDay = assignedQuestions[0]?.topicDay ?? null;
 
 	return (
-		<div className={`min-w-[96px] flex flex-col min-h-0 ${isToday ? "bg-indigo-950/20" : ""}`}>
+		<div className={`flex-1 flex flex-col min-h-0 ${isToday ? "bg-indigo-950/20" : ""}`}>
 			{/* Column header */}
 			<div
 				className={`px-2 py-2 border-b ${
@@ -692,7 +692,7 @@ export function QuestionWeekPanel({
 
 						{/* Day columns */}
 						<div className="flex-1 overflow-x-auto min-h-0">
-							<div className="flex divide-x divide-slate-700/50 min-w-[480px] h-full">
+							<div className="flex divide-x divide-slate-700/50 h-full w-full">
 								{displayedWeekDates.map((date, i) => (
 									<DayColumn
 										key={date}
