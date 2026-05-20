@@ -567,11 +567,8 @@ export function ScheduleCalendar({
 	const [activeBlock, setActiveBlock] = useState<ScheduleBlockRow | null>(null);
 	const localBlocksRef = useRef(localBlocks);
 	const scrollRef = useRef<HTMLDivElement>(null);
-	const [nowMinutes, setNowMinutes] = useState(() => {
-		const d = new Date();
-		return d.getHours() * 60 + d.getMinutes();
-	});
-	const todayDow = new Date().getDay();
+	const [nowMinutes, setNowMinutes] = useState(0);
+	const [todayDow, setTodayDow] = useState(0);
 	const weekDates = getWeekDates(weekOffset);
 
 	useEffect(() => {
@@ -583,12 +580,15 @@ export function ScheduleCalendar({
 		setLocalBlocks(blocks);
 	}, [blocks]);
 
-	// Current time indicator
+	// Initialize current time on client only (avoids SSR/client hydration mismatch)
 	useEffect(() => {
-		const t = setInterval(() => {
+		const update = () => {
 			const d = new Date();
 			setNowMinutes(d.getHours() * 60 + d.getMinutes());
-		}, 60_000);
+			setTodayDow(d.getDay());
+		};
+		update();
+		const t = setInterval(update, 60_000);
 		return () => clearInterval(t);
 	}, []);
 
@@ -772,7 +772,9 @@ export function ScheduleCalendar({
 					<div className="w-14 shrink-0" />
 					{DAYS.map((d, i) => {
 						const colDate = weekDates[i];
+						// todayDow starts as 0 (server-safe), updated client-side in useEffect
 						const isToday =
+							todayDow !== 0 &&
 							weekOffset === 0 &&
 							d.dayOfWeek === todayDow &&
 							colDate?.toDateString() === new Date().toDateString();
@@ -790,11 +792,17 @@ export function ScheduleCalendar({
 									{d.label}
 								</span>
 								{isToday ? (
-									<span className="mt-0.5 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-[11px] font-bold text-white">
+									<span
+										suppressHydrationWarning
+										className="mt-0.5 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-[11px] font-bold text-white"
+									>
 										{colDate?.getDate()}
 									</span>
 								) : (
-									<span className="mt-0.5 w-6 h-6 flex items-center justify-center text-[11px] text-slate-500">
+									<span
+										suppressHydrationWarning
+										className="mt-0.5 w-6 h-6 flex items-center justify-center text-[11px] text-slate-500"
+									>
 										{colDate?.getDate()}
 									</span>
 								)}
@@ -856,6 +864,7 @@ export function ScheduleCalendar({
 							const colDate = weekDates[i];
 							const colDateISO = colDate?.toISOString().slice(0, 10) ?? "";
 							const isToday =
+								todayDow !== 0 &&
 								weekOffset === 0 &&
 								d.dayOfWeek === todayDow &&
 								colDate?.toDateString() === new Date().toDateString();
