@@ -72,23 +72,6 @@ function computeWeekDates(todayISO: string, weekOffset: number): string[] {
 	});
 }
 
-function groupByTopicDay(questions: QuestionBankItem[]): Map<number | null, QuestionBankItem[]> {
-	const map = new Map<number | null, QuestionBankItem[]>();
-	for (const q of questions) {
-		const key = q.topicDay ?? null;
-		if (!map.has(key)) map.set(key, []);
-		map.get(key)?.push(q);
-	}
-	const sorted = new Map<number | null, QuestionBankItem[]>();
-	const keys = Array.from(map.keys()).sort((a, b) => {
-		if (a === null) return 1;
-		if (b === null) return -1;
-		return a - b;
-	});
-	for (const k of keys) sorted.set(k, map.get(k) ?? []);
-	return sorted;
-}
-
 function buildWeekAssignments(
 	questions: QuestionBankItem[],
 	weekDates: string[],
@@ -107,62 +90,48 @@ function formatMmDd(isoDate: string): string {
 	return isoDate.slice(5).replace("-", "/");
 }
 
-// ─── DayGroupSection ─────────────────────────────────────────────────────────
+// ─── BankQuestionCard ─────────────────────────────────────────────────────────
+// Individual draggable card shown in the left bank panel.
 
-function DayGroupSection({
-	topicDay,
-	questions,
-	resourceType,
-}: {
-	topicDay: number | null;
-	questions: QuestionBankItem[];
-	resourceType: string;
-}) {
-	const draggableId = `day-group:${resourceType}:${topicDay ?? "null"}`;
-	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: draggableId });
-
-	const assignedDate = questions[0]?.assignedDate ?? null;
+function BankQuestionCard({ question }: { question: QuestionBankItem }) {
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+		id: `question:${question.id}`,
+	});
 
 	return (
 		<div
-			className={`rounded-lg border border-slate-700 bg-slate-800/60 overflow-hidden ${isDragging ? "opacity-40" : ""}`}
+			ref={setNodeRef}
+			{...attributes}
+			{...listeners}
+			className={`rounded-lg border border-slate-700 bg-slate-800/60 overflow-hidden cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-30" : ""}`}
 		>
-			<div
-				ref={setNodeRef}
-				{...attributes}
-				{...listeners}
-				className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 cursor-grab active:cursor-grabbing select-none"
-			>
-				<GripVerticalIcon className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-				<span className="text-xs font-semibold text-slate-200 flex-1">
-					{topicDay !== null ? `Day ${topicDay}` : "Unassigned"}
-					<span className="text-slate-500 font-normal ml-1">· {questions.length} Qs</span>
-				</span>
-				{assignedDate && (
-					<span className="text-[10px] text-indigo-400 shrink-0">→ {formatMmDd(assignedDate)}</span>
-				)}
-			</div>
-			<div className="p-2 space-y-1.5">
-				{questions.map((q) => (
-					<div key={q.id} className="rounded-md bg-slate-900/40 px-2 py-1.5">
-						{q.imageUrl ? (
-							<img
-								src={q.imageUrl}
-								alt="Question"
-								className="w-full h-14 object-cover object-top rounded mb-1"
-								draggable={false}
-							/>
-						) : (
-							<p className="text-[11px] text-slate-300 line-clamp-2 leading-snug">
-								{q.stem || "Image question"}
-							</p>
-						)}
-						{q.standardCode && (
-							<span className="text-[9px] text-indigo-400 font-mono">{q.standardCode}</span>
-						)}
-					</div>
-				))}
-			</div>
+			{question.imageUrl ? (
+				<img
+					src={question.imageUrl}
+					alt="Question"
+					className="w-full object-cover object-top"
+					style={{ maxHeight: 160 }}
+					draggable={false}
+				/>
+			) : (
+				<div className="px-3 py-2.5">
+					<p className="text-[11px] text-slate-300 line-clamp-3 leading-snug">
+						{question.stem || "Image question"}
+					</p>
+				</div>
+			)}
+			{(question.standardCode || question.topicDay !== null) && (
+				<div className="flex items-center gap-2 px-2 py-1 border-t border-slate-700/60">
+					{question.topicDay !== null && (
+						<span className="text-[9px] text-slate-500">Day {question.topicDay}</span>
+					)}
+					{question.standardCode && (
+						<span className="text-[9px] text-indigo-400 font-mono truncate">
+							{question.standardCode}
+						</span>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -430,7 +399,6 @@ export function QuestionWeekPanel({
 	const filteredBank = questions.filter((q) => q.resourceType === activeTab);
 	// Bank panel shows only unassigned questions — assigned ones live in their day columns
 	const unassignedBank = filteredBank.filter((q) => q.assignedDate === null);
-	const groups = groupByTopicDay(unassignedBank);
 	const weekAssignments = buildWeekAssignments(filteredBank, displayedWeekDates);
 
 	function handleDragStart({ active }: { active: { id: string | number } }) {
@@ -445,58 +413,23 @@ export function QuestionWeekPanel({
 		const activeStr = String(active.id);
 		const overStr = String(over.id);
 
-		if (!overStr.startsWith("day-col:")) return;
+		if (!overStr.startsWith("day-col:") || !activeStr.startsWith("question:")) return;
 		const date = overStr.replace("day-col:", "");
+		const questionId = activeStr.replace("question:", "");
+		const current = questions.find((q) => q.id === questionId);
+		if (!current || current.assignedDate === date) return;
 
-		// ── Single question drag (from any column to another) ──
-		if (activeStr.startsWith("question:")) {
-			const questionId = activeStr.replace("question:", "");
-			const current = questions.find((q) => q.id === questionId);
-			if (!current || current.assignedDate === date) return;
-
-			setQuestions((prev) =>
-				prev.map((q) => (q.id === questionId ? { ...q, assignedDate: date } : q)),
-			);
-
-			fetch("/api/questions/assign-date", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ questionIds: [questionId], date }),
-			}).catch(() => {
-				setQuestions((prev) =>
-					prev.map((q) => (q.id === questionId ? { ...q, assignedDate: current.assignedDate } : q)),
-				);
-				toast.error("Failed to save assignment");
-			});
-			return;
-		}
-
-		// ── Group drag (from bank left panel) ──
-		if (!activeStr.startsWith("day-group:")) return;
-
-		const parts = activeStr.split(":");
-		const resourceType = parts[1];
-		const topicDayStr = parts[2];
-		const topicDay = topicDayStr === "null" ? null : Number(topicDayStr);
-
-		const ids = questions
-			.filter((q) => q.resourceType === resourceType && q.topicDay === topicDay)
-			.map((q) => q.id);
-
-		if (ids.length === 0) return;
-
-		// Optimistic update
 		setQuestions((prev) =>
-			prev.map((q) => (ids.includes(q.id) ? { ...q, assignedDate: date } : q)),
+			prev.map((q) => (q.id === questionId ? { ...q, assignedDate: date } : q)),
 		);
 
 		fetch("/api/questions/assign-date", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ questionIds: ids, date }),
+			body: JSON.stringify({ questionIds: [questionId], date }),
 		}).catch(() => {
 			setQuestions((prev) =>
-				prev.map((q) => (ids.includes(q.id) ? { ...q, assignedDate: null } : q)),
+				prev.map((q) => (q.id === questionId ? { ...q, assignedDate: current.assignedDate } : q)),
 			);
 			toast.error("Failed to save assignment");
 		});
@@ -570,12 +503,6 @@ export function QuestionWeekPanel({
 		}
 	}
 
-	const activeDragParts = activeId?.split(":");
-	const activeDragTopicDay = activeId?.startsWith("day-group:") ? activeDragParts?.[2] : undefined;
-	const activeDragCount =
-		activeDragTopicDay !== undefined
-			? (groups.get(activeDragTopicDay === "null" ? null : Number(activeDragTopicDay))?.length ?? 0)
-			: 0;
 	const activeDragQuestion = activeId?.startsWith("question:")
 		? questions.find((q) => q.id === activeId.replace("question:", ""))
 		: undefined;
@@ -662,22 +589,15 @@ export function QuestionWeekPanel({
 				<div className="flex divide-x divide-slate-700" style={{ height: 400 }}>
 					{/* Left: Bank — hidden when all questions for this tab are assigned */}
 					{(unassignedBank.length > 0 || filteredBank.length === 0) && (
-						<div className="w-64 shrink-0 p-3 space-y-2.5 overflow-y-auto">
-							{groups.size === 0 ? (
+						<div className="w-52 shrink-0 p-2 space-y-2 overflow-y-auto">
+							{unassignedBank.length === 0 ? (
 								<p className="text-slate-600 text-xs text-center mt-10">
 									{filteredBank.length > 0
-										? "All questions assigned — drag between columns to move"
+										? "All questions assigned"
 										: "Upload a PDF to extract questions"}
 								</p>
 							) : (
-								Array.from(groups.entries()).map(([topicDay, qs]) => (
-									<DayGroupSection
-										key={topicDay ?? "null"}
-										topicDay={topicDay}
-										questions={qs}
-										resourceType={activeTab}
-									/>
-								))
+								unassignedBank.map((q) => <BankQuestionCard key={q.id} question={q} />)
 							)}
 						</div>
 					)}
@@ -738,15 +658,21 @@ export function QuestionWeekPanel({
 
 				<DragOverlay dropAnimation={null}>
 					{activeDragQuestion ? (
-						<div className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 text-[10px] shadow-xl rotate-1 pointer-events-none max-w-[200px] leading-snug">
-							{activeDragQuestion.stem.length > 80
-								? `${activeDragQuestion.stem.slice(0, 80)}…`
-								: activeDragQuestion.stem}
-						</div>
-					) : activeDragTopicDay !== undefined ? (
-						<div className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shadow-xl rotate-2 pointer-events-none">
-							{activeDragTopicDay === "null" ? "Unassigned" : `Day ${activeDragTopicDay}`} ·{" "}
-							{activeDragCount} Qs
+						<div className="rounded-lg border border-slate-600 bg-slate-700 shadow-xl rotate-1 pointer-events-none w-48 overflow-hidden">
+							{activeDragQuestion.imageUrl ? (
+								<img
+									src={activeDragQuestion.imageUrl}
+									alt="Question"
+									className="w-full object-cover object-top"
+									style={{ maxHeight: 100 }}
+								/>
+							) : (
+								<div className="px-3 py-2 text-slate-200 text-[10px] leading-snug">
+									{activeDragQuestion.stem.length > 80
+										? `${activeDragQuestion.stem.slice(0, 80)}…`
+										: activeDragQuestion.stem}
+								</div>
+							)}
 						</div>
 					) : null}
 				</DragOverlay>
