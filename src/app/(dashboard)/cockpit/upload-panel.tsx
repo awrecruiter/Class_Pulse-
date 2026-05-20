@@ -207,7 +207,7 @@ export function UploadPanel({
 		filename: string,
 	): Promise<{ page: number; imageUrl: string }[]> {
 		const pdfjsLib = await import("pdfjs-dist");
-		pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+		pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 		const pdf = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
 		const numPages = pdf.numPages;

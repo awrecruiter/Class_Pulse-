@@ -15,7 +15,9 @@
 			"!dist",
 			"!build",
 			"!drizzle",
-			"!.claude/worktrees"
+			"!.claude/worktrees",
+			"!public/*.mjs",
+			"!public/*.js"
 		]
 	},
 	"formatter": {

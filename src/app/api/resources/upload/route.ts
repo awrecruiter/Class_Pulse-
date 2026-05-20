@@ -429,39 +429,47 @@ export async function POST(request: NextRequest) {
 		const { resourceType, date: importDate, url, classId: rawClassId } = parsed.data;
 		const classId = rawClassId ?? "";
 		try {
-			await db
-				.insert(lessonResources)
-				.values({
-					teacherId,
-					topicNumber: 0,
-					lessonNumber: importDate,
-					resourceType,
-					label: resourceType,
-					url,
-					isHidden: false,
-					sortOrder: 0,
-					resourceData: null,
-					importDate,
-					classId,
-				})
-				.onConflictDoUpdate({
-					target: [
-						lessonResources.teacherId,
-						lessonResources.topicNumber,
-						lessonResources.lessonNumber,
-						lessonResources.resourceType,
-						lessonResources.classId,
-					],
-					set: {
-						url,
-						importDate,
-						label: resourceType,
-						updatedAt: new Date(),
-					},
-				});
-		} catch (err) {
-			console.error("[resources/upload] DB write error (JSON):", err);
-			return NextResponse.json({ error: "Database error writing resource" }, { status: 500 });
+			// Try plain insert first; catch unique violations and upsert manually.
+			// This is defensive for DBs where the unique index may not yet include class_id.
+			await db.insert(lessonResources).values({
+				teacherId,
+				topicNumber: 0,
+				lessonNumber: importDate,
+				resourceType,
+				label: resourceType,
+				url,
+				isHidden: false,
+				sortOrder: 0,
+				resourceData: null,
+				importDate,
+				classId,
+			});
+		} catch (insertErr) {
+			// Unique constraint violation → update existing row
+			const isUniqueViolation =
+				insertErr instanceof Error && insertErr.message.includes("duplicate key");
+			if (!isUniqueViolation) {
+				console.error("[resources/upload] DB write error (JSON):", insertErr);
+				return NextResponse.json({ error: "Database error writing resource" }, { status: 500 });
+			}
+			try {
+				const { eq, and } = await import("drizzle-orm");
+				await db
+					.update(lessonResources)
+					.set({ url, importDate, label: resourceType, updatedAt: new Date() })
+					.where(
+						and(
+							eq(lessonResources.teacherId, teacherId),
+							eq(lessonResources.topicNumber, 0),
+							eq(lessonResources.lessonNumber, importDate),
+							eq(lessonResources.resourceType, resourceType),
+							eq(lessonResources.classId, classId),
+						),
+					);
+			} catch (updateErr) {
+				console.error("[resources/upload] DB update error (JSON):", updateErr);
+				return NextResponse.json({ error: "Database error updating resource" }, { status: 500 });
+			}
 		}
 
 		return NextResponse.json({ status: "success", importedRows: 1 });
@@ -537,43 +545,51 @@ export async function POST(request: NextRequest) {
 		});
 	}
 
-	// Write to lessonResources — group all rows for a date into a single record
-	// keyed by (teacherId, topicNumber=0, lessonNumber=importDate, resourceType)
-	// using the resourceData JSONB column for the question array.
+	// Write to lessonResources — group all rows for a date into a single record.
 	try {
-		await db
-			.insert(lessonResources)
-			.values({
-				teacherId,
-				topicNumber: 0,
-				lessonNumber: importDate,
-				resourceType,
-				label: `${resourceType} import ${importDate}`.slice(0, 120),
-				url: "",
-				isHidden: false,
-				sortOrder: 0,
-				resourceData: { rows: parsedData } as unknown as Record<string, unknown>,
-				importDate,
-				classId,
-			})
-			.onConflictDoUpdate({
-				target: [
-					lessonResources.teacherId,
-					lessonResources.topicNumber,
-					lessonResources.lessonNumber,
-					lessonResources.resourceType,
-					lessonResources.classId,
-				],
-				set: {
+		await db.insert(lessonResources).values({
+			teacherId,
+			topicNumber: 0,
+			lessonNumber: importDate,
+			resourceType,
+			label: `${resourceType} import ${importDate}`.slice(0, 120),
+			url: "",
+			isHidden: false,
+			sortOrder: 0,
+			resourceData: { rows: parsedData } as unknown as Record<string, unknown>,
+			importDate,
+			classId,
+		});
+	} catch (insertErr) {
+		const isUniqueViolation =
+			insertErr instanceof Error && insertErr.message.includes("duplicate key");
+		if (!isUniqueViolation) {
+			console.error("[resources/upload] DB write error:", insertErr);
+			return NextResponse.json({ error: "Database error writing resource" }, { status: 500 });
+		}
+		try {
+			const { eq, and } = await import("drizzle-orm");
+			await db
+				.update(lessonResources)
+				.set({
 					resourceData: { rows: parsedData } as unknown as Record<string, unknown>,
 					importDate,
 					label: `${resourceType} import ${importDate}`.slice(0, 120),
 					updatedAt: new Date(),
-				},
-			});
-	} catch (err) {
-		console.error("[resources/upload] DB write error:", err);
-		return NextResponse.json({ error: "Database error writing resource" }, { status: 500 });
+				})
+				.where(
+					and(
+						eq(lessonResources.teacherId, teacherId),
+						eq(lessonResources.topicNumber, 0),
+						eq(lessonResources.lessonNumber, importDate),
+						eq(lessonResources.resourceType, resourceType),
+						eq(lessonResources.classId, classId),
+					),
+				);
+		} catch (updateErr) {
+			console.error("[resources/upload] DB update error:", updateErr);
+			return NextResponse.json({ error: "Database error writing resource" }, { status: 500 });
+		}
 	}
 
 	const status =
