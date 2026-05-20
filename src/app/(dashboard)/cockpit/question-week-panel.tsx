@@ -39,6 +39,8 @@ type QuestionBankItem = {
 	topicDay: number | null;
 	assignedDate: string | null;
 	extractedAt: string;
+	imageUrl: string | null;
+	sourcePage: number | null;
 };
 
 type Props = {
@@ -143,7 +145,18 @@ function DayGroupSection({
 			<div className="p-2 space-y-1.5">
 				{questions.map((q) => (
 					<div key={q.id} className="rounded-md bg-slate-900/40 px-2 py-1.5">
-						<p className="text-[11px] text-slate-300 line-clamp-2 leading-snug">{q.stem}</p>
+						{q.imageUrl ? (
+							<img
+								src={q.imageUrl}
+								alt="Question"
+								className="w-full h-14 object-cover object-top rounded mb-1"
+								draggable={false}
+							/>
+						) : (
+							<p className="text-[11px] text-slate-300 line-clamp-2 leading-snug">
+								{q.stem || "Image question"}
+							</p>
+						)}
 						{q.standardCode && (
 							<span className="text-[9px] text-indigo-400 font-mono">{q.standardCode}</span>
 						)}
@@ -181,7 +194,18 @@ function DraggableQuestion({
 			className={`rounded bg-slate-800/60 px-2 py-1.5 flex items-start gap-1.5 cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-30" : ""}`}
 		>
 			<GripVerticalIcon className="h-3 w-3 text-slate-600 shrink-0 mt-0.5" />
-			<p className="text-[10px] text-slate-300 line-clamp-2 leading-snug flex-1">{question.stem}</p>
+			{question.imageUrl ? (
+				<img
+					src={question.imageUrl}
+					alt="Question"
+					className="flex-1 min-w-0 h-10 w-full object-cover object-top rounded"
+					draggable={false}
+				/>
+			) : (
+				<p className="text-[10px] text-slate-300 line-clamp-2 leading-snug flex-1">
+					{question.stem || "Image question"}
+				</p>
+			)}
 			{isToday && activeSessionId && (
 				<button
 					type="button"
@@ -228,7 +252,7 @@ function DayColumn({
 	const topicDay = assignedQuestions[0]?.topicDay ?? null;
 
 	return (
-		<div className={`flex-1 flex flex-col min-h-0 ${isToday ? "bg-indigo-950/20" : ""}`}>
+		<div className={`min-w-0 w-full flex flex-col min-h-0 ${isToday ? "bg-indigo-950/20" : ""}`}>
 			{/* Column header */}
 			<div
 				className={`px-2 py-2 border-b ${
@@ -692,7 +716,7 @@ export function QuestionWeekPanel({
 
 						{/* Day columns */}
 						<div className="flex-1 overflow-x-auto min-h-0">
-							<div className="flex divide-x divide-slate-700/50 h-full w-full">
+							<div className="grid grid-cols-5 divide-x divide-slate-700/50 h-full">
 								{displayedWeekDates.map((date, i) => (
 									<DayColumn
 										key={date}

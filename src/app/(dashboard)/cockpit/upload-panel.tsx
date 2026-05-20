@@ -103,6 +103,18 @@ export function UploadPanel({
 	// Scope prompt — set after URL paste or after S3 upload completes
 	const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
 
+	// Page rendering state
+	const [pageImages, setPageImages] = useState<{ page: number; imageUrl: string }[]>([]);
+	const [renderingPages, setRenderingPages] = useState(false);
+	const [renderProgress, setRenderProgress] = useState(0);
+	const [totalPages, setTotalPages] = useState(0);
+	const [readyForAction, setReadyForAction] = useState(false);
+	const [savedObjectUrl, setSavedObjectUrl] = useState<string | null>(null);
+	const [savedFilename, setSavedFilename] = useState<string>("");
+	const [creatingFromPages, setCreatingFromPages] = useState(false);
+
+	const isBusy = uploading || fileUploading || extracting || renderingPages || creatingFromPages;
+
 	// ── Shared: save a resolved URL as a resource record ────────────────────────
 	const saveResourceUrl = async (resolvedUrl: string, scopeClassId: string) => {
 		const res = await fetch("/api/resources/upload", {
@@ -185,6 +197,142 @@ export function UploadPanel({
 		}
 	};
 
+	// ── Render PDF pages to images ───────────────────────────────────────────────
+	async function renderPagesToImages(
+		pdfUrl: string,
+		filename: string,
+	): Promise<{ page: number; imageUrl: string }[]> {
+		const pdfjsLib = await import("pdfjs-dist");
+		pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+		const res = await fetch(pdfUrl);
+		if (!res.ok) throw new Error("Failed to fetch PDF");
+		const buffer = await res.arrayBuffer();
+
+		const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+		const numPages = pdf.numPages;
+		setTotalPages(numPages);
+
+		const results: { page: number; imageUrl: string }[] = [];
+
+		for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+			setRenderProgress(pageNum);
+			try {
+				const page = await pdf.getPage(pageNum);
+				const viewport = page.getViewport({ scale: 2.0 });
+
+				const canvas = document.createElement("canvas");
+				canvas.width = viewport.width;
+				canvas.height = viewport.height;
+				const ctx = canvas.getContext("2d");
+				if (!ctx) continue;
+
+				ctx.fillStyle = "#ffffff";
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+
+				const blob = await new Promise<Blob | null>((resolve) =>
+					canvas.toBlob(resolve, "image/jpeg", 0.9),
+				);
+				if (!blob) continue;
+
+				const pageFilename = `${filename.replace(/\.pdf$/i, "")}-p${pageNum}.jpg`;
+				const presignRes = await fetch(
+					`/api/resources/pdf/presign?filename=${encodeURIComponent(pageFilename)}`,
+				);
+				if (!presignRes.ok) continue;
+				const { presignedUrl, objectUrl } = (await presignRes.json()) as {
+					presignedUrl: string;
+					objectUrl: string;
+				};
+
+				const uploadRes = await fetch(presignedUrl, {
+					method: "PUT",
+					body: blob,
+					headers: { "Content-Type": "image/jpeg" },
+				});
+				if (!uploadRes.ok) continue;
+
+				results.push({ page: pageNum, imageUrl: objectUrl });
+			} catch {
+				// skip page on error
+			}
+		}
+
+		return results;
+	}
+
+	// ── Extract questions with AI ────────────────────────────────────────────────
+	async function handleExtractWithAI() {
+		if (!savedObjectUrl || !savedFilename) return;
+		setExtracting(true);
+		try {
+			const extractRes = await fetch("/api/questions/extract", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					url: savedObjectUrl,
+					filename: savedFilename,
+					resourceType,
+					startDate: date,
+					pageImages,
+				}),
+			});
+			if (extractRes.ok) {
+				setReadyForAction(false);
+				setSavedObjectUrl(null);
+				setSavedFilename("");
+				setPageImages([]);
+				onQuestionsReady?.();
+			} else {
+				const errJson = await extractRes.json().catch(() => ({}));
+				toast.error((errJson as { error?: string }).error ?? "Extraction failed");
+			}
+		} catch {
+			toast.error("Question extraction failed");
+		} finally {
+			setExtracting(false);
+		}
+	}
+
+	// ── Create one question per page (no AI) ────────────────────────────────────
+	async function handleCreateFromPages() {
+		if (pageImages.length === 0 || !savedObjectUrl || !savedFilename) return;
+		setCreatingFromPages(true);
+		try {
+			const res = await fetch("/api/questions/from-pages", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					pageImages,
+					sourceUrl: savedObjectUrl,
+					filename: savedFilename,
+					resourceType,
+					startDate: date,
+				}),
+			});
+			if (res.ok) {
+				setReadyForAction(false);
+				setSavedObjectUrl(null);
+				setSavedFilename("");
+				setPageImages([]);
+				onQuestionsReady?.();
+				toast.success(
+					`Added ${pageImages.length} question${pageImages.length !== 1 ? "s" : ""} from pages`,
+				);
+			} else {
+				const errJson = await res.json().catch(() => ({}));
+				toast.error(
+					(errJson as { error?: string }).error ?? "Failed to create questions from pages",
+				);
+			}
+		} catch {
+			toast.error("Failed to create questions from pages");
+		} finally {
+			setCreatingFromPages(false);
+		}
+	}
+
 	// ── Scope choice: fires after teacher picks "this class" or "all classes" ───
 	const handleScopeChoice = async (scopeClassId: string) => {
 		const upload = pendingUpload;
@@ -209,30 +357,24 @@ export function UploadPanel({
 			} finally {
 				setUploading(false);
 			}
-			// Kick off PDF question extraction after saving the record
+
+			// For PDFs (not pacing): render pages then show action buttons
 			if (upload.isPdf && resourceType !== "pacing") {
-				setExtracting(true);
+				setSavedObjectUrl(upload.objectUrl);
+				setSavedFilename(upload.filename);
+				setRenderingPages(true);
+				setRenderProgress(0);
+				setTotalPages(0);
+				setReadyForAction(false);
 				try {
-					const extractRes = await fetch("/api/questions/extract", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							url: upload.objectUrl,
-							filename: upload.filename,
-							resourceType,
-							startDate: date,
-						}),
-					});
-					if (extractRes.ok) {
-						onQuestionsReady?.();
-					} else {
-						const errJson = await extractRes.json().catch(() => ({}));
-						toast.error((errJson as { error?: string }).error ?? "Extraction failed");
-					}
+					const images = await renderPagesToImages(upload.objectUrl, upload.filename);
+					setPageImages(images);
 				} catch {
-					toast.error("Question extraction failed — check console");
+					toast.error("Page capture failed — you can still extract questions");
+					setPageImages([]);
 				} finally {
-					setExtracting(false);
+					setRenderingPages(false);
+					setReadyForAction(true);
 				}
 			}
 		}
@@ -276,8 +418,6 @@ export function UploadPanel({
 			setUploading(false);
 		}
 	};
-
-	const isBusy = uploading || fileUploading || extracting;
 
 	return (
 		<div
@@ -505,6 +645,61 @@ export function UploadPanel({
 							>
 								<XIcon className="h-3.5 w-3.5" />
 							</button>
+						</div>
+					)}
+
+					{/* Page rendering progress */}
+					{renderingPages && (
+						<div className="flex items-center gap-2 text-xs text-slate-400">
+							<div className="h-3 w-3 rounded-full border border-slate-600 border-t-slate-300 animate-spin" />
+							{totalPages > 0
+								? `Capturing page ${renderProgress} of ${totalPages}…`
+								: "Capturing pages…"}
+						</div>
+					)}
+
+					{/* Action buttons — shown after page capture completes */}
+					{readyForAction && !renderingPages && (
+						<div className="rounded-lg border border-indigo-600/40 bg-indigo-900/20 px-4 py-3 space-y-2.5">
+							<p className="text-xs font-medium text-indigo-300">
+								{pageImages.length > 0
+									? `${pageImages.length} page${pageImages.length !== 1 ? "s" : ""} captured — add questions to the bank:`
+									: "PDF saved — add questions to the bank:"}
+							</p>
+							<div className="flex gap-2">
+								<button
+									type="button"
+									onClick={handleExtractWithAI}
+									disabled={isBusy}
+									className="flex-1 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+								>
+									{extracting ? "Extracting…" : "Extract with AI"}
+								</button>
+								{pageImages.length > 0 && (
+									<button
+										type="button"
+										onClick={handleCreateFromPages}
+										disabled={isBusy}
+										className="flex-1 px-3 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-50"
+									>
+										{creatingFromPages ? "Creating…" : "Create from pages"}
+									</button>
+								)}
+								<button
+									type="button"
+									onClick={() => {
+										setReadyForAction(false);
+										setSavedObjectUrl(null);
+										setSavedFilename("");
+										setPageImages([]);
+									}}
+									className="p-2 rounded-lg border border-slate-700 text-slate-500 hover:text-slate-300 transition-colors"
+									aria-label="Skip"
+									title="Skip — don't add questions now"
+								>
+									<XIcon className="h-3.5 w-3.5" />
+								</button>
+							</div>
 						</div>
 					)}
 

@@ -46,9 +46,19 @@ export async function GET(request: NextRequest) {
 						sort_order integer NOT NULL DEFAULT 0,
 						topic_day integer,
 						assigned_date text,
+						image_url text,
+						source_page integer,
 						extracted_at timestamptz NOT NULL DEFAULT now()
 					)
 				`);
+				await db
+					.execute(sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS image_url text`)
+					.catch(() => {});
+				await db
+					.execute(
+						sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS source_page integer`,
+					)
+					.catch(() => {});
 			} catch {
 				// ignore
 			}

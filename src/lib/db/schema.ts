@@ -1096,6 +1096,8 @@ export const questionBankItems = pgTable(
 		sortOrder: integer("sort_order").notNull().default(0),
 		topicDay: integer("topic_day"),
 		assignedDate: text("assigned_date"),
+		imageUrl: text("image_url"),
+		sourcePage: integer("source_page"),
 		extractedAt: timestamp("extracted_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [

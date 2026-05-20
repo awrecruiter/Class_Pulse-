@@ -15,6 +15,10 @@ const bodySchema = z.object({
 	filename: z.string().min(1),
 	resourceType: z.string().default("unknown"),
 	startDate: z.string().optional().default(new Date().toISOString().slice(0, 10)),
+	pageImages: z
+		.array(z.object({ page: z.number().int().positive(), imageUrl: z.string().url() }))
+		.optional()
+		.default([]),
 });
 
 function addWeekdays(base: Date, n: number): Date {
@@ -44,9 +48,18 @@ async function ensureQuestionBankTable() {
 			sort_order integer NOT NULL DEFAULT 0,
 			topic_day integer,
 			assigned_date text,
+			image_url text,
+			source_page integer,
 			extracted_at timestamptz NOT NULL DEFAULT now()
 		)
 	`);
+}
+
+async function ensureNewColumns() {
+	await db.execute(sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS image_url text`);
+	await db.execute(
+		sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS source_page integer`,
+	);
 }
 
 export async function POST(request: NextRequest) {
@@ -63,7 +76,7 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 	}
 
-	const { url, filename, resourceType, startDate } = result.data;
+	const { url, filename, resourceType, startDate, pageImages } = result.data;
 
 	// Reject duplicate — same filename already extracted for this teacher
 	const duplicate = await db
@@ -111,9 +124,14 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ count: 0, questions: [] });
 	}
 
+	// Ensure new columns exist (idempotent migration)
+	await ensureNewColumns();
+
 	// Bulk insert into question bank
 	const finalResourceType =
 		extracted.resourceType !== "unknown" ? extracted.resourceType : resourceType;
+
+	const pageImageMap = new Map(pageImages.map((p) => [p.page, p.imageUrl]));
 
 	const rows = extracted.questions.map((q, i) => ({
 		teacherId: data.user.id,
@@ -127,6 +145,8 @@ export async function POST(request: NextRequest) {
 		questionType: q.questionType,
 		sortOrder: i,
 		topicDay: q.topicDay ?? null,
+		imageUrl: pageImageMap.get(q.sourcePage ?? 0) ?? null,
+		sourcePage: q.sourcePage ?? null,
 	}));
 
 	let inserted: (typeof questionBankItems.$inferSelect)[];

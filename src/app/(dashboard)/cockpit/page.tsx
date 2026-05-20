@@ -465,6 +465,8 @@ export default async function CockpitPage() {
 								topicDay: number | null;
 								assignedDate: string | null;
 								extractedAt: string;
+								imageUrl: string | null;
+								sourcePage: number | null;
 							}[]
 						}
 						activeSessionId={activeSessionRow?.id ?? null}

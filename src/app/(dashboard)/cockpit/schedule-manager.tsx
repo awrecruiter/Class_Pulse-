@@ -52,7 +52,7 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 	const [weekOffset, setWeekOffset] = useState(0);
 	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>(() => {
 		try {
-			const stored = sessionStorage.getItem("schedule-resources");
+			const stored = localStorage.getItem("schedule-resources");
 			return stored ? (JSON.parse(stored) as Record<string, string[]>) : {};
 		} catch {
 			return {};
@@ -79,7 +79,7 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 			setActiveClassId((e as CustomEvent<{ classId: string }>).detail.classId ?? null);
 			setResourcesByDate({});
 			try {
-				sessionStorage.removeItem("schedule-resources");
+				localStorage.removeItem("schedule-resources");
 			} catch {
 				/* ignore */
 			}
@@ -118,7 +118,7 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 			for (const { date, types } of results) map[date] = types;
 			setResourcesByDate(map);
 			try {
-				sessionStorage.setItem("schedule-resources", JSON.stringify(map));
+				localStorage.setItem("schedule-resources", JSON.stringify(map));
 			} catch {
 				/* ignore */
 			}

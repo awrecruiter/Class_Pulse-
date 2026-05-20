@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { auth } from "@/lib/auth/server";
@@ -11,6 +11,16 @@ import { sessionRateLimiter } from "@/lib/rate-limit";
 const bodySchema = z.object({
 	questionId: z.string().uuid(),
 });
+
+async function ensureColumns() {
+	await db
+		.execute(sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS image_url text`)
+		.catch(() => {});
+	await db
+		.execute(sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS source_page integer`)
+		.catch(() => {});
+}
+const _ready = ensureColumns();
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
@@ -57,6 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		answer: question.answer,
 		questionType: question.questionType,
 		standardCode: question.standardCode,
+		imageUrl: question.imageUrl ?? null,
 	});
 
 	const [push] = await db

@@ -296,6 +296,7 @@ export function StudentSession({
 		answer: string;
 		questionType: string;
 		standardCode: string | null;
+		imageUrl?: string | null;
 	} | null>(null);
 	const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
 	const [questionAnswered, setQuestionAnswered] = useState(false);
@@ -509,7 +510,18 @@ export function StudentSession({
 						)}
 					</div>
 					<div className="px-5 py-4 space-y-4">
-						<p className="text-slate-100 text-sm leading-relaxed">{pushedQuestion.stem}</p>
+						{pushedQuestion.imageUrl ? (
+							<img
+								src={pushedQuestion.imageUrl}
+								alt="Question"
+								className="w-full rounded-lg mb-2"
+							/>
+						) : (
+							<p className="text-slate-100 text-sm leading-relaxed">{pushedQuestion.stem}</p>
+						)}
+						{pushedQuestion.imageUrl && pushedQuestion.stem && (
+							<p className="text-slate-100 text-sm leading-relaxed">{pushedQuestion.stem}</p>
+						)}
 
 						{/* MC choices */}
 						{pushedQuestion.questionType === "mc" && pushedQuestion.choices && (
