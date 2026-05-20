@@ -326,8 +326,9 @@ export function QuestionWeekPanel({
 	weekDates: _initialWeekDates,
 	initialQuestions,
 	activeSessionId,
-	classId,
+	classId: initialClassId,
 }: Props) {
+	const [activeClassId, setActiveClassId] = useState<string | null>(initialClassId);
 	const [questions, setQuestions] = useState<QuestionBankItem[]>(initialQuestions);
 	const [activeTab, setActiveTab] = useState<"bell-ringer" | "cfu" | "exit-ticket">("bell-ringer");
 	const [sending, setSending] = useState<string | null>(null);
@@ -345,13 +346,22 @@ export function QuestionWeekPanel({
 		setLiveSessionId(activeSessionId);
 	}, [activeSessionId]);
 
+	// Listen for class switches from CockpitClassPicker
+	useEffect(() => {
+		const handler = (e: Event) => {
+			setActiveClassId((e as CustomEvent<{ classId: string }>).detail.classId ?? null);
+		};
+		window.addEventListener("class-selected", handler);
+		return () => window.removeEventListener("class-selected", handler);
+	}, []);
+
 	// Poll the active-session endpoint every 10 s so "Send Next" activates without a page reload
 	useEffect(() => {
-		if (!classId) return;
+		if (!activeClassId) return;
 		let cancelled = false;
 		const poll = async () => {
 			try {
-				const res = await fetch(`/api/classes/${classId}/session/active`);
+				const res = await fetch(`/api/classes/${activeClassId}/session/active`);
 				if (!res.ok || cancelled) return;
 				const { id } = (await res.json()) as { id: string | null };
 				if (!cancelled) setLiveSessionId(id ?? null);
@@ -365,7 +375,7 @@ export function QuestionWeekPanel({
 			cancelled = true;
 			clearInterval(interval);
 		};
-	}, [classId]);
+	}, [activeClassId]);
 
 	// Tracks which question IDs have been pushed this session — reset when session changes
 	const pushedIdsRef = useRef<Set<string>>(new Set());
@@ -619,7 +629,7 @@ export function QuestionWeekPanel({
 			{/* Collapsible upload section */}
 			{uploadOpen && (
 				<div className="border-b border-slate-700 bg-slate-900/30">
-					<UploadPanel classId={classId} inline onQuestionsReady={fetchQuestions} />
+					<UploadPanel classId={activeClassId} inline onQuestionsReady={fetchQuestions} />
 				</div>
 			)}
 

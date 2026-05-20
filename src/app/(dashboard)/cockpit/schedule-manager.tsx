@@ -39,7 +39,8 @@ type ProposedBlock = {
 	color: string;
 };
 
-export function ScheduleManager({ classId }: { classId?: string | null }) {
+export function ScheduleManager({ classId: initialClassId }: { classId?: string | null }) {
+	const [activeClassId, setActiveClassId] = useState<string | null>(initialClassId ?? null);
 	const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
 	const [importing, setImporting] = useState(false);
 	const [extractStatus, setExtractStatus] = useState<{
@@ -66,6 +67,14 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 		fetchBlocks();
 	}, [fetchBlocks]);
 
+	useEffect(() => {
+		const handler = (e: Event) => {
+			setActiveClassId((e as CustomEvent<{ classId: string }>).detail.classId ?? null);
+		};
+		window.addEventListener("class-selected", handler);
+		return () => window.removeEventListener("class-selected", handler);
+	}, []);
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: weekOffset is the trigger, setResourcesByDate is stable
 	useEffect(() => {
 		setResourcesByDate({});
@@ -83,7 +92,7 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 				d.setDate(monday.getDate() + i);
 				return d.toISOString().slice(0, 10);
 			});
-			const classParam = classId ? `&classId=${encodeURIComponent(classId)}` : "";
+			const classParam = activeClassId ? `&classId=${encodeURIComponent(activeClassId)}` : "";
 			const results = await Promise.all(
 				dates.map((date) =>
 					fetch(`/api/resources/today?date=${date}${classParam}`)
@@ -105,7 +114,7 @@ export function ScheduleManager({ classId }: { classId?: string | null }) {
 		} finally {
 			setLoadingResources(false);
 		}
-	}, [weekOffset, classId]);
+	}, [weekOffset, activeClassId]);
 
 	// Listen for the "load-resources" event dispatched by the question bank panel
 	useEffect(() => {

@@ -29,6 +29,7 @@ import {
 	teacherSettings,
 } from "@/lib/db/schema";
 import { getTodayPacing } from "@/lib/pacing";
+import { CockpitClassPicker } from "./cockpit-class-picker";
 import { CommsActions } from "./comms-actions";
 import { CockpitInfoStrip } from "./info-strip";
 import { PacingGuideCard } from "./pacing-guide-card";
@@ -426,51 +427,15 @@ export default async function CockpitPage() {
 				{/* Left column (2/3) */}
 				<div className="lg:col-span-2 space-y-6">
 					{/* Class Selector */}
-					<section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-						<div className="flex items-center justify-between mb-3">
-							<h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-								<UsersIcon className="h-4 w-4 text-slate-500" />
-								Your Classes
-							</h2>
-							<Link
-								href="/classes"
-								className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
-							>
-								Manage <ArrowRightIcon className="h-3 w-3" />
-							</Link>
-						</div>
-						{teacherClasses.length === 0 ? (
-							<p className="text-sm text-slate-500">
-								No classes yet.{" "}
-								<Link href="/classes" className="text-indigo-400 hover:text-indigo-300">
-									Create one
-								</Link>
-							</p>
-						) : (
-							<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-								{teacherClasses.map((cls, i) => (
-									<Link
-										key={cls.id}
-										href={`/classes/${cls.id}`}
-										className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
-											i === 0
-												? "border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/15"
-												: "border-slate-700 bg-slate-900/40 hover:bg-slate-700/30"
-										}`}
-									>
-										<div>
-											<p className="text-sm font-semibold text-slate-200">{cls.label}</p>
-											{cls.periodTime && <p className="text-xs text-slate-500">{cls.periodTime}</p>}
-										</div>
-										<div className="text-xs text-slate-500 text-right">
-											{i === 0 && groupRows.length > 0 && (
-												<span className="text-indigo-400">{groupRows.length} groups</span>
-											)}
-										</div>
-									</Link>
-								))}
-							</div>
-						)}
+					<section className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
+						<CockpitClassPicker
+							classes={teacherClasses.map((c) => ({
+								id: c.id,
+								label: c.label,
+								periodTime: c.periodTime ?? null,
+							}))}
+							initialClassId={primaryClass?.id ?? null}
+						/>
 					</section>
 
 					{primaryClass && (
