@@ -50,14 +50,16 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 	const photoInputRef = useRef<HTMLInputElement>(null);
 	const icsInputRef = useRef<HTMLInputElement>(null);
 	const [weekOffset, setWeekOffset] = useState(0);
-	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>(() => {
+	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>({});
+
+	useEffect(() => {
 		try {
 			const stored = localStorage.getItem("schedule-resources");
-			return stored ? (JSON.parse(stored) as Record<string, string[]>) : {};
+			if (stored) setResourcesByDate(JSON.parse(stored) as Record<string, string[]>);
 		} catch {
-			return {};
+			// ignore
 		}
-	});
+	}, []);
 	const [loadingResources, setLoadingResources] = useState(false);
 
 	const fetchBlocks = useCallback(async () => {

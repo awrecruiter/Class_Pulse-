@@ -93,6 +93,7 @@ export function UploadPanel({
 	const [fileUploading, setFileUploading] = useState(false);
 	const [extracting, setExtracting] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const pdfBufferRef = useRef<ArrayBuffer | null>(null);
 
 	// CSV section state
 	const [showCsv, setShowCsv] = useState(false);
@@ -187,6 +188,9 @@ export function UploadPanel({
 
 			// 3. Show scope prompt before saving the resource record
 			const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
+			if (isPdf) {
+				pdfBufferRef.current = await pickedFile.arrayBuffer().catch(() => null);
+			}
 			setPendingUpload({ kind: "file", objectUrl, filename: pickedFile.name, isPdf });
 			setPickedFile(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
@@ -199,17 +203,13 @@ export function UploadPanel({
 
 	// ── Render PDF pages to images ───────────────────────────────────────────────
 	async function renderPagesToImages(
-		pdfUrl: string,
+		pdfBuffer: ArrayBuffer,
 		filename: string,
 	): Promise<{ page: number; imageUrl: string }[]> {
 		const pdfjsLib = await import("pdfjs-dist");
 		pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
-		const res = await fetch(pdfUrl);
-		if (!res.ok) throw new Error("Failed to fetch PDF");
-		const buffer = await res.arrayBuffer();
-
-		const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+		const pdf = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
 		const numPages = pdf.numPages;
 		setTotalPages(numPages);
 
@@ -366,9 +366,12 @@ export function UploadPanel({
 				setRenderProgress(0);
 				setTotalPages(0);
 				setReadyForAction(false);
+				const buf = pdfBufferRef.current;
+				pdfBufferRef.current = null;
 				try {
-					const images = await renderPagesToImages(upload.objectUrl, upload.filename);
+					const images = buf ? await renderPagesToImages(buf, upload.filename) : [];
 					setPageImages(images);
+					if (!buf) toast.info("Page capture skipped — browser buffer unavailable");
 				} catch {
 					toast.error("Page capture failed — you can still extract questions");
 					setPageImages([]);
