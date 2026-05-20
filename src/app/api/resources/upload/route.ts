@@ -445,47 +445,41 @@ export async function POST(request: NextRequest) {
 
 		const { resourceType, date: importDate, url, classId: rawClassId } = parsed.data;
 		const classId = rawClassId ?? "";
+
+		// Try upsert with class_id (migration 0020 applied — 5-col unique index).
+		// Falls back to upsert without class_id for older production DBs.
 		try {
-			// Try plain insert first; catch unique violations and upsert manually.
-			// This is defensive for DBs where the unique index may not yet include class_id.
-			await db.insert(lessonResources).values({
-				teacherId,
-				topicNumber: 0,
-				lessonNumber: importDate,
-				resourceType,
-				label: resourceType,
-				url,
-				isHidden: false,
-				sortOrder: 0,
-				resourceData: null,
-				importDate,
-				classId,
-			});
-		} catch (insertErr) {
-			// Unique constraint violation → update existing row
-			const isUniqueViolation =
-				insertErr instanceof Error && insertErr.message.includes("duplicate key");
-			if (!isUniqueViolation) {
-				console.error("[resources/upload] DB write error (JSON):", insertErr);
-				return NextResponse.json({ error: "Database error writing resource" }, { status: 500 });
-			}
+			await db.execute(sql`
+				INSERT INTO lesson_resources
+					(teacher_id, topic_number, lesson_number, resource_type, label, url, is_hidden, sort_order, import_date, class_id)
+				VALUES
+					(${teacherId}, ${0}, ${importDate}, ${resourceType}, ${resourceType}, ${url}, ${false}, ${0}, ${importDate}, ${classId})
+				ON CONFLICT (teacher_id, topic_number, lesson_number, resource_type, class_id)
+				DO UPDATE SET
+					url = EXCLUDED.url, label = EXCLUDED.label,
+					import_date = EXCLUDED.import_date, updated_at = now()
+			`);
+		} catch {
+			// 5-col unique index or class_id column missing — fall back to pre-migration schema
 			try {
-				const { eq, and } = await import("drizzle-orm");
-				await db
-					.update(lessonResources)
-					.set({ url, importDate, label: resourceType, updatedAt: new Date() })
-					.where(
-						and(
-							eq(lessonResources.teacherId, teacherId),
-							eq(lessonResources.topicNumber, 0),
-							eq(lessonResources.lessonNumber, importDate),
-							eq(lessonResources.resourceType, resourceType),
-							eq(lessonResources.classId, classId),
-						),
-					);
-			} catch (updateErr) {
-				console.error("[resources/upload] DB update error (JSON):", updateErr);
-				return NextResponse.json({ error: "Database error updating resource" }, { status: 500 });
+				await db.execute(sql`
+					INSERT INTO lesson_resources
+						(teacher_id, topic_number, lesson_number, resource_type, label, url, is_hidden, sort_order, import_date)
+					VALUES
+						(${teacherId}, ${0}, ${importDate}, ${resourceType}, ${resourceType}, ${url}, ${false}, ${0}, ${importDate})
+					ON CONFLICT (teacher_id, topic_number, lesson_number, resource_type)
+					DO UPDATE SET
+						url = EXCLUDED.url, label = EXCLUDED.label,
+						import_date = EXCLUDED.import_date, updated_at = now()
+				`);
+			} catch (e2) {
+				console.error("[resources/upload] DB upsert failed:", e2);
+				return NextResponse.json(
+					{
+						error: `Database error: ${e2 instanceof Error ? e2.message.slice(0, 200) : String(e2)}`,
+					},
+					{ status: 500 },
+				);
 			}
 		}
 
