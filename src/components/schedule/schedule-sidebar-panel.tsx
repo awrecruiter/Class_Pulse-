@@ -131,9 +131,11 @@ function nextWeekday(from: Date): Date {
 export function ScheduleSidebarPanel({
 	onShowDiGroups,
 	activeSessionId,
+	classId,
 }: {
 	onShowDiGroups?: () => void;
 	activeSessionId?: string | null;
+	classId?: string | null;
 }) {
 	const { blocks, loading } = useScheduleToday();
 	const [scheduleDocOpenMode, setScheduleDocOpenMode] = useState<"toast" | "new-tab">("toast");
@@ -232,15 +234,16 @@ export function ScheduleSidebarPanel({
 			setTodayResources([]);
 			return;
 		}
+		const classParam = classId ? `?classId=${encodeURIComponent(classId)}` : "";
 		const fetchResources = () =>
-			fetch("/api/resources/today")
+			fetch(`/api/resources/today${classParam}`)
 				.then((r) => (r.ok ? r.json() : { sections: [] }))
 				.then((j: { sections?: TodayResourceSection[] }) => setTodayResources(j.sections ?? []))
 				.catch(() => {});
 		fetchResources();
 		const interval = setInterval(fetchResources, 30_000);
 		return () => clearInterval(interval);
-	}, [dayIsOver]);
+	}, [dayIsOver, classId]);
 
 	// Fetch today's questions for the Send button — poll every 30s alongside resources.
 	useEffect(() => {

@@ -636,25 +636,27 @@ export function QuestionWeekPanel({
 			{/* Body */}
 			<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
 				<div className="flex divide-x divide-slate-700" style={{ height: 400 }}>
-					{/* Left: Bank */}
-					<div className="w-64 shrink-0 p-3 space-y-2.5 overflow-y-auto">
-						{groups.size === 0 ? (
-							<p className="text-slate-600 text-xs text-center mt-10">
-								{filteredBank.length > 0
-									? "All questions assigned — drag between columns to move"
-									: "Upload a PDF to extract questions"}
-							</p>
-						) : (
-							Array.from(groups.entries()).map(([topicDay, qs]) => (
-								<DayGroupSection
-									key={topicDay ?? "null"}
-									topicDay={topicDay}
-									questions={qs}
-									resourceType={activeTab}
-								/>
-							))
-						)}
-					</div>
+					{/* Left: Bank — hidden when all questions for this tab are assigned */}
+					{(unassignedBank.length > 0 || filteredBank.length === 0) && (
+						<div className="w-64 shrink-0 p-3 space-y-2.5 overflow-y-auto">
+							{groups.size === 0 ? (
+								<p className="text-slate-600 text-xs text-center mt-10">
+									{filteredBank.length > 0
+										? "All questions assigned — drag between columns to move"
+										: "Upload a PDF to extract questions"}
+								</p>
+							) : (
+								Array.from(groups.entries()).map(([topicDay, qs]) => (
+									<DayGroupSection
+										key={topicDay ?? "null"}
+										topicDay={topicDay}
+										questions={qs}
+										resourceType={activeTab}
+									/>
+								))
+							)}
+						</div>
+					)}
 
 					{/* Right: Week columns */}
 					<div className="flex-1 min-w-0 flex flex-col">

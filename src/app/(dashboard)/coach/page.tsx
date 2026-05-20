@@ -1111,6 +1111,7 @@ export default function CoachPage() {
 												setInputMode("ask");
 											}}
 											activeSessionId={activeSessionId}
+											classId={selectedClassId}
 										/>
 									</div>
 								</div>

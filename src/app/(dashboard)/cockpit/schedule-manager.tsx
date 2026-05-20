@@ -50,7 +50,14 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 	const photoInputRef = useRef<HTMLInputElement>(null);
 	const icsInputRef = useRef<HTMLInputElement>(null);
 	const [weekOffset, setWeekOffset] = useState(0);
-	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>({});
+	const [resourcesByDate, setResourcesByDate] = useState<Record<string, string[]>>(() => {
+		try {
+			const stored = sessionStorage.getItem("schedule-resources");
+			return stored ? (JSON.parse(stored) as Record<string, string[]>) : {};
+		} catch {
+			return {};
+		}
+	});
 	const [loadingResources, setLoadingResources] = useState(false);
 
 	const fetchBlocks = useCallback(async () => {
@@ -70,15 +77,16 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 	useEffect(() => {
 		const handler = (e: Event) => {
 			setActiveClassId((e as CustomEvent<{ classId: string }>).detail.classId ?? null);
+			setResourcesByDate({});
+			try {
+				sessionStorage.removeItem("schedule-resources");
+			} catch {
+				/* ignore */
+			}
 		};
 		window.addEventListener("class-selected", handler);
 		return () => window.removeEventListener("class-selected", handler);
 	}, []);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: weekOffset is the trigger, setResourcesByDate is stable
-	useEffect(() => {
-		setResourcesByDate({});
-	}, [weekOffset]);
 
 	const loadResources = useCallback(async () => {
 		setLoadingResources(true);
@@ -109,6 +117,11 @@ export function ScheduleManager({ classId: initialClassId }: { classId?: string 
 			const map: Record<string, string[]> = {};
 			for (const { date, types } of results) map[date] = types;
 			setResourcesByDate(map);
+			try {
+				sessionStorage.setItem("schedule-resources", JSON.stringify(map));
+			} catch {
+				/* ignore */
+			}
 			const total = Object.values(map).reduce((n, arr) => n + arr.length, 0);
 			if (total === 0) toast.info("No resources uploaded for this week");
 		} finally {
