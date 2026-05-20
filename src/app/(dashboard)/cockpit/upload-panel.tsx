@@ -347,6 +347,7 @@ export function UploadPanel({
 					filename: savedFilename,
 					resourceType,
 					startDate: date,
+					replace: hasExistingQuestions,
 				}),
 			});
 			if (res.ok) {

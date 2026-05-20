@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { FL_BEST_STANDARDS } from "@/data/fl-best-standards";
@@ -7,6 +8,20 @@ import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { lessonResources } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
+
+async function ensureColumns() {
+	await db
+		.execute(
+			sql`ALTER TABLE lesson_resources ADD COLUMN IF NOT EXISTS class_id text NOT NULL DEFAULT ''`,
+		)
+		.catch(() => {});
+	await db
+		.execute(
+			sql`CREATE UNIQUE INDEX IF NOT EXISTS "idx_lesson_resources_teacher_lesson_type"
+			ON lesson_resources (teacher_id, topic_number, lesson_number, resource_type, class_id)`,
+		)
+		.catch(() => {});
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -401,6 +416,8 @@ export async function POST(request: NextRequest) {
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
 	const teacherId = data.user.id;
+
+	await ensureColumns();
 
 	// ─── JSON path (URL paste flow) ───────────────────────────────────────────
 	const contentType = request.headers.get("content-type") ?? "";

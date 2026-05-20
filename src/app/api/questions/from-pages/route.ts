@@ -16,6 +16,7 @@ const bodySchema = z.object({
 	filename: z.string().min(1),
 	resourceType: z.string().default("bell-ringer"),
 	startDate: z.string().optional().default(new Date().toISOString().slice(0, 10)),
+	replace: z.boolean().optional().default(false),
 });
 
 async function ensureColumns() {
@@ -41,9 +42,9 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: result.error.issues[0]?.message }, { status: 400 });
 	}
 
-	const { pageImages, sourceUrl, filename, resourceType, startDate } = result.data;
+	const { pageImages, sourceUrl, filename, resourceType, replace } = result.data;
 
-	// Reject duplicate — same filename already in bank for this teacher
+	// Check for duplicate — same filename already in bank for this teacher
 	const duplicate = await db
 		.select({ id: questionBankItems.id })
 		.from(questionBankItems)
@@ -57,12 +58,24 @@ export async function POST(request: NextRequest) {
 		.catch(() => [] as { id: string }[]);
 
 	if (duplicate.length > 0) {
-		return NextResponse.json(
-			{
-				error: `"${filename}" is already in the bank — clear existing questions first if you want to re-import`,
-			},
-			{ status: 409 },
-		);
+		if (!replace) {
+			return NextResponse.json(
+				{
+					error: `"${filename}" is already in the bank — clear existing questions first if you want to re-import`,
+				},
+				{ status: 409 },
+			);
+		}
+		// replace=true: delete existing questions for this filename before recreating
+		await db
+			.delete(questionBankItems)
+			.where(
+				and(
+					eq(questionBankItems.teacherId, data.user.id),
+					eq(questionBankItems.sourceFilename, filename),
+				),
+			)
+			.catch(() => {});
 	}
 
 	await ensureColumns();
