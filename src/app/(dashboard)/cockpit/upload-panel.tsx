@@ -158,7 +158,7 @@ export function UploadPanel({
 		setUrl("");
 	};
 
-	// ── File upload: presign + S3, then show scope prompt ───────────────────────
+	// ── File upload: proxy through server → S3 (avoids browser CORS for PUT) ────
 	const handleFileUpload = async () => {
 		if (!pickedFile) {
 			toast.error("Select a file first");
@@ -169,36 +169,26 @@ export function UploadPanel({
 			return;
 		}
 		setFileUploading(true);
+
+		// Capture ArrayBuffer before clearing the file picker
+		const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
+		const pdfBytes = isPdf ? await pickedFile.arrayBuffer().catch(() => null) : null;
+
 		try {
-			// 1. Get a short-lived presigned PUT URL from our API
-			const params = new URLSearchParams({ filename: pickedFile.name });
-			const presignRes = await fetch(`/api/resources/pdf/presign?${params}`);
-			const presignJson = await presignRes.json();
-			if (!presignRes.ok) {
-				toast.error((presignJson as { error?: string }).error ?? "Could not get upload URL");
-				return;
-			}
-			const { presignedUrl, objectUrl } = presignJson as {
-				presignedUrl: string;
-				objectUrl: string;
-			};
-
-			// 2. PUT file directly to S3 — never touches the Next.js server
-			const uploadRes = await fetch(presignedUrl, {
-				method: "PUT",
-				body: pickedFile,
-				headers: { "Content-Type": pickedFile.type || "application/octet-stream" },
+			const form = new FormData();
+			form.append("file", pickedFile);
+			const uploadRes = await fetch("/api/resources/pdf/proxy-upload", {
+				method: "POST",
+				body: form,
 			});
+			const uploadJson = await uploadRes.json().catch(() => ({}));
 			if (!uploadRes.ok) {
-				toast.error("Storage upload failed — check S3 CORS settings");
+				toast.error((uploadJson as { error?: string }).error ?? "Upload failed");
 				return;
 			}
+			const { objectUrl } = uploadJson as { objectUrl: string };
 
-			// 3. Show scope prompt before saving the resource record
-			const isPdf = pickedFile.name.toLowerCase().endsWith(".pdf");
-			if (isPdf) {
-				pdfBufferRef.current = await pickedFile.arrayBuffer().catch(() => null);
-			}
+			if (isPdf) pdfBufferRef.current = pdfBytes;
 			setPendingUpload({ kind: "file", objectUrl, filename: pickedFile.name, isPdf });
 			setPickedFile(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
@@ -245,21 +235,15 @@ export function UploadPanel({
 				if (!blob) continue;
 
 				const pageFilename = `${filename.replace(/\.pdf$/i, "")}-p${pageNum}.jpg`;
-				const presignRes = await fetch(
-					`/api/resources/pdf/presign?filename=${encodeURIComponent(pageFilename)}`,
-				);
-				if (!presignRes.ok) continue;
-				const { presignedUrl, objectUrl } = (await presignRes.json()) as {
-					presignedUrl: string;
-					objectUrl: string;
-				};
-
-				const uploadRes = await fetch(presignedUrl, {
-					method: "PUT",
-					body: blob,
-					headers: { "Content-Type": "image/jpeg" },
+				const pageFile = new File([blob], pageFilename, { type: "image/jpeg" });
+				const form = new FormData();
+				form.append("file", pageFile);
+				const uploadRes = await fetch("/api/resources/pdf/proxy-upload", {
+					method: "POST",
+					body: form,
 				});
 				if (!uploadRes.ok) continue;
+				const { objectUrl } = (await uploadRes.json()) as { objectUrl: string };
 
 				results.push({ page: pageNum, imageUrl: objectUrl });
 			} catch {
