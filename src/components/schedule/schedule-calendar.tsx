@@ -912,7 +912,11 @@ export function ScheduleCalendar({
 													onDelete={() => deleteBlock(block.id)}
 													onAddDoc={addDoc}
 													onDeleteDoc={deleteDoc}
-													dayResources={resourcesByDate[colDateISO] ?? []}
+													dayResources={
+														current.title.toLowerCase().includes("math")
+															? (resourcesByDate[colDateISO] ?? [])
+															: []
+													}
 												/>
 											);
 										});
