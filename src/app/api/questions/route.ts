@@ -18,10 +18,12 @@ export async function GET(request: NextRequest) {
 	const { searchParams } = new URL(request.url);
 	const resourceType = searchParams.get("resourceType");
 	const date = searchParams.get("date");
+	const filename = searchParams.get("filename");
 
 	const conditions = [eq(questionBankItems.teacherId, data.user.id)];
 	if (resourceType) conditions.push(eq(questionBankItems.resourceType, resourceType));
 	if (date) conditions.push(eq(questionBankItems.assignedDate, date));
+	if (filename) conditions.push(eq(questionBankItems.sourceFilename, filename));
 
 	const questions = await db
 		.select()

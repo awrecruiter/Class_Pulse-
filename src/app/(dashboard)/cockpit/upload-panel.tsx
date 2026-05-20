@@ -113,8 +113,16 @@ export function UploadPanel({
 	const [savedObjectUrl, setSavedObjectUrl] = useState<string | null>(null);
 	const [savedFilename, setSavedFilename] = useState<string>("");
 	const [creatingFromPages, setCreatingFromPages] = useState(false);
+	const [patchingImages, setPatchingImages] = useState(false);
+	const [hasExistingQuestions, setHasExistingQuestions] = useState(false);
 
-	const isBusy = uploading || fileUploading || extracting || renderingPages || creatingFromPages;
+	const isBusy =
+		uploading ||
+		fileUploading ||
+		extracting ||
+		renderingPages ||
+		creatingFromPages ||
+		patchingImages;
 
 	// ── Shared: save a resolved URL as a resource record ────────────────────────
 	const saveResourceUrl = async (resolvedUrl: string, scopeClassId: string) => {
@@ -295,6 +303,38 @@ export function UploadPanel({
 		}
 	}
 
+	// ── Patch imageUrl onto existing questions for this filename ────────────────
+	async function handlePatchImages() {
+		if (pageImages.length === 0 || !savedFilename) return;
+		setPatchingImages(true);
+		try {
+			const res = await fetch("/api/questions/patch-images", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ filename: savedFilename, pageImages }),
+			});
+			const json = await res.json().catch(() => ({}));
+			if (res.ok) {
+				const count = (json as { updated?: number }).updated ?? 0;
+				toast.success(
+					count > 0 ? `Images added to ${count} questions` : "No matching questions found",
+				);
+				setReadyForAction(false);
+				setSavedObjectUrl(null);
+				setSavedFilename("");
+				setPageImages([]);
+				setHasExistingQuestions(false);
+				onQuestionsReady?.();
+			} else {
+				toast.error((json as { error?: string }).error ?? "Failed to patch images");
+			}
+		} catch {
+			toast.error("Failed to patch images");
+		} finally {
+			setPatchingImages(false);
+		}
+	}
+
 	// ── Create one question per page (no AI) ────────────────────────────────────
 	async function handleCreateFromPages() {
 		if (pageImages.length === 0 || !savedObjectUrl || !savedFilename) return;
@@ -372,6 +412,18 @@ export function UploadPanel({
 					const images = buf ? await renderPagesToImages(buf, upload.filename) : [];
 					setPageImages(images);
 					if (!buf) toast.info("Page capture skipped — browser buffer unavailable");
+
+					// Check if questions for this filename already exist in the bank
+					if (images.length > 0) {
+						const checkRes = await fetch(
+							`/api/questions?filename=${encodeURIComponent(upload.filename)}`,
+						).catch(() => null);
+						if (checkRes?.ok) {
+							const checkJson = await checkRes.json().catch(() => ({ questions: [] }));
+							const existing = (checkJson as { questions: { id: string }[] }).questions ?? [];
+							setHasExistingQuestions(existing.length > 0);
+						}
+					}
 				} catch {
 					toast.error("Page capture failed — you can still extract questions");
 					setPageImages([]);
@@ -666,27 +718,50 @@ export function UploadPanel({
 						<div className="rounded-lg border border-indigo-600/40 bg-indigo-900/20 px-4 py-3 space-y-2.5">
 							<p className="text-xs font-medium text-indigo-300">
 								{pageImages.length > 0
-									? `${pageImages.length} page${pageImages.length !== 1 ? "s" : ""} captured — add questions to the bank:`
+									? `${pageImages.length} page${pageImages.length !== 1 ? "s" : ""} captured${hasExistingQuestions ? " — existing questions detected:" : " — add questions to the bank:"}`
 									: "PDF saved — add questions to the bank:"}
 							</p>
-							<div className="flex gap-2">
-								<button
-									type="button"
-									onClick={handleExtractWithAI}
-									disabled={isBusy}
-									className="flex-1 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-								>
-									{extracting ? "Extracting…" : "Extract with AI"}
-								</button>
-								{pageImages.length > 0 && (
-									<button
-										type="button"
-										onClick={handleCreateFromPages}
-										disabled={isBusy}
-										className="flex-1 px-3 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-50"
-									>
-										{creatingFromPages ? "Creating…" : "Create from pages"}
-									</button>
+							<div className="flex gap-2 flex-wrap">
+								{hasExistingQuestions && pageImages.length > 0 ? (
+									<>
+										<button
+											type="button"
+											onClick={handlePatchImages}
+											disabled={isBusy}
+											className="flex-1 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+										>
+											{patchingImages ? "Adding images…" : "Add images to existing"}
+										</button>
+										<button
+											type="button"
+											onClick={handleCreateFromPages}
+											disabled={isBusy}
+											className="flex-1 px-3 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-50"
+										>
+											{creatingFromPages ? "Replacing…" : "Replace with pages"}
+										</button>
+									</>
+								) : (
+									<>
+										<button
+											type="button"
+											onClick={handleExtractWithAI}
+											disabled={isBusy}
+											className="flex-1 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+										>
+											{extracting ? "Extracting…" : "Extract with AI"}
+										</button>
+										{pageImages.length > 0 && (
+											<button
+												type="button"
+												onClick={handleCreateFromPages}
+												disabled={isBusy}
+												className="flex-1 px-3 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-50"
+											>
+												{creatingFromPages ? "Creating…" : "Create from pages"}
+											</button>
+										)}
+									</>
 								)}
 								<button
 									type="button"
@@ -695,6 +770,7 @@ export function UploadPanel({
 										setSavedObjectUrl(null);
 										setSavedFilename("");
 										setPageImages([]);
+										setHasExistingQuestions(false);
 									}}
 									className="p-2 rounded-lg border border-slate-700 text-slate-500 hover:text-slate-300 transition-colors"
 									aria-label="Skip"
