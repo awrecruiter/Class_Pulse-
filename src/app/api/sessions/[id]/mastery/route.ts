@@ -1,22 +1,31 @@
 export const dynamic = "force-dynamic";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { auth } from "@/lib/auth/server";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
-import { classSessions, masteryRecords, teacherSettings } from "@/lib/db/schema";
+import { classSessions, interventionFlags, masteryRecords, teacherSettings } from "@/lib/db/schema";
 import { awardRamBucks } from "@/lib/ram-bucks";
 import { joinRateLimiter, sessionRateLimiter } from "@/lib/rate-limit";
 
 const MASTERY_DEFAULT_THRESHOLD = 3;
 const AWARD_CORRECT = 5;
 const AWARD_MASTERY = 25;
+const PARENT_COMMS_SCORE_THRESHOLD = 70; // queue comms when accuracy < 70%
+
+// Lazy-add total_correct column — safe because it has a default and the cockpit only selects named cols
+const _ready = db
+	.execute(
+		sql`ALTER TABLE mastery_records ADD COLUMN IF NOT EXISTS total_correct integer NOT NULL DEFAULT 0`,
+	)
+	.catch(() => {});
 
 const bodySchema = z.object({
 	standardCode: z.string().min(1),
 	isCorrect: z.boolean(),
+	resourceType: z.string().optional(),
 });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -41,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 	}
 
-	const { standardCode, isCorrect } = result.data;
+	const { standardCode, isCorrect, resourceType } = result.data;
 
 	// Look up teacher's mastery threshold + classId for RAM Buck awards
 	const [session] = await db
@@ -74,10 +83,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	const now = new Date();
 	const prevStreak = existing?.consecutiveCorrect ?? 0;
 	const prevTotal = existing?.totalAttempts ?? 0;
+	const prevCorrect = existing?.totalCorrect ?? 0;
 	const wasAlreadyMastered = existing?.status === "mastered";
 
 	const newStreak = isCorrect ? prevStreak + 1 : 0;
 	const newTotal = prevTotal + 1;
+	const newCorrect = isCorrect ? prevCorrect + 1 : prevCorrect;
 	const achieved = !wasAlreadyMastered && newStreak >= threshold;
 	const newStatus = achieved || wasAlreadyMastered ? "mastered" : "working";
 
@@ -87,6 +98,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 			.set({
 				consecutiveCorrect: newStreak,
 				totalAttempts: newTotal,
+				totalCorrect: newCorrect,
 				status: newStatus,
 				achievedAt: achieved ? now : existing.achievedAt,
 				updatedAt: now,
@@ -99,6 +111,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 			standardCode,
 			consecutiveCorrect: newStreak,
 			totalAttempts: newTotal,
+			totalCorrect: newCorrect,
 			status: newStatus,
 			achievedAt: achieved ? now : null,
 			updatedAt: now,
@@ -134,6 +147,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 			});
 			ramBuckEarned = AWARD_CORRECT;
 			newRamBalance = result.newBalance;
+		}
+	}
+
+	// Queue a draft intervention flag when score on a bell-ringer/CFU/exit-ticket drops below 70%
+	// so the teacher can review and choose to send the parent report from the cockpit comms panel.
+	const accuracy = (newCorrect / newTotal) * 100;
+	const queueComms =
+		accuracy < PARENT_COMMS_SCORE_THRESHOLD &&
+		session &&
+		(resourceType === "bell-ringer" || resourceType === "cfu" || resourceType === "exit-ticket");
+
+	if (queueComms) {
+		try {
+			await db
+				.insert(interventionFlags)
+				.values({
+					classId: session.classId,
+					rosterId: payload.rosterId,
+					tier: "tier2",
+					standardCode,
+					sessionCount: 1,
+					status: "draft",
+					detectedAt: new Date(),
+				})
+				.onConflictDoNothing();
+		} catch {
+			// Non-fatal — mastery tracking already succeeded
 		}
 	}
 

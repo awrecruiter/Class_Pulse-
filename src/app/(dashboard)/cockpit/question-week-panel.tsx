@@ -465,14 +465,12 @@ export function QuestionWeekPanel({
 	const unassignedBank = filteredBank.filter((q) => q.assignedDate === null);
 	const weekAssignments = buildWeekAssignments(filteredBank, displayedWeekDates);
 
-	// For each bank question: how many questions share its page image and what is its index within
-	// that page group. Used to crop the shared page thumbnail to show only one question at a time.
-	const bankCropMap = useMemo(() => {
-		// Group by imageUrl so questions sharing the same page image get cropped to their slice.
-		// Questions without an imageUrl are excluded (get default pageTotal=1 = no crop).
-		// Use filteredBank (not just unassigned) so assigned day-column cards also get crop data.
+	// For each question: how many questions share its page image and what is its index within
+	// that page group. Built from ALL questions (all tabs) so assigned day-column cards get
+	// crop data even when the user switches to a different resource type tab.
+	const allCropMap = useMemo(() => {
 		const groups = new Map<string, QuestionBankItem[]>();
-		for (const q of filteredBank) {
+		for (const q of questions) {
 			if (!q.imageUrl) continue;
 			const key = q.imageUrl;
 			if (!groups.has(key)) groups.set(key, []);
@@ -486,7 +484,7 @@ export function QuestionWeekPanel({
 			});
 		}
 		return map;
-	}, [filteredBank]);
+	}, [questions]);
 
 	function handleDragStart({ active }: { active: { id: string | number } }) {
 		setActiveId(String(active.id));
@@ -691,7 +689,7 @@ export function QuestionWeekPanel({
 								</p>
 							) : (
 								unassignedBank.map((q) => {
-									const crop = bankCropMap.get(q.id) ?? { pageIndex: 0, pageTotal: 1 };
+									const crop = allCropMap.get(q.id) ?? { pageIndex: 0, pageTotal: 1 };
 									return (
 										<BankQuestionCard
 											key={q.id}
@@ -752,7 +750,7 @@ export function QuestionWeekPanel({
 										onPush={handlePush}
 										onUnassign={() => handleUnassign(date)}
 										onSendNext={date === today ? handleSendNext : undefined}
-										cropMap={bankCropMap}
+										cropMap={allCropMap}
 									/>
 								))}
 							</div>
@@ -761,7 +759,7 @@ export function QuestionWeekPanel({
 				</div>
 
 				<DragOverlay dropAnimation={null}>
-					{activeDragQuestion && <DragGhost question={activeDragQuestion} cropMap={bankCropMap} />}
+					{activeDragQuestion && <DragGhost question={activeDragQuestion} cropMap={allCropMap} />}
 				</DragOverlay>
 			</DndContext>
 		</div>

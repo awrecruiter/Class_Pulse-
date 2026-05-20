@@ -306,6 +306,7 @@ export const masteryRecords = pgTable(
 		// Number of consecutive correct answers in the current streak
 		consecutiveCorrect: integer("consecutive_correct").notNull().default(0),
 		totalAttempts: integer("total_attempts").notNull().default(0),
+		totalCorrect: integer("total_correct").notNull().default(0),
 		// "working" | "mastered"
 		status: text("status").notNull().default("working"),
 		achievedAt: timestamp("achieved_at", { withTimezone: true }),

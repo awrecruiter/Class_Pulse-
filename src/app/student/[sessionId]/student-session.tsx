@@ -297,6 +297,9 @@ export function StudentSession({
 		questionType: string;
 		standardCode: string | null;
 		imageUrl?: string | null;
+		cropIndex?: number;
+		cropTotal?: number;
+		resourceType?: string;
 	} | null>(null);
 	const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
 	const [questionAnswered, setQuestionAnswered] = useState(false);
@@ -388,6 +391,10 @@ export function StudentSession({
 							answer: string;
 							questionType: string;
 							standardCode: string | null;
+							imageUrl?: string | null;
+							cropIndex?: number;
+							cropTotal?: number;
+							resourceType?: string;
 						};
 					};
 					setPushedQuestion({ pushId: qp.pushId, ...qp.question });
@@ -511,11 +518,23 @@ export function StudentSession({
 					</div>
 					<div className="px-5 py-4 space-y-4">
 						{pushedQuestion.imageUrl ? (
-							<img
-								src={pushedQuestion.imageUrl}
-								alt="Question"
-								className="w-full rounded-lg mb-2"
-							/>
+							<div className="w-full rounded-lg overflow-hidden mb-2" style={{ height: 200 }}>
+								<div
+									className="w-full h-full"
+									style={{
+										backgroundImage: `url(${pushedQuestion.imageUrl})`,
+										backgroundSize: `100% ${(pushedQuestion.cropTotal ?? 1) * 100}%`,
+										backgroundPosition: `0% ${
+											(pushedQuestion.cropTotal ?? 1) <= 1
+												? 0
+												: (
+														(pushedQuestion.cropIndex ?? 0) / ((pushedQuestion.cropTotal ?? 1) - 1)
+													) * 100
+										}%`,
+										backgroundRepeat: "no-repeat",
+									}}
+								/>
+							</div>
 						) : (
 							<p className="text-slate-100 text-sm leading-relaxed">{pushedQuestion.stem}</p>
 						)}
@@ -551,6 +570,20 @@ export function StudentSession({
 											onClick={() => {
 												setSelectedChoice(c);
 												setQuestionAnswered(true);
+												// Track answer in mastery route — triggers parent SMS on wrong bell-ringer/CFU
+												if (pushedQuestion.standardCode) {
+													fetch(`/api/sessions/${sessionId}/mastery`, {
+														method: "POST",
+														headers: { "Content-Type": "application/json" },
+														body: JSON.stringify({
+															standardCode: pushedQuestion.standardCode,
+															isCorrect: c.startsWith(pushedQuestion.answer),
+															resourceType: pushedQuestion.resourceType,
+														}),
+													}).catch(() => {
+														// non-fatal
+													});
+												}
 											}}
 										>
 											{c}

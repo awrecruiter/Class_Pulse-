@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { auth } from "@/lib/auth/server";
@@ -60,7 +60,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		return NextResponse.json({ error: "Question not found" }, { status: 404 });
 	}
 
-	// Snapshot at push time
+	// Compute crop metadata so the student sees only this question's slice of the page image
+	let cropIndex = 0;
+	let cropTotal = 1;
+	if (question.imageUrl) {
+		const coPageRows = await db
+			.select({ id: questionBankItems.id, sortOrder: questionBankItems.sortOrder })
+			.from(questionBankItems)
+			.where(eq(questionBankItems.imageUrl, question.imageUrl))
+			.orderBy(asc(questionBankItems.sortOrder));
+		cropTotal = coPageRows.length;
+		const idx = coPageRows.findIndex((r) => r.id === question.id);
+		cropIndex = idx === -1 ? 0 : idx;
+	}
+
+	// Snapshot at push time — includes crop + resourceType so student renders correctly
 	const questionJson = JSON.stringify({
 		stem: question.stem,
 		choices: question.choices,
@@ -68,6 +82,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 		questionType: question.questionType,
 		standardCode: question.standardCode,
 		imageUrl: question.imageUrl ?? null,
+		sourcePage: question.sourcePage ?? null,
+		resourceType: question.resourceType,
+		cropIndex,
+		cropTotal,
 	});
 
 	const [push] = await db
