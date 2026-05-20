@@ -458,9 +458,12 @@ export function QuestionWeekPanel({
 	// For each bank question: how many questions share its page image and what is its index within
 	// that page group. Used to crop the shared page thumbnail to show only one question at a time.
 	const bankCropMap = useMemo(() => {
-		const groups = new Map<number | string, QuestionBankItem[]>();
+		// Group by imageUrl so questions sharing the same page image get cropped to their slice.
+		// Questions without an imageUrl are excluded (get default pageTotal=1 = no crop).
+		const groups = new Map<string, QuestionBankItem[]>();
 		for (const q of unassignedBank) {
-			const key = q.sourcePage != null ? q.sourcePage : `solo-${q.id}`;
+			if (!q.imageUrl) continue;
+			const key = q.imageUrl;
 			if (!groups.has(key)) groups.set(key, []);
 			(groups.get(key) as QuestionBankItem[]).push(q);
 		}

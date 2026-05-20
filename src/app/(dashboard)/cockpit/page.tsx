@@ -100,7 +100,7 @@ export default async function CockpitPage() {
 			.orderBy(desc(interventionFlags.detectedAt))
 			.limit(20),
 
-		// Question bank items — guarded: new columns may not exist in prod yet
+		// Question bank items
 		db
 			.select({
 				id: questionBankItems.id,
@@ -114,6 +114,9 @@ export default async function CockpitPage() {
 				topicDay: questionBankItems.topicDay,
 				assignedDate: questionBankItems.assignedDate,
 				extractedAt: questionBankItems.extractedAt,
+				imageUrl: questionBankItems.imageUrl,
+				sourcePage: questionBankItems.sourcePage,
+				sortOrder: questionBankItems.sortOrder,
 			})
 			.from(questionBankItems)
 			.where(eq(questionBankItems.teacherId, teacherId))
