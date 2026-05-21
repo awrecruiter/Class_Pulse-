@@ -61,6 +61,14 @@ export async function GET(request: NextRequest) {
 						sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS source_page integer`,
 					)
 					.catch(() => {});
+				await db
+					.execute(sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS bbox_top_pct real`)
+					.catch(() => {});
+				await db
+					.execute(
+						sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS bbox_bottom_pct real`,
+					)
+					.catch(() => {});
 			} catch {
 				// ignore
 			}

@@ -6,6 +6,7 @@ import {
 	integer,
 	jsonb,
 	pgTable,
+	real,
 	text,
 	timestamp,
 	uniqueIndex,
@@ -1099,6 +1100,8 @@ export const questionBankItems = pgTable(
 		assignedDate: text("assigned_date"),
 		imageUrl: text("image_url"),
 		sourcePage: integer("source_page"),
+		bboxTopPct: real("bbox_top_pct"), // 0–100, % from page top where question stem starts
+		bboxBottomPct: real("bbox_bottom_pct"), // 0–100, % from page top where question ends
 		extractedAt: timestamp("extracted_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [

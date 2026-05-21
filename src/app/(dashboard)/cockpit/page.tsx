@@ -117,6 +117,8 @@ export default async function CockpitPage() {
 				imageUrl: questionBankItems.imageUrl,
 				sourcePage: questionBankItems.sourcePage,
 				sortOrder: questionBankItems.sortOrder,
+				bboxTopPct: questionBankItems.bboxTopPct,
+				bboxBottomPct: questionBankItems.bboxBottomPct,
 			})
 			.from(questionBankItems)
 			.where(eq(questionBankItems.teacherId, teacherId))
@@ -471,6 +473,8 @@ export default async function CockpitPage() {
 								imageUrl: string | null;
 								sourcePage: number | null;
 								sortOrder: number;
+								bboxTopPct: number | null;
+								bboxBottomPct: number | null;
 							}[]
 						}
 						activeSessionId={activeSessionRow?.id ?? null}

@@ -14,6 +14,8 @@ export type ExtractedQuestion = {
 	questionType: "mc" | "free-response";
 	topicDay: number | null;
 	sourcePage: number | null;
+	bboxTopPct: number | null; // 0–100, % from page top where question stem starts
+	bboxBottomPct: number | null; // 0–100, % from page top where last choice/blank ends
 };
 
 export type ExtractionResult = {
@@ -34,7 +36,9 @@ Respond with ONLY valid JSON (no markdown fences, no explanation):
       "answer": "the correct answer or answer key value",
       "standardCode": "MA.5.NSO.1.1" | null,
       "topicDay": 2,
-      "sourcePage": 1
+      "sourcePage": 1,
+      "bboxTopPct": 15,
+      "bboxBottomPct": 45
     }
   ]
 }
@@ -47,6 +51,8 @@ Rules:
 - standardCode: FL BEST standard code if visible (e.g. "MA.5.NSO.1.1"); otherwise null.
 - topicDay: integer day number extracted from ANY section/page heading that indicates a day (e.g. "Day 1", "Day 2", "Bell Ringer Day 3", "Topic 1: Day 2", "Monday Day 1"). Use the nearest heading above the question. null if no day label is visible.
 - sourcePage: 1-based page number within the PDF where this question appears.
+- bboxTopPct: integer 0–100 — estimate where the question stem starts as a percentage of that page's height (0=very top, 100=very bottom). Look at the visual layout: count whitespace above relative to total page. null if uncertain.
+- bboxBottomPct: integer 0–100 — estimate where the last answer choice or blank line for this question ends on the page. Must be greater than bboxTopPct. null if uncertain.
 - If no questions are found, return an empty questions array.
 - Do NOT include directions, headings, or non-question content as stems.`;
 

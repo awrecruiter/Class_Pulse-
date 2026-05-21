@@ -42,6 +42,8 @@ type QuestionBankItem = {
 	imageUrl: string | null;
 	sourcePage: number | null;
 	sortOrder: number;
+	bboxTopPct: number | null;
+	bboxBottomPct: number | null;
 };
 
 type Props = {
@@ -91,6 +93,38 @@ function formatMmDd(isoDate: string): string {
 	return isoDate.slice(5).replace("-", "/");
 }
 
+// ─── cropStyle ───────────────────────────────────────────────────────────────
+// Builds CSS background properties to show only a question's vertical slice of
+// its shared page image. Uses real bbox when available, falls back to equal-slice.
+
+function cropStyle(
+	imageUrl: string,
+	bboxTopPct: number | null,
+	bboxBottomPct: number | null,
+	fallbackPageIndex: number,
+	fallbackPageTotal: number,
+	height: number,
+): React.CSSProperties {
+	const base: React.CSSProperties = {
+		height,
+		backgroundImage: `url(${imageUrl})`,
+		backgroundRepeat: "no-repeat",
+	};
+	if (bboxTopPct !== null && bboxBottomPct !== null && bboxBottomPct > bboxTopPct) {
+		const sliceH = bboxBottomPct - bboxTopPct;
+		const bgSizeY = 10000 / sliceH;
+		const bgPosY = sliceH >= 100 ? 0 : (bboxTopPct * 100) / (100 - sliceH);
+		return { ...base, backgroundSize: `100% ${bgSizeY}%`, backgroundPosition: `0% ${bgPosY}%` };
+	}
+	// Fallback: equal-slice for questions without bbox data
+	const bgPosY = fallbackPageTotal <= 1 ? 0 : (fallbackPageIndex / (fallbackPageTotal - 1)) * 100;
+	return {
+		...base,
+		backgroundSize: `100% ${fallbackPageTotal * 100}%`,
+		backgroundPosition: `0% ${bgPosY}%`,
+	};
+}
+
 // ─── DragGhost ────────────────────────────────────────────────────────────────
 // Drag overlay ghost card — uses same page-crop logic as BankQuestionCard.
 
@@ -102,18 +136,18 @@ function DragGhost({
 	cropMap: Map<string, { pageIndex: number; pageTotal: number }>;
 }) {
 	const crop = cropMap.get(question.id) ?? { pageIndex: 0, pageTotal: 1 };
-	const bgPos = crop.pageTotal <= 1 ? 0 : (crop.pageIndex / (crop.pageTotal - 1)) * 100;
 	return (
 		<div className="rounded-lg border border-slate-600 bg-slate-700 shadow-xl rotate-1 pointer-events-none w-48 overflow-hidden">
 			{question.imageUrl ? (
 				<div
-					style={{
-						height: 100,
-						backgroundImage: `url(${question.imageUrl})`,
-						backgroundSize: `100% ${crop.pageTotal * 100}%`,
-						backgroundPosition: `0% ${bgPos}%`,
-						backgroundRepeat: "no-repeat",
-					}}
+					style={cropStyle(
+						question.imageUrl,
+						question.bboxTopPct,
+						question.bboxBottomPct,
+						crop.pageIndex,
+						crop.pageTotal,
+						100,
+					)}
 				/>
 			) : (
 				<div className="px-3 py-2 text-slate-200 text-[10px] leading-snug">
@@ -140,9 +174,6 @@ function BankQuestionCard({
 		id: `question:${question.id}`,
 	});
 
-	// When multiple questions share the same page image, crop to this question's vertical slice
-	const bgPositionY = pageTotal <= 1 ? 0 : (pageIndex / (pageTotal - 1)) * 100;
-
 	return (
 		<div
 			ref={setNodeRef}
@@ -152,13 +183,14 @@ function BankQuestionCard({
 		>
 			{question.imageUrl ? (
 				<div
-					style={{
-						height: 140,
-						backgroundImage: `url(${question.imageUrl})`,
-						backgroundSize: `100% ${pageTotal * 100}%`,
-						backgroundPosition: `0% ${bgPositionY}%`,
-						backgroundRepeat: "no-repeat",
-					}}
+					style={cropStyle(
+						question.imageUrl,
+						question.bboxTopPct,
+						question.bboxBottomPct,
+						pageIndex,
+						pageTotal,
+						140,
+					)}
 				/>
 			) : (
 				<div className="px-3 py-2.5">
@@ -204,7 +236,6 @@ function DraggableQuestion({
 		id: `question:${question.id}`,
 	});
 	const { pageIndex, pageTotal } = cropMap.get(question.id) ?? { pageIndex: 0, pageTotal: 1 };
-	const bgPositionY = pageTotal <= 1 ? 0 : (pageIndex / (pageTotal - 1)) * 100;
 
 	return (
 		<div
@@ -216,13 +247,15 @@ function DraggableQuestion({
 			<GripVerticalIcon className="h-3 w-3 text-slate-600 shrink-0 mt-0.5" />
 			{question.imageUrl ? (
 				<div
-					className="flex-1 min-w-0 h-10 rounded"
-					style={{
-						backgroundImage: `url(${question.imageUrl})`,
-						backgroundSize: `100% ${pageTotal * 100}%`,
-						backgroundPosition: `0% ${bgPositionY}%`,
-						backgroundRepeat: "no-repeat",
-					}}
+					className="flex-1 min-w-0 rounded"
+					style={cropStyle(
+						question.imageUrl,
+						question.bboxTopPct,
+						question.bboxBottomPct,
+						pageIndex,
+						pageTotal,
+						40,
+					)}
 				/>
 			) : (
 				<p className="text-[10px] text-slate-300 line-clamp-2 leading-snug flex-1">

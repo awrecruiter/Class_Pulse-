@@ -60,6 +60,10 @@ async function ensureNewColumns() {
 	await db.execute(
 		sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS source_page integer`,
 	);
+	await db.execute(sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS bbox_top_pct real`);
+	await db.execute(
+		sql`ALTER TABLE question_bank_items ADD COLUMN IF NOT EXISTS bbox_bottom_pct real`,
+	);
 }
 
 export async function POST(request: NextRequest) {
@@ -147,6 +151,8 @@ export async function POST(request: NextRequest) {
 		topicDay: q.topicDay ?? null,
 		imageUrl: pageImageMap.get(q.sourcePage ?? 0) ?? null,
 		sourcePage: q.sourcePage ?? null,
+		bboxTopPct: q.bboxTopPct ?? null,
+		bboxBottomPct: q.bboxBottomPct ?? null,
 	}));
 
 	let inserted: (typeof questionBankItems.$inferSelect)[];
