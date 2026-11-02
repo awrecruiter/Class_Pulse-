@@ -79,6 +79,8 @@ export const clickEvents = pgTable(
 export const teacherSettings = pgTable("teacher_settings", {
 	id: uuid("id").defaultRandom().primaryKey(),
 	userId: text("user_id").notNull().unique(),
+	// Optional student-portal booking; blank keeps booking hidden.
+	studentBookingUrl: text("student_booking_url").notNull().default(""),
 	// Mastery loop
 	masteryThreshold: integer("mastery_threshold").notNull().default(3),
 	// Comprehension alert
@@ -170,7 +172,7 @@ export const classes = pgTable(
 		teacherId: text("teacher_id").notNull(),
 		label: text("label").notNull(), // "AM Math", "PM Math", "Period 3"
 		periodTime: text("period_time").notNull().default(""), // "8:00 AM", "12:30 PM"
-		gradeLevel: text("grade_level").notNull().default("5"),
+		gradeLevel: text("grade_level").notNull().default(""),
 		subject: text("subject").notNull().default("Math"),
 		isArchived: boolean("is_archived").notNull().default(false),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1066,6 +1068,39 @@ export const parentReportTokens = pgTable(
 	(table) => [
 		uniqueIndex("idx_parent_report_tokens_token").on(table.token),
 		index("idx_parent_report_tokens_flag_id").on(table.flagId),
+	],
+);
+
+// Family orientation invitations. Bearer links are private, expiring, and scoped to one learner.
+export const orientations = pgTable(
+	"orientations",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		classId: uuid("class_id")
+			.notNull()
+			.references(() => classes.id, { onDelete: "cascade" }),
+		token: text("token").notNull().unique(),
+		rosterId: uuid("roster_id").references(() => rosterEntries.id, { onDelete: "cascade" }),
+		parentEmail: text("parent_email").notNull().default(""),
+		gradeLevel: text("grade_level").notNull().default(""),
+		learningContent: text("learning_content").notNull().default(""),
+		initialSignal: text("initial_signal"),
+		checkInSessionId: uuid("check_in_session_id").references(() => classSessions.id, {
+			onDelete: "set null",
+		}),
+		content: text("content").notNull().default(""),
+		quizUrl: text("quiz_url").notNull().default(""),
+		meetingUrl: text("meeting_url").notNull().default(""),
+		progressNote: text("progress_note").notNull().default(""),
+		homePractice: text("home_practice").notNull().default(""),
+		reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+		enrolledAt: timestamp("enrolled_at", { withTimezone: true }),
+		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_orientations_class").on(table.classId),
+		index("idx_orientations_roster").on(table.rosterId),
 	],
 );
 

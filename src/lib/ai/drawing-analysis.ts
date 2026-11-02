@@ -54,14 +54,14 @@ export async function analyzeStudentDrawing(
 					},
 					{
 						type: "text",
-						text: `A 5th-grade student drew this to show their understanding of: ${standardContext}
+						text: `A student drew this to show their understanding of: ${standardContext}
 
 Analyze the drawing and respond with ONLY valid JSON (no markdown):
 {
   "analysisType": "correct" | "partial" | "misconception",
   "analysisText": "1-2 sentences describing what the drawing shows and where any gaps or errors are — teacher-facing, professional tone",
-  "studentFeedback": "1 sentence of encouraging feedback for the student (simple language for a 10-year-old) — if correct say great job; if partial nudge them; if misconception gently correct without being discouraging",
-  "auditoryScript": "1-2 sentences spoken aloud to the student explaining the concept or correction in simple, warm language a 10-year-old can follow. Start with 'Let me help you see this...' or 'Here is another way to think about it...' — only if correct, say 'Great job! You really understand this!'",
+  "studentFeedback": "1 sentence of encouraging feedback for the student (clear language suited to the demonstrated concept) — if correct say great job; if partial nudge them; if misconception gently correct without being discouraging",
+  "auditoryScript": "1-2 sentences spoken aloud to the student explaining the concept or correction in simple, warm language suited to the learner. Start with 'Let me help you see this...' or 'Here is another way to think about it...' — only if correct, say 'Great job! You really understand this!'",
   "visualCorrection": null | {
     "type": "area-model" | "fraction-bar" | "number-line",
     "caption": "one sentence describing what the correct visual shows",

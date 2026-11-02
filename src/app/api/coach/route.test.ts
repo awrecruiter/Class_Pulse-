@@ -7,7 +7,7 @@ const limiterCheckMock = vi.fn(() => ({ success: true }));
 const surfaceEnabledMock = vi.fn();
 
 vi.mock("@/lib/ai/coach", () => ({
-	getScaffold: () => getScaffoldMock(),
+	getScaffold: (request: unknown) => getScaffoldMock(request),
 }));
 
 vi.mock("@/lib/auth/server", () => ({
@@ -52,3 +52,29 @@ describe("/api/coach", () => {
 		expect(getScaffoldMock).not.toHaveBeenCalled();
 	});
 });
+
+it.each(["", "K", "8", "12", "mixed", "adult"])(
+	"passes learner level %s without substituting fifth grade",
+	async (gradeLevel) => {
+		authGetSessionMock.mockResolvedValue({ data: { user: { id: "user-1" } } });
+		surfaceEnabledMock.mockResolvedValue(true);
+		limiterCheckMock.mockReturnValue({ success: true });
+		getScaffoldMock.mockResolvedValue({});
+		const { POST } = await import("./route");
+		const response = await POST(
+			new NextRequest("http://localhost/api/coach", {
+				method: "POST",
+				body: JSON.stringify({
+					lessonTranscript: "Algebra",
+					studentQuery: "Why?",
+					gradeLevel,
+					scaffoldGrade: 12,
+				}),
+			}),
+		);
+		expect(response.status).toBe(200);
+		expect(getScaffoldMock).toHaveBeenLastCalledWith(
+			expect.objectContaining({ gradeLevel, scaffoldGrade: 12 }),
+		);
+	},
+);

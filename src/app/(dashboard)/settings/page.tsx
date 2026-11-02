@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { YAAG_TOPICS } from "@/data/yaag-2025-2026";
+import { studentBookingUrlSchema } from "@/lib/student-booking";
 import type { ServiceSurface } from "@/lib/subscription";
 import {
 	GLOBAL_VOICE_ONLY_MODE_KEY,
@@ -43,6 +44,7 @@ type Settings = {
 	toastsEnabled?: boolean;
 	productionHandoffMode?: boolean;
 	globalVoiceOnlyMode?: boolean;
+	studentBookingUrl?: string;
 	currencyName?: string;
 	currencyEmoji?: string;
 };
@@ -227,6 +229,11 @@ export default function SettingsPage() {
 	async function handleSave(e: React.FormEvent) {
 		e.preventDefault();
 		if (!settings) return;
+		const booking = studentBookingUrlSchema.safeParse(settings.studentBookingUrl ?? "");
+		if (!booking.success) {
+			toast.error(booking.error.issues[0]?.message ?? "Invalid booking link");
+			return;
+		}
 		setSaving(true);
 		try {
 			const {
@@ -403,6 +410,7 @@ export default function SettingsPage() {
 			<nav className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-[#0d1525]/90 backdrop-blur border-b border-slate-800 flex gap-1.5 overflow-x-auto scrollbar-none mb-2">
 				{(
 					[
+						["booking", "Student booking"],
 						["mastery", "Mastery"],
 						["comprehension", "Comprehension"],
 						["privacy", "Privacy"],
@@ -425,6 +433,34 @@ export default function SettingsPage() {
 			</nav>
 
 			<form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-8 gap-6">
+				<section id="booking" className="flex flex-col gap-4">
+					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						Student booking
+					</h2>
+					<label htmlFor="student-booking-url" className="text-sm text-slate-200">
+						Calendly booking link
+					</label>
+					<input
+						id="student-booking-url"
+						type="url"
+						maxLength={2048}
+						placeholder="https://calendly.com/your-name/tutoring"
+						value={settings.studentBookingUrl ?? ""}
+						onChange={(e) =>
+							setSettings((s) => (s ? { ...s, studentBookingUrl: e.target.value } : s))
+						}
+						aria-describedby="student-booking-help"
+						className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+					/>
+					<p id="student-booking-help" className="text-xs text-slate-400">
+						Students can book from their quiz portal, including after a session ends. Leave blank to
+						hide booking. Save settings to apply changes.
+					</p>
+					<p className="text-xs text-slate-400">
+						For Zoom sessions, connect Zoom in Calendly and select it as the event location.
+						Calendly handles availability, booking confirmations, and meeting links.
+					</p>
+				</section>
 				<section id="surfaces" className="flex flex-col gap-4">
 					<h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
 						Product Surfaces

@@ -11,7 +11,7 @@ import { sessionRateLimiter } from "@/lib/rate-limit";
 const createClassSchema = z.object({
 	label: z.string().min(1).max(100),
 	periodTime: z.string().max(20).default(""),
-	gradeLevel: z.string().max(10).default("5"),
+	gradeLevel: z.string().trim().max(10).default(""),
 	subject: z.string().max(50).default("Math"),
 });
 

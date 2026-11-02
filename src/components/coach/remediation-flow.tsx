@@ -21,7 +21,7 @@ import type { CoachResponse } from "@/lib/ai/coach";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type RemediationStage = "intro" | "animation" | "manipulative" | "practice" | "mastery";
-type GradeLevel = 0 | 1 | 2 | 3 | 4 | 5;
+type GradeLevel = number;
 
 const STAGE_ORDER: RemediationStage[] = [
 	"intro",
@@ -54,7 +54,7 @@ type RemediationFlowProps = {
 function deriveDefaultGrade(response: CoachResponse): GradeLevel {
 	const base = response.gradePrereq?.grade ?? response.missingConcept.grade;
 	const g = Math.max(0, base - 1);
-	return Math.min(5, g) as GradeLevel;
+	return Math.min(12, g) as GradeLevel;
 }
 
 // ─── StageBar ─────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ function GradeStepper({
 	aiDetected: GradeLevel;
 	onChange: (g: GradeLevel) => void;
 }) {
-	const labels = ["K", "1", "2", "3", "4", "5"] as const;
+	const labels = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
 	return (
 		<div className="flex items-center gap-1.5 flex-wrap">
 			<span className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest shrink-0">

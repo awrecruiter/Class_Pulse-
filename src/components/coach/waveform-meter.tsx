@@ -6,8 +6,7 @@
  * Bars are symmetric (extend above and below center line).
  *
  * Opens its own AudioContext + getUserMedia when active so bars respond
- * to real vocal inflections (walkie-talkie feel). Falls back to synthetic
- * waveform if mic access is unavailable.
+ * to real vocal inflections. Stays flat if mic access is unavailable.
  *
  * onAmplitude fires at SAMPLE_MS intervals with a 0–100 level so the
  * coach page can stream teacher voice amplitude to students via SSE.
@@ -48,13 +47,13 @@ export function WaveformMeter({
 
 	const micAmpRef = useRef(0);
 	const micReadyRef = useRef(false);
-	const synthPhaseRef = useRef(0);
 
 	// ── Mic analyser ──────────────────────────────────────────────────────────
 	useEffect(() => {
 		if (!active) {
 			micAmpRef.current = 0;
 			micReadyRef.current = false;
+			onAmplitudeRef.current?.(0);
 			return;
 		}
 
@@ -105,7 +104,7 @@ export function WaveformMeter({
 				}
 				analyserRafId = requestAnimationFrame(tick);
 			} catch {
-				// Mic unavailable — draw loop uses synthetic fallback
+				// Mic unavailable — report silence.
 			}
 		}
 
@@ -144,15 +143,7 @@ export function WaveformMeter({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					if (micReadyRef.current) {
-						const noise = (Math.random() - 0.5) * 0.02;
-						amp = Math.max(0, Math.min(1, micAmpRef.current + noise));
-					} else {
-						synthPhaseRef.current += 0.18;
-						const base =
-							Math.sin(synthPhaseRef.current) * 0.14 + Math.sin(synthPhaseRef.current * 2.3) * 0.07;
-						amp = Math.max(0, 0.18 + base + (Math.random() - 0.5) * 0.12);
-					}
+					amp = micReadyRef.current ? Math.max(0, Math.min(1, micAmpRef.current)) : 0;
 					onAmplitudeRef.current?.(Math.round(amp * 100));
 				} else {
 					const last = historyRef.current.at(-1) ?? 0;

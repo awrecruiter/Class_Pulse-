@@ -28,7 +28,7 @@ export default function ClassesPage() {
 	const [form, setForm] = useState({
 		label: "",
 		periodTime: "",
-		gradeLevel: "5",
+		gradeLevel: "",
 		subject: "Math",
 	});
 
@@ -122,7 +122,7 @@ export default function ClassesPage() {
 			}
 			toast.success("Class created");
 			setShowForm(false);
-			setForm({ label: "", periodTime: "", gradeLevel: "5", subject: "Math" });
+			setForm({ label: "", periodTime: "", gradeLevel: "", subject: "Math" });
 			fetchClasses();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Failed to create class");
@@ -213,20 +213,16 @@ export default function ClassesPage() {
 							</div>
 							<div className="flex flex-col gap-1">
 								<label className="text-xs text-slate-500" htmlFor="gradeLevel">
-									Grade
+									Grade / level (optional)
 								</label>
-								<select
+								<input
 									id="gradeLevel"
 									value={form.gradeLevel}
 									onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}
+									maxLength={10}
+									placeholder="K, 8, 12, mixed, adult…"
 									className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-								>
-									{["3", "4", "5", "6", "7", "8"].map((g) => (
-										<option key={g} value={g}>
-											Grade {g}
-										</option>
-									))}
-								</select>
+								/>
 							</div>
 						</div>
 						<div className="flex gap-2 justify-end">
@@ -295,7 +291,9 @@ export default function ClassesPage() {
 													<UsersIcon className="h-3 w-3" />
 													{cls.studentCount} student{cls.studentCount !== 1 ? "s" : ""}
 												</span>
-												<span className="text-xs text-slate-600">Grade {cls.gradeLevel}</span>
+												<span className="text-xs text-slate-600">
+													{cls.gradeLevel ? `Level: ${cls.gradeLevel}` : "Any grade"}
+												</span>
 											</div>
 										</div>
 										<span className="text-xs text-indigo-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">

@@ -126,7 +126,7 @@ Average CFU score: ${avgCfu}/4 (${cfuData.length} entries)
 Current behavior step: ${behaviorStep}/8
 Recent incidents: ${recentIncidents.map((i) => `Step ${i.step} (${i.label})`).join(", ") || "none"}`;
 
-	const SYSTEM = `You are a child-psychology-aware academic advisor helping a 5th grade Florida math teacher prepare for a parent conference. Based on the student data provided (no full names, initials only), generate:
+	const SYSTEM = `You are a child-psychology-aware academic advisor helping a teacher prepare for a parent conference. Based on the student data provided (no full names, initials only), generate:
 1. 3-5 specific, evidence-based talking points for the parent conference
 2. 2-3 sentences of concrete at-home practice suggestions
 3. A 3-4 sentence professional parent message draft

@@ -35,7 +35,7 @@ const RequestSchema = z.object({
 	lessonTranscript: z.string().max(20000).optional(),
 });
 
-const BASE_SYSTEM_PROMPT = `You are a classroom behavior coach for a 5th-grade Florida math teacher. You assist throughout the school day via natural narration — the teacher speaks to you while moving around the room.
+const BASE_SYSTEM_PROMPT = `You are a classroom behavior coach for a classroom teacher. You assist throughout the school day via natural narration — the teacher speaks to you while moving around the room.
 
 ROLE:
 - Help manage classroom behavior with evidence-based, child-psychology-informed strategies

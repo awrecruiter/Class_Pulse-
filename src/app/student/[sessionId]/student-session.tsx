@@ -2,11 +2,13 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { StudentManipulative } from "@/components/coach/manipulatives/student";
 import { CorrectionRequest } from "@/components/coach/manipulatives/student/correction-request";
 import { StudentStore } from "@/components/coach/manipulatives/student/student-store";
+import { StudentBooking } from "@/components/student/student-booking";
 import type { CoachResponse } from "@/lib/ai/coach";
 import type { StudentFeedNoiseEvent } from "@/types";
 
@@ -102,7 +104,7 @@ function SoundcloudWave({
 		];
 	}, [markTrigger]);
 
-	// Draw loop — same synthetic amplitude + blue gradient as WaveformMeter
+	// Draw measured audio only; an open session is not a live lecture.
 	useEffect(() => {
 		function draw(ts: number) {
 			rafRef.current = requestAnimationFrame(draw);
@@ -126,9 +128,7 @@ function SoundcloudWave({
 				lastSampleRef.current = ts;
 				let amp = 0;
 				if (activeRef.current) {
-					// Teacher mic amplitude (0-1) with tiny noise to prevent static look
-					const teacherAmp = teacherLevelRef.current / 100;
-					amp = Math.max(0, teacherAmp + (Math.random() - 0.5) * 0.04);
+					amp = Math.max(0, Math.min(1, teacherLevelRef.current / 100));
 				} else {
 					const last = historyRef.current.at(-1) ?? 0;
 					amp = last * 0.7;
@@ -233,6 +233,8 @@ function RamLogo({ size = 40 }: { size?: number }) {
 }
 
 type Props = {
+	orientationHref?: string;
+	studentBookingUrl?: string;
 	sessionId: string;
 	displayName: string;
 	classLabel: string;
@@ -249,6 +251,8 @@ type Props = {
 };
 
 export function StudentSession({
+	orientationHref,
+	studentBookingUrl = "",
 	sessionId,
 	displayName,
 	classLabel,
@@ -344,6 +348,8 @@ export function StudentSession({
 		if (!isActive) return;
 		const es = new EventSource(`/api/sessions/${sessionId}/student-feed`);
 		esRef.current = es;
+		let audioTimeout: ReturnType<typeof setTimeout>;
+		es.onerror = () => setTeacherLevel(0);
 		es.onmessage = (e) => {
 			try {
 				const parsed = JSON.parse(e.data) as PushPayload & {
@@ -362,7 +368,11 @@ export function StudentSession({
 				}
 				if (parsed.type === "noise") {
 					const noiseEvent = parsed as unknown as StudentFeedNoiseEvent;
-					setTeacherLevel(typeof noiseEvent.level === "number" ? noiseEvent.level : 0);
+					setTeacherLevel(
+						Number.isFinite(noiseEvent.level) ? Math.max(0, Math.min(100, noiseEvent.level)) : 0,
+					);
+					clearTimeout(audioTimeout);
+					audioTimeout = setTimeout(() => setTeacherLevel(0), 2000);
 					return;
 				}
 				if (parsed.type === "purchase-update") {
@@ -412,7 +422,10 @@ export function StudentSession({
 				/* ignore */
 			}
 		};
-		return () => es.close();
+		return () => {
+			clearTimeout(audioTimeout);
+			es.close();
+		};
 	}, [sessionId, isActive]);
 
 	function tapButton(el: HTMLButtonElement | null) {
@@ -454,6 +467,12 @@ export function StudentSession({
 					<p className="text-2xl font-black text-white">Class is over!</p>
 					<p className="text-sm text-slate-400 mt-1">Great work today, {displayName}.</p>
 				</div>
+				<StudentBooking bookingUrl={studentBookingUrl} />
+				{orientationHref && (
+					<Link href={orientationHref} className="text-sm text-indigo-300 underline">
+						Return to orientation &amp; parent progress
+					</Link>
+				)}
 				<p className="text-xs text-slate-600">You can close this tab.</p>
 			</div>
 		);
@@ -502,6 +521,13 @@ export function StudentSession({
 					</div>
 				)}
 			</div>
+
+			<StudentBooking bookingUrl={studentBookingUrl} />
+			{orientationHref && (
+				<Link href={orientationHref} className="text-sm text-indigo-300 underline">
+					Return to orientation &amp; parent progress
+				</Link>
+			)}
 
 			{/* Pushed question from teacher question bank */}
 			{pushedQuestion && (
@@ -704,15 +730,19 @@ export function StudentSession({
 								{/* Teacher voice waveform */}
 								<div className="flex flex-col items-center gap-2">
 									<SoundcloudWave
-										active={isActive}
+										active={isActive && teacherLevel > 0}
 										teacherLevel={teacherLevel}
 										markTrigger={markTrigger}
 										latestSignal={currentSignal}
 									/>
 									<div className="flex items-center gap-1.5">
-										<span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-										<p className="text-[11px] font-semibold text-emerald-500 tracking-wide uppercase">
-											Teacher is live
+										<span
+											className={`h-1.5 w-1.5 rounded-full ${teacherLevel > 0 ? "bg-emerald-500 animate-pulse" : "bg-slate-600"}`}
+										/>
+										<p
+											className={`text-[11px] font-semibold tracking-wide uppercase ${teacherLevel > 0 ? "text-emerald-500" : "text-slate-500"}`}
+										>
+											{teacherLevel > 0 ? "Receiving tutor audio" : "Waiting for tutor audio"}
 										</p>
 									</div>
 								</div>

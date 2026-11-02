@@ -619,9 +619,18 @@ export default function ClassDetailPage({ params }: { params: Promise<{ id: stri
 					</div>
 				)}
 				<p className="text-sm text-slate-400 mt-0.5">
-					{cls.periodTime && `${cls.periodTime} · `}Grade {cls.gradeLevel} {cls.subject}
+					{cls.periodTime && `${cls.periodTime} · `}
+					{cls.gradeLevel ? `Level: ${cls.gradeLevel} · ` : ""}
+					{cls.subject}
 				</p>
 			</div>
+
+			<Link
+				href={`/classes/${cls.id}/orientation`}
+				className="self-start rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white"
+			>
+				Family orientation →
+			</Link>
 
 			{/* Tab strip */}
 			<div className="flex rounded-lg overflow-hidden border border-slate-800 text-xs font-semibold self-start">

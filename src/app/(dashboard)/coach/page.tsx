@@ -734,6 +734,7 @@ export default function CoachPage() {
 							pinnedStandards,
 							priorAttempts,
 							scaffoldGrade: grade,
+							gradeLevel: classes.find((c) => c.id === selectedClassId)?.gradeLevel ?? "",
 						}),
 						signal: controller.signal,
 					});
@@ -751,7 +752,7 @@ export default function CoachPage() {
 				setIsLoading(false);
 			}
 		},
-		[isLoading, transcript, pinnedStandards],
+		[isLoading, transcript, pinnedStandards, classes, selectedClassId],
 	);
 
 	const handleDeepen = useCallback(
@@ -1266,9 +1267,7 @@ export default function CoachPage() {
 						)}
 
 						{/* Session start/stop + waveform zone */}
-						{/* WaveformMeter is always mounted when a session is live so the noise
-						    feed keeps flowing to students even in DI mode or scaffold view.
-						    CSS hidden removes it from layout while keeping the mic + onAmplitude active. */}
+						{/* Keep the waveform mounted across views, but capture audio only while listening. */}
 						{classes.length > 0 && showOrbArea && (
 							<div
 								className={`shrink-0 flex flex-col items-center justify-center px-6 gap-3${
@@ -1277,7 +1276,7 @@ export default function CoachPage() {
 								style={{ height: 160 }}
 							>
 								<WaveformMeter
-									active={isListening || !!activeSessionId}
+									active={isListening}
 									height={72}
 									className="w-full"
 									onAmplitude={handleAmplitude}
@@ -1578,9 +1577,7 @@ export default function CoachPage() {
 									value={pinnedStandards}
 									onChange={setPinnedStandards}
 									defaultGrade={
-										selectedClass?.gradeLevel
-											? (Number(selectedClass.gradeLevel) as 3 | 4 | 5)
-											: undefined
+										selectedClass?.gradeLevel ? Number(selectedClass.gradeLevel) : undefined
 									}
 								/>
 							)}

@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ClassesPage from "./page";
 
@@ -57,6 +57,18 @@ describe("ClassesPage voice events", () => {
 				throw new Error(`Unexpected fetch: ${method} ${url}`);
 			}),
 		);
+	});
+
+	it("starts with no grade and accepts an adult or mixed learner level", async () => {
+		render(<ClassesPage />);
+		await screen.findByText("Period 3 Math");
+		fireEvent.click(screen.getByRole("button", { name: "New Class" }));
+		const grade = screen.getByLabelText("Grade / level (optional)");
+		expect(grade).toHaveValue("");
+		fireEvent.change(grade, { target: { value: "adult" } });
+		expect(grade).toHaveValue("adult");
+		fireEvent.change(grade, { target: { value: "mixed" } });
+		expect(grade).toHaveValue("mixed");
 	});
 
 	it("opens a matching class from a voice event", async () => {

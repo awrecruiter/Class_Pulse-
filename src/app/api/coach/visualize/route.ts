@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 			? `Pinned FL BEST standards: ${pinnedStandards.join(", ")}.`
 			: "";
 
-	const prompt = `You are watching a 5th grade Florida math teacher lecture. Based on the last few minutes of their spoken lesson, identify the concept they are currently teaching and generate a clear visual representation.
+	const prompt = `You are watching a math teacher lecture. Based on the last few minutes of their spoken lesson, identify the concept they are currently teaching and generate a clear visual representation.
 
 ${standardsHint}
 
@@ -61,7 +61,7 @@ Rules:
 - concept must be specific (e.g. "Adding fractions with unlike denominators" not "Math")
 - visual must actually show math — numbers, diagrams, models, not just words
 - keyPoints: exactly 3, each under 10 words, action-oriented ("Find the LCD first")
-- Keep it grade-appropriate for 5th graders`;
+- Use the level demonstrated in the lesson; do not assume a grade or age`;
 
 	try {
 		const response = await client.messages.create({

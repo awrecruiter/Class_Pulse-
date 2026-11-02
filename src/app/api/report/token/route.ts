@@ -10,7 +10,7 @@ import { sessionRateLimiter } from "@/lib/rate-limit";
 
 // Generic standard code used for on-demand "share report" tokens
 // (not tied to a detected pattern — teacher-initiated)
-const ON_DEMAND_STANDARD = "MA.5.NSO.1.1";
+const ON_DEMAND_STANDARD = "GENERAL_PROGRESS";
 
 export async function POST(request: NextRequest) {
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
 			and(
 				eq(interventionFlags.rosterId, rosterId),
 				eq(interventionFlags.classId, classId),
+				eq(interventionFlags.standardCode, ON_DEMAND_STANDARD),
 				gt(parentReportTokens.expiresAt, now),
 			),
 		)
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
 				rosterId,
 				tier: "watch",
 				standardCode: ON_DEMAND_STANDARD,
-				sessionCount: 1,
+				sessionCount: 0,
 				detectedAt: now,
 				status: "sent",
 				sentAt: now,

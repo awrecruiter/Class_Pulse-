@@ -31,7 +31,7 @@ async function generateAnimPlan(concept: string, transcript: string): Promise<An
 		messages: [
 			{
 				role: "user",
-				content: `You are generating a narrated Manim animation to help a 5th-grade student understand a concept they are confused about.
+				content: `You are generating a narrated Manim animation to help a student understand a concept they are confused about.
 
 MISCONCEPTION / CONCEPT TO ANIMATE: ${concept}
 
@@ -40,7 +40,7 @@ ${transcript.slice(-1200) || "(no transcript — animate the concept directly)"}
 
 OUTPUT: Respond with ONLY valid JSON, no markdown:
 {
-  "narration": "2–4 warm sentences a teacher would say out loud while drawing this. Start with the student's confusion, then walk through the correct understanding step by step. Simple language, 10-year-old level.",
+  "narration": "2–4 warm sentences a teacher would say out loud while drawing this. Start with the student's confusion, then walk through the correct understanding step by step. Clear language suited to the lesson context; do not assume an age.",
   "manimCode": "Complete Manim Python script (see rules below)"
 }
 

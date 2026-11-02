@@ -15,23 +15,18 @@ export type QuestionsResponse = {
 	standardDescription?: string;
 };
 
-// Default standards per manipulative type for presets without a standard code
-const DEFAULT_STANDARDS: Record<string, string> = {
-	"fraction-bar": "MA.5.FR.1.1",
-	"area-model": "MA.5.AR.1.1",
-	"number-line": "MA.5.FR.2.1",
-};
-
 export async function generateCheckQuestions(
 	manipType: "fraction-bar" | "area-model" | "number-line",
 	standardCode?: string,
 ): Promise<QuestionsResponse> {
-	const code = standardCode ?? DEFAULT_STANDARDS[manipType] ?? "MA.5.FR.1.1";
+	const code = standardCode;
 	const benchmark = FL_BEST_STANDARDS.find((b) => b.code === code);
 
 	const standardContext = benchmark
 		? `FL BEST Standard ${benchmark.code} (Grade ${benchmark.grade}): ${benchmark.description}`
-		: `FL BEST Standard ${code}`;
+		: code
+			? `Tutor-selected skill or standard: ${code}`
+			: "No grade or curriculum standard specified. Assess the demonstrated concept without assuming a grade.";
 
 	const manipContext =
 		manipType === "fraction-bar"
@@ -49,7 +44,7 @@ Generate 3 multiple-choice check questions to assess understanding. Make them:
 - Question 2: slightly harder, requires reasoning (medium)
 - Question 3: connects to a real-world context or a slight variation (challenge)
 
-Each question must have exactly 4 options. Distractors must reflect real student misconceptions, not random wrong answers. Keep language simple for a 10-year-old.
+Each question must have exactly 4 options. Distractors must reflect real student misconceptions, not random wrong answers. Use clear language suited to the selected skill, without assuming a learner age.
 
 Respond with ONLY valid JSON, no markdown:
 {

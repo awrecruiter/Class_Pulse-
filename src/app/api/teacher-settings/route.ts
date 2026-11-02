@@ -7,8 +7,10 @@ import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { teacherSettings } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
+import { studentBookingUrlSchema } from "@/lib/student-booking";
 
 const updateSettingsSchema = z.object({
+	studentBookingUrl: studentBookingUrlSchema.optional(),
 	masteryThreshold: z.number().int().min(1).max(10).optional(),
 	confusionAlertPercent: z.number().int().min(10).max(90).optional(),
 	useAliasMode: z.boolean().optional(),

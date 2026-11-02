@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
@@ -10,6 +10,7 @@ import {
 	comprehensionSignals,
 	groupAccounts,
 	groupMemberships,
+	orientations,
 	ramBuckAccounts,
 	rosterEntries,
 	studentGroups,
@@ -98,6 +99,7 @@ export default async function StudentSessionPage({
 	const [settingsRow] = cls
 		? await db
 				.select({
+					studentBookingUrl: teacherSettings.studentBookingUrl,
 					currencyName: teacherSettings.currencyName,
 					currencyEmoji: teacherSettings.currencyEmoji,
 				})
@@ -112,12 +114,28 @@ export default async function StudentSessionPage({
 		.from(classAssignments)
 		.where(and(eq(classAssignments.classId, session.classId), eq(classAssignments.date, today)));
 
+	const [orientation] = await db
+		.select({ token: orientations.token })
+		.from(orientations)
+		.where(
+			and(
+				eq(orientations.classId, session.classId),
+				eq(orientations.rosterId, payload.rosterId),
+				gt(orientations.expiresAt, new Date()),
+			),
+		)
+		.limit(1);
+
 	const displayName = entry ? `${entry.firstInitial}.${entry.lastInitial}.` : "Student";
 	const classLabel = cls?.label ?? "Class";
 	const isActive = session.status === "active";
 
 	return (
 		<StudentSession
+			orientationHref={
+				orientation ? `/student/orientation/${orientation.token}?step=progress` : undefined
+			}
+			studentBookingUrl={settingsRow?.studentBookingUrl ?? ""}
 			sessionId={sessionId}
 			displayName={displayName}
 			classLabel={classLabel}

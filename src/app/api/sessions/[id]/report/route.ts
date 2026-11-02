@@ -167,8 +167,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	if (students.length > 0) {
 		try {
 			const standardCodes = [...new Set(mastery.map((m) => m.standardCode))].join(", ");
-			const prompt = `A 5th grade math teacher just finished a lesson. Here is the class performance summary:
+			const prompt = `A math teacher just finished a lesson. Here is the class performance summary:
 
+Learner grade/level: ${cls?.gradeLevel || "Unspecified; do not assume a grade"}
 Standards practiced: ${standardCodes || "general math"}
 Students mastered at least one standard: ${extension.length}
 Students still working: ${practice.length}
@@ -177,7 +178,7 @@ Total class: ${students.length}
 
 Signal summary — Got it: ${signalSummary.gotIt}, Almost: ${signalSummary.almost}, Lost: ${signalSummary.lost}
 
-Generate a brief, actionable reteach recommendation for each of the 3 differentiation groups. Each recommendation should be 1–2 sentences, specific to 5th grade FL BEST Math, and executable without extra materials.
+Generate a brief, actionable reteach recommendation for each of the 3 differentiation groups. Each recommendation should be 1–2 sentences, grounded in the standards actually practiced, without assuming a grade, and executable without extra materials.
 
 Respond with ONLY valid JSON (no markdown):
 {

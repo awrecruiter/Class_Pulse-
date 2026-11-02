@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { FL_BEST_STANDARDS } from "@/data/fl-best-standards";
 import { IXL_SKILL_MAP } from "@/data/ixl-skill-map";
 import { db } from "@/lib/db";
 import {
@@ -22,10 +23,10 @@ import {
 	classSessions,
 	comprehensionSignals,
 	interventionFlags,
+	orientations,
 	parentReportTokens,
 	rosterEntries,
 } from "@/lib/db/schema";
-import { getTopicForDate } from "@/lib/pacing";
 import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
@@ -88,7 +89,7 @@ export default async function ReportPage({ params }: PageProps) {
 			.where(eq(rosterEntries.id, rosterId))
 			.then((r) => r[0]),
 		db
-			.select({ label: classes.label, gradeLevel: classes.gradeLevel })
+			.select({ label: classes.label, gradeLevel: classes.gradeLevel, subject: classes.subject })
 			.from(classes)
 			.where(eq(classes.id, classId))
 			.then((r) => r[0]),
@@ -121,9 +122,28 @@ export default async function ReportPage({ params }: PageProps) {
 			: Promise.resolve(undefined),
 	]);
 
-	const currentTopic = getTopicForDate(new Date().toISOString().slice(0, 10));
+	const [orientation] = await db
+		.select({
+			gradeLevel: orientations.gradeLevel,
+			content: orientations.content,
+			progressNote: orientations.progressNote,
+			homePractice: orientations.homePractice,
+			reviewedAt: orientations.reviewedAt,
+		})
+		.from(orientations)
+		.where(and(eq(orientations.classId, classId), eq(orientations.rosterId, rosterId)))
+		.orderBy(desc(orientations.createdAt))
+		.limit(1);
+
+	const isGeneralReport = flag.standardCode === "GENERAL_PROGRESS";
 	const ixlSkill = IXL_SKILL_MAP[flag.standardCode];
-	const topic = ixlSkill?.name ?? "Math";
+	const topic =
+		ixlSkill?.name ??
+		FL_BEST_STANDARDS.find((s) => s.code === flag.standardCode)?.description ??
+		(isGeneralReport
+			? orientation?.content || cls?.subject || "Learning progress"
+			: flag.standardCode);
+	const practiceGrade = orientation ? orientation.gradeLevel : cls?.gradeLevel;
 
 	// Name: show first initial only if last initial is missing
 	const initials = [roster?.firstInitial, roster?.lastInitial].filter(Boolean).join(".");
@@ -238,11 +258,13 @@ export default async function ReportPage({ params }: PageProps) {
 		);
 
 	const academicColor =
-		signal === "got-it"
-			? "bg-emerald-500"
-			: signal === "lost" || isUrgent
-				? "bg-rose-500"
-				: "bg-amber-400";
+		isGeneralReport && !signal
+			? "bg-slate-400"
+			: signal === "got-it"
+				? "bg-emerald-500"
+				: signal === "lost" || isUrgent
+					? "bg-rose-500"
+					: "bg-amber-400";
 	const academicStatus =
 		signal === "got-it"
 			? "On track"
@@ -250,9 +272,13 @@ export default async function ReportPage({ params }: PageProps) {
 				? "Needs support"
 				: signal === "almost"
 					? "Getting there"
-					: "Flagged";
+					: isGeneralReport
+						? "Not checked"
+						: "Flagged";
 	const academicIcon =
-		signal === "got-it" ? (
+		isGeneralReport && !signal ? (
+			<BookOpen size={28} className="text-white" />
+		) : signal === "got-it" ? (
 			<Check size={32} strokeWidth={3} className="text-white" />
 		) : signal === "lost" || isUrgent ? (
 			<X size={32} strokeWidth={3} className="text-white" />
@@ -310,7 +336,9 @@ export default async function ReportPage({ params }: PageProps) {
 						</div>
 						<div className="flex items-center gap-1.5">
 							<GraduationCap size={13} className="text-[#86868B] shrink-0" />
-							<p className="text-sm font-semibold text-[#1D1D1F]">Academics</p>
+							<p className="text-sm font-semibold text-[#1D1D1F]">
+								{isGeneralReport ? "Student check-in" : "Academics"}
+							</p>
 						</div>
 					</div>
 				</div>
@@ -357,25 +385,39 @@ export default async function ReportPage({ params }: PageProps) {
 						<span
 							className={`text-[10px] font-semibold uppercase tracking-widest ${isUrgent ? "text-rose-500" : "text-amber-500"}`}
 						>
-							Teacher Flag
+							{isGeneralReport ? "Learning summary" : "Teacher Flag"}
 						</span>
 					</div>
 					<div className="px-4 pb-4 space-y-1">
 						<p className="text-[#1D1D1F] font-semibold text-lg leading-snug">
-							{isUrgent ? "Struggling across multiple topics" : `Difficulty with ${topic}`}
+							{isGeneralReport
+								? "Session progress"
+								: isUrgent
+									? "Struggling across multiple topics"
+									: `Difficulty with ${topic}`}
 						</p>
 						<p className="text-sm text-[#86868B] leading-relaxed">
-							{isUrgent
-								? "A pattern across several math areas has been flagged. Extra support is recommended."
-								: `Seen in ${flag.sessionCount} recent class session${flag.sessionCount !== 1 ? "s" : ""}. A little practice at home makes a big difference.`}
+							{isGeneralReport
+								? "Review the session feedback and assigned practice above. This summary does not establish mastery of a specific skill."
+								: isUrgent
+									? "A pattern across several math areas has been flagged. Extra support is recommended."
+									: `Seen in ${flag.sessionCount} recent class session${flag.sessionCount !== 1 ? "s" : ""}. A little practice at home makes a big difference.`}
 						</p>
-						{currentTopic && (
-							<p className="text-xs text-[#86868B] pt-1">
-								Class is on: <span className="text-[#1D1D1F]">{currentTopic.title}</span>
-							</p>
-						)}
 					</div>
 				</div>
+
+				{orientation?.reviewedAt && (
+					<section className="rounded-2xl bg-white shadow-sm border border-black/5 p-5 space-y-3">
+						<h2 className="font-semibold text-[#1D1D1F]">Tutor-reviewed learning progress</h2>
+						<p className="text-xs text-[#86868B]">
+							Reviewed {orientation.reviewedAt.toLocaleDateString()}
+							{orientation.gradeLevel ? ` · Level: ${orientation.gradeLevel}` : ""}
+						</p>
+						<p className="whitespace-pre-wrap text-sm text-[#1D1D1F]">{orientation.progressNote}</p>
+						<h3 className="font-semibold text-[#1D1D1F]">Practice together at home</h3>
+						<p className="whitespace-pre-wrap text-sm text-[#1D1D1F]">{orientation.homePractice}</p>
+					</section>
+				)}
 
 				{/* Actions */}
 				<div className="space-y-2 pt-1">
@@ -404,7 +446,7 @@ export default async function ReportPage({ params }: PageProps) {
 							</a>
 						)}
 						<a
-							href={`https://www.khanacademy.org/search?page_search_query=${encodeURIComponent(`${topic} grade 5 math`)}`}
+							href={`https://www.khanacademy.org/search?page_search_query=${encodeURIComponent(`${topic}${practiceGrade ? ` level ${practiceGrade}` : ""}`)}`}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="rounded-2xl bg-white shadow-sm border border-black/5 px-3 py-3.5 flex flex-col gap-3 no-underline active:opacity-75"

@@ -30,8 +30,8 @@ describe("noise-store", () => {
 		setNoiseLevel("session-ttl", 55);
 		expect(getNoiseLevel("session-ttl")).toBe(55);
 
-		// Advance 31 seconds past the 30s TTL
-		vi.setSystemTime(baseTime + 31_000);
+		// A stopped mic must not leave the last loud sample active.
+		vi.setSystemTime(baseTime + 2_001);
 		expect(getNoiseLevel("session-ttl")).toBe(0);
 	});
 

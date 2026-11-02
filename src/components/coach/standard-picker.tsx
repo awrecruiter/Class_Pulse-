@@ -18,7 +18,7 @@ const STRANDS = [
 type StandardPickerProps = {
 	value: string[];
 	onChange: (codes: string[]) => void;
-	defaultGrade?: 3 | 4 | 5;
+	defaultGrade?: number;
 	label?: string;
 };
 
@@ -27,7 +27,9 @@ export function StandardPicker({ value, onChange, defaultGrade, label }: Standar
 	const [gradeFilter, setGradeFilter] = useState<number | null>(defaultGrade ?? null);
 
 	useEffect(() => {
-		if (defaultGrade !== undefined) setGradeFilter(defaultGrade);
+		setGradeFilter(
+			defaultGrade !== undefined && Number.isFinite(defaultGrade) ? defaultGrade : null,
+		);
 	}, [defaultGrade]);
 	const [strandFilter, setStrandFilter] = useState<string | null>(null);
 
@@ -57,7 +59,9 @@ export function StandardPicker({ value, onChange, defaultGrade, label }: Standar
 
 	return (
 		<div className="flex flex-col gap-1.5">
-			<span className="text-sm font-medium text-foreground">{label ?? "Today’s standard(s)"}</span>
+			<span className="text-sm font-medium text-foreground">
+				{label ?? "Optional FL BEST standards (grades 3–5)"}
+			</span>
 
 			{/* Trigger */}
 			<button
@@ -161,7 +165,8 @@ export function StandardPicker({ value, onChange, defaultGrade, label }: Standar
 					<ul className="max-h-56 overflow-y-auto divide-y divide-border">
 						{filtered.length === 0 ? (
 							<li className="px-3 py-4 text-sm text-center text-muted-foreground">
-								No standards match
+								No built-in standards match. This optional library covers FL BEST grades 3–5; you
+								can continue using your own lesson content.
 							</li>
 						) : (
 							filtered.map((b) => {

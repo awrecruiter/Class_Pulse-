@@ -6,6 +6,7 @@ const client = new Anthropic({
 });
 
 export type CoachRequest = {
+	gradeLevel?: string;
 	lessonTranscript: string;
 	studentQuery: string;
 	pinnedStandards?: string[];
@@ -14,7 +15,7 @@ export type CoachRequest = {
 		triedApproach: string;
 		deeperContext?: string;
 	}>;
-	scaffoldGrade?: number; // 0-5; undefined = auto
+	scaffoldGrade?: number; // 0-12; undefined = auto
 };
 
 export type ScaffoldVisual =
@@ -108,7 +109,7 @@ export type CoachResponse = {
 
 const STANDARDS_CORPUS = formatStandardsForPrompt();
 
-const SYSTEM_PROMPT = `You are an expert 5th-grade math instructional coach trained in Florida's FL BEST Math standards.
+const SYSTEM_PROMPT = `You are a math instructional coach supporting learners across grade levels. Use the tutor-provided level and lesson evidence; never assume fifth grade. The optional reference corpus covers Florida FL BEST grades 3–5 only. Do not force other grades into that corpus or invent standard codes.
 
 Your job: given a teacher's lesson transcript and a student's confusion, produce a complete remediation plan a teacher can act on immediately.
 
@@ -124,7 +125,7 @@ ${STANDARDS_CORPUS}
 
 Rules:
 1. studentInterpretation: One clear sentence. Translate the student's confused/broken input into a precise description of the misconception. Start with "Student believes..." or "Student thinks..." Never say "The student said..."
-2. missingConcept: Trace the FL BEST prerequisite chain to find the specific gap causing this misconception.
+2. missingConcept: Identify the prerequisite skill gap from the lesson and student evidence. Use a code only when supported by the supplied standards; otherwise use an empty code and a plain-language skill description. Grade is an instructional estimate, not a verified placement.
 3. script: ≤30 words. Exactly what the teacher says out loud right now. Must reference something from today's lesson. No jargon.
 4. visual: A quick sketch the teacher draws in under 10 seconds. 1–3 sentences.
 5. microIntervention: A 30-second hands-on activity using only what's on the student's desk. 2–4 sentences.
@@ -136,7 +137,7 @@ Rules:
     Each question must have EXACTLY 4 choices (index 0–3). The correct answer should not always be index 0.
     - hint: 1 sentence shown after a wrong answer — nudge without giving it away
     - explanation: 1–2 sentences shown after a correct answer — why it's right + connects to the next step
-    Use simple, grade-appropriate language (10-year-old level).
+    Use language appropriate to the supplied learner level.
 12. visual (inside EACH scaffold question): REQUIRED for any question involving objects, quantities, tables, charts, diagrams, comparisons, or sorting. Set null ONLY for questions about pure abstract vocabulary with zero visual component.
 
     DECISION TREE — pick the type that matches the question:
@@ -173,7 +174,7 @@ Rules:
    Always set caption: one sentence describing what the visual shows.
    For non-spatial concepts, set manipulative to null.
 9. gradePrereq: Find the most relevant standard from the grade BELOW the missingConcept.grade that directly feeds into it. If missingConcept.grade is 3, look in grade 2; if 4, look in grade 3; if 5, look in grade 4.
-   - code: the FL BEST code from the lower grade
+   - code: a supported FL BEST code from the supplied corpus, or an empty string for an unmapped skill
    - grade: the lower grade number
    - description: the standard's one-sentence description
    - connection: 1–2 sentences explaining how not mastering this lower-grade standard directly causes the missingConcept gap.
@@ -185,7 +186,7 @@ Rules:
     - below.guidingQuestions: 3 questions starting from the grade-below concept, bridging toward the current lesson.
     - below.manipulative: Same rules as the top-level manipulative (#8 above), but chosen for the grade-below prerequisite concept. Set to null if the below concept is not spatial/fractional.
 
-CRITICAL: You MUST ALWAYS respond with valid JSON — no exceptions. Even if the student input is a single word, a fragment, or completely vague, make a reasonable educational interpretation and produce the full JSON. Never ask for clarification. Never output prose. If the input is ambiguous, interpret it as the most common 5th-grade math misconception that fits any context clues available.
+CRITICAL: You MUST ALWAYS respond with valid JSON — no exceptions. Even if the student input is a single word, a fragment, or completely vague, make a reasonable educational interpretation and produce the full JSON. Never ask for clarification. Never output prose. If the input is ambiguous, use the available lesson context and describe uncertainty; do not invent a grade or a curriculum mapping.
 
 Respond ONLY with valid JSON matching this exact schema — no markdown, no explanation:
 {
@@ -268,11 +269,11 @@ The teacher confirmed these are the standards being taught right now. Ground you
 	const gradeModifier =
 		req.scaffoldGrade !== undefined
 			? req.scaffoldGrade <= 2
-				? `SCAFFOLD GRADE OVERRIDE: The student operates at a Kindergarten–Grade ${req.scaffoldGrade === 0 ? "K" : req.scaffoldGrade} level. ALL content must be pitched for this grade. Use concrete counting, physical objects, and simple language. FL BEST codes may be informal. The 'below' section should go one level lower still.\n\n`
+				? `SCAFFOLD GRADE OVERRIDE: The student operates at a Kindergarten–Grade ${req.scaffoldGrade === 0 ? "K" : req.scaffoldGrade} level. ALL content must be pitched for this grade. Use concrete counting, physical objects, and simple language. Do not invent FL BEST codes. The 'below' section should go one level lower still.\n\n`
 				: `SCAFFOLD GRADE OVERRIDE: Pitch ALL content at Grade ${req.scaffoldGrade} level. Adjust the script, visual, micro-intervention, guiding questions, and scaffold questions to be appropriate for a Grade ${req.scaffoldGrade} student. The 'below' section should target Grade ${req.scaffoldGrade - 1}.\n\n`
 			: "";
 
-	const userMessage = `${gradeModifier}${pinnedStandardBlock}Today's lesson transcript (last 15 min):
+	const userMessage = `Learner grade/level: ${req.gradeLevel?.trim() || "Unspecified; adapt to demonstrated understanding, not an assumed age."}\n${gradeModifier}${pinnedStandardBlock}Today's lesson transcript (last 15 min):
 """
 ${req.lessonTranscript.trim() || "(No lesson transcript captured yet — respond based on the student query alone.)"}
 """
@@ -282,7 +283,7 @@ What the student said (may be fragmented, transcribed speech, or indirect):
 ${req.studentQuery.trim()}
 """
 ${priorAttemptsBlock}
-Interpret the student's actual misconception, identify the FL BEST prerequisite gap, and produce all four remediation approaches.`;
+Interpret the student's actual misconception, identify the prerequisite skill gap, and produce all four remediation approaches.`;
 
 	const message = await client.messages.create({
 		model: "claude-haiku-4-5-20251001",

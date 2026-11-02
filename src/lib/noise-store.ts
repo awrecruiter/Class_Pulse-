@@ -1,6 +1,6 @@
 import type { NoiseFrame } from "@/types";
 
-/** In-memory map: sessionId → latest NoiseFrame (expires after 30 s of silence). */
+/** In-memory map: sessionId → latest NoiseFrame (expires after 2 s without a fresh sample). */
 const store = new Map<string, NoiseFrame>();
 
 /**
@@ -15,7 +15,7 @@ export function setNoiseLevel(sessionId: string, level: number) {
 
 export function getNoiseLevel(sessionId: string): number {
 	const entry = store.get(sessionId);
-	if (!entry || Date.now() - entry.timestamp > 30_000) return 0;
+	if (!entry || Date.now() - entry.timestamp > 2_000) return 0;
 	return entry.level;
 }
 

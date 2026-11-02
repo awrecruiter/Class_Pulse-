@@ -28,8 +28,14 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
 	}
 
-	const { lessonTranscript, studentQuery, pinnedStandards, priorAttempts, scaffoldGrade } =
-		body as Record<string, unknown>;
+	const {
+		lessonTranscript,
+		studentQuery,
+		pinnedStandards,
+		priorAttempts,
+		scaffoldGrade,
+		gradeLevel,
+	} = body as Record<string, unknown>;
 
 	if (typeof studentQuery !== "string" || studentQuery.trim().length === 0) {
 		return NextResponse.json({ error: "studentQuery is required" }, { status: 400 });
@@ -52,6 +58,7 @@ export async function POST(request: NextRequest) {
 
 	try {
 		const response = await getScaffold({
+			gradeLevel: typeof gradeLevel === "string" ? gradeLevel.slice(0, 10) : "",
 			lessonTranscript: lessonTranscript as string,
 			studentQuery: studentQuery as string,
 			pinnedStandards: Array.isArray(pinnedStandards) ? (pinnedStandards as string[]) : [],
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
 				typeof scaffoldGrade === "number" &&
 				Number.isInteger(scaffoldGrade) &&
 				scaffoldGrade >= 0 &&
-				scaffoldGrade <= 5
+				scaffoldGrade <= 12
 					? scaffoldGrade
 					: undefined,
 		});

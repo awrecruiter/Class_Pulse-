@@ -38,7 +38,7 @@ const schema = z.object({
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a voice command classifier for a 5th-grade math classroom management app. A teacher speaks naturally and you classify what they want to do.
+const SYSTEM_PROMPT = `You are a voice command classifier for a classroom management app. A teacher speaks naturally and you classify what they want to do.
 
 Output ONLY valid JSON — no markdown, no explanation, nothing else.
 
