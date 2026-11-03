@@ -1,3 +1,4 @@
+import { CalendlyConnection } from "@/components/reservations/calendly-connection";
 import { BookingSettings } from "@/components/tutoring/booking-settings";
 import styles from "@/components/tutoring/workspace.module.css";
 export default function TutoringSettingsPage() {
@@ -11,6 +12,7 @@ export default function TutoringSettingsPage() {
 				</p>
 			</header>
 			<BookingSettings />
+			<CalendlyConnection />
 		</>
 	);
 }

@@ -1,6 +1,7 @@
-import { BookOpen } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PulseMark } from "@/components/brand/pulse-mark";
+import { WorkspaceFrame } from "@/components/reservations/workspace-frame";
 import styles from "@/components/tutoring/workspace.module.css";
 import { auth } from "@/lib/auth/server";
 
@@ -11,7 +12,7 @@ export default async function TutoringLayout({ children }: { children: React.Rea
 		<div className={styles.shell}>
 			<nav className={styles.nav} aria-label="Learning workspace">
 				<Link href="/tutoring" className={styles.brand}>
-					<BookOpen size={23} strokeWidth={1.6} />
+					<PulseMark size={34} decorative />
 					Class Pulse
 				</Link>
 				<div className={styles.links}>
@@ -21,7 +22,9 @@ export default async function TutoringLayout({ children }: { children: React.Rea
 					<Link href="/cockpit">Classroom ↗</Link>
 				</div>
 			</nav>
-			<main className={styles.content}>{children}</main>
+			<WorkspaceFrame>
+				<main className={styles.content}>{children}</main>
+			</WorkspaceFrame>
 		</div>
 	);
 }

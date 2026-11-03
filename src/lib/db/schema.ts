@@ -818,6 +818,32 @@ export const diGroupMembers = pgTable(
 	],
 );
 
+export const calendlyConnections = pgTable("calendly_connections", {
+	userId: text("user_id").primaryKey(),
+	tokenEncrypted: text("token_encrypted").notNull(),
+	userUri: text("user_uri").notNull(),
+	accountName: text("account_name").notNull(),
+});
+export const reservations = pgTable(
+	"reservations",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		teacherId: text("teacher_id").notNull(),
+		sourceUri: text("source_uri"),
+		classId: uuid("class_id").references(() => classes.id, { onDelete: "set null" }),
+		source: text("source").notNull().default("manual"),
+		learnerName: text("learner_name").notNull(),
+		subject: text("subject").notNull().default(""),
+		topic: text("topic").notNull().default(""),
+		startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+		endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+	},
+	(table) => [
+		uniqueIndex("idx_reservation_source").on(table.teacherId, table.sourceUri),
+		index("idx_reservation_teacher_start").on(table.teacherId, table.startsAt),
+	],
+);
+
 // ─── Teacher Schedule ─────────────────────────────────────────────────────────
 
 export const scheduleBlocks = pgTable(

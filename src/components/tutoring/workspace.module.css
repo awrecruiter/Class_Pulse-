@@ -1,7 +1,12 @@
 .shell {
 	min-height: 100dvh;
-	background: radial-gradient(ellipse at 50% 0%, #ece8fa 0, transparent 52%), #f7f6f2;
-	color: #30283e;
+	background:
+		radial-gradient(
+			ellipse at 50% 0%,
+			color-mix(in srgb, var(--pulse-primary, #6d50a3) 12%, transparent) 0,
+			transparent 52%
+		), var(--pulse-page, #f7f6f2);
+	color: var(--pulse-text, #30283e);
 }
 .nav {
 	display: flex;
@@ -26,7 +31,7 @@
 	flex-wrap: wrap;
 	gap: 18px;
 	font-size: 13px;
-	color: #81728f;
+	color: var(--pulse-muted, #81728f);
 }
 .content {
 	max-width: 960px;
@@ -45,7 +50,7 @@
 	font-weight: 650;
 }
 .header p {
-	color: #8b8195;
+	color: var(--pulse-muted, #8b8195);
 	line-height: 1.7;
 	margin-top: 12px;
 	font-size: 14px;
@@ -60,7 +65,7 @@
 	padding: 10px 18px;
 	border-radius: 100px;
 	font-size: 13px;
-	color: #81728f;
+	color: var(--pulse-muted, #81728f);
 }
 .activeTab {
 	background: #ece5f6;
@@ -72,8 +77,8 @@
 	gap: 18px;
 }
 .card {
-	background: #fff;
-	border: 1px solid #e8e3ed;
+	background: var(--pulse-card, #fff);
+	border: 1px solid var(--pulse-border, #e8e3ed);
 	border-radius: 24px;
 	padding: 26px;
 	box-shadow: 0 12px 40px -28px #3c285f40;
@@ -86,7 +91,7 @@
 .card p {
 	font-size: 13px;
 	line-height: 1.7;
-	color: #8b8195;
+	color: var(--pulse-muted, #8b8195);
 	margin: 10px 0;
 }
 .primary {
@@ -130,16 +135,16 @@
 .form select {
 	width: 100%;
 	text-align: left;
-	border: 1px solid #e5e0ed;
-	background: #faf9fc;
+	border: 1px solid var(--pulse-border, #e5e0ed);
+	background: var(--pulse-soft, #faf9fc);
 	border-radius: 14px;
 	padding: 14px 16px;
-	color: #40334e;
+	color: var(--pulse-text, #40334e);
 	font-size: 14px;
 }
 .form label {
 	font-size: 13px;
-	color: #81728f;
+	color: var(--pulse-muted, #81728f);
 }
 .form input::placeholder {
 	color: #a198ac;
@@ -169,32 +174,32 @@
 }
 .manager article,
 .manager section {
-	background: #fff;
-	border: 1px solid #e8e3ed;
+	background: var(--pulse-card, #fff);
+	border: 1px solid var(--pulse-border, #e8e3ed);
 	border-radius: 22px;
 	padding: 24px;
 }
 .manager article > div {
-	border-color: #e8e3ed;
+	border-color: var(--pulse-border, #e8e3ed);
 }
 .manager article > div[class*="bg-slate"] {
-	background: #f8f6fb;
+	background: var(--pulse-soft, #f8f6fb);
 }
 .manager p,
 .manager label,
 .manager h2,
 .manager h3 {
-	color: #70617e;
+	color: var(--pulse-muted, #70617e);
 }
 .manager label {
 	gap: 8px;
 }
 .manager input,
 .manager textarea {
-	background: #faf9fc;
-	border-color: #e5e0ed;
+	background: var(--pulse-soft, #faf9fc);
+	border-color: var(--pulse-border, #e5e0ed);
 	border-radius: 12px;
-	color: #40334e;
+	color: var(--pulse-text, #40334e);
 }
 .manager a,
 .manager button[class*="underline"] {

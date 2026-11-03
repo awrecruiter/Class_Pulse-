@@ -1,7 +1,7 @@
 "use client";
 
-import { BookOpen } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { PulseMark } from "@/components/brand/pulse-mark";
 import { StudentBooking } from "@/components/student/student-booking";
 import {
 	CHECK_IN_OPTIONS,
@@ -197,7 +197,7 @@ export function OrientationFlow({
 		<main className={styles.shell}>
 			<header className={styles.brand}>
 				<span className={styles.brandMark}>
-					<BookOpen size={22} strokeWidth={1.6} aria-hidden="true" />
+					<PulseMark size={44} />
 				</span>
 				<p className={styles.brandName}>Class Pulse</p>
 				<p className={styles.className}>{view?.classLabel ?? "Your learning space"}</p>

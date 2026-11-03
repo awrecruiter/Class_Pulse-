@@ -1,8 +1,13 @@
 .shell {
 	min-height: 100dvh;
 	width: 100%;
-	background: radial-gradient(ellipse at 50% 0%, #ece8fa 0, transparent 52%), #f7f6f2;
-	color: #262334;
+	background:
+		radial-gradient(
+			ellipse at 50% 0%,
+			color-mix(in srgb, var(--pulse-primary, #6d50a3) 12%, transparent) 0,
+			transparent 52%
+		), var(--pulse-page, #f7f6f2);
+	color: var(--pulse-text, #262334);
 	padding: clamp(32px, 7vh, 72px) 20px 40px;
 	display: flex;
 	flex-direction: column;
@@ -45,13 +50,13 @@
 	flex-direction: column;
 	gap: 16px;
 	padding: 34px 30px 26px;
-	border: 1px solid #e8e3ed;
+	border: 1px solid var(--pulse-border, #e8e3ed);
 	border-radius: 28px;
-	background: #ffffffed;
+	background: var(--pulse-card, #fff);
 	box-shadow: 0 18px 60px -28px #3c285f40;
 }
 .shell h1 {
-	color: #2c2539;
+	color: var(--pulse-text, #2c2539);
 	font-size: clamp(26px, 5vw, 32px);
 	line-height: 1.18;
 	font-weight: 650;
@@ -60,14 +65,14 @@
 	text-wrap: balance;
 }
 .shell p {
-	color: #81798b;
+	color: var(--pulse-muted, #81798b);
 	font-size: 14px;
 	line-height: 1.65;
 	margin: 0;
 	text-wrap: pretty;
 }
 .shell label {
-	color: #534b60;
+	color: var(--pulse-muted, #534b60);
 	min-width: 0;
 }
 .shell input:not([type="radio"]),
@@ -75,9 +80,9 @@
 .shell select {
 	width: 100%;
 	text-align: left;
-	background: #faf9fc;
-	border: 1px solid #e5e0ed;
-	color: #30283e;
+	background: var(--pulse-soft, #faf9fc);
+	border: 1px solid var(--pulse-border, #e5e0ed);
+	color: var(--pulse-text, #30283e);
 	border-radius: 14px;
 	padding: 16px;
 	font-size: 15px;
@@ -111,7 +116,7 @@
 	margin-top: 4px;
 }
 .shell fieldset label {
-	background: #fbfafd;
+	background: var(--pulse-soft, #fbfafd);
 	border: 1px solid #e6e1ee;
 	border-radius: 16px;
 	padding: 18px 34px;
@@ -179,7 +184,7 @@
 	color: #7052a6;
 }
 .shell ul {
-	color: #70617e;
+	color: var(--pulse-muted, #70617e);
 	font-size: 14px;
 	line-height: 1.8;
 	padding: 0;

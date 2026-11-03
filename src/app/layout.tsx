@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { VoiceQueueProvider } from "@/contexts/voice-queue";
 import "./globals.css";
+import "./pulse-design.css";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "Class Pulse — AI Instructional Coach",
-	description: "AI-powered remediation coaching for Florida math teachers",
+	title: "Class Pulse — Learning together",
+	description: "Learning support for classrooms, tutoring, and homeschool families",
 };
 
 export default function RootLayout({
@@ -35,7 +36,7 @@ export default function RootLayout({
 					}}
 				/>
 			</head>
-			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+			<body className={`${geistSans.variable} ${geistMono.variable} antialiased pulse-app`}>
 				<VoiceQueueProvider>
 					<AuthProvider>{children}</AuthProvider>
 				</VoiceQueueProvider>

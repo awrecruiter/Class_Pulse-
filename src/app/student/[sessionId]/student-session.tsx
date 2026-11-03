@@ -5,6 +5,7 @@ import gsap from "gsap";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { PulseMark } from "@/components/brand/pulse-mark";
 import { StudentManipulative } from "@/components/coach/manipulatives/student";
 import { CorrectionRequest } from "@/components/coach/manipulatives/student/correction-request";
 import { StudentStore } from "@/components/coach/manipulatives/student/student-store";
@@ -194,45 +195,9 @@ function SoundcloudWave({
 	return <canvas ref={canvasRef} className="w-full block" style={{ height: 56 }} />;
 }
 
-// ─── RAM SVG ──────────────────────────────────────────────────────────────────
-function RamLogo({ size = 40 }: { size?: number }) {
-	return (
-		<svg
-			width={size}
-			height={size}
-			viewBox="0 0 64 64"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-			aria-label="RAM mascot"
-		>
-			<title>RAM mascot</title>
-			<path
-				d="M14 28 C6 22 4 12 10 8 C16 4 22 8 20 16 C18 22 14 24 16 28"
-				stroke="#f59e0b"
-				strokeWidth="4"
-				strokeLinecap="round"
-				fill="none"
-			/>
-			<path
-				d="M50 28 C58 22 60 12 54 8 C48 4 42 8 44 16 C46 22 50 24 48 28"
-				stroke="#f59e0b"
-				strokeWidth="4"
-				strokeLinecap="round"
-				fill="none"
-			/>
-			<ellipse cx="32" cy="36" rx="16" ry="18" fill="#e2e8f0" />
-			<ellipse cx="32" cy="46" rx="9" ry="6" fill="#cbd5e1" />
-			<circle cx="29" cy="47" r="1.5" fill="#94a3b8" />
-			<circle cx="35" cy="47" r="1.5" fill="#94a3b8" />
-			<circle cx="25" cy="33" r="3" fill="#1e293b" />
-			<circle cx="39" cy="33" r="3" fill="#1e293b" />
-			<circle cx="26" cy="32" r="1" fill="white" />
-			<circle cx="40" cy="32" r="1" fill="white" />
-		</svg>
-	);
-}
-
 type Props = {
+	subject?: string;
+	topic?: string;
 	orientationHref?: string;
 	studentBookingUrl?: string;
 	sessionId: string;
@@ -251,6 +216,8 @@ type Props = {
 };
 
 export function StudentSession({
+	subject,
+	topic,
 	orientationHref,
 	studentBookingUrl = "",
 	sessionId,
@@ -461,7 +428,7 @@ export function StudentSession({
 		return (
 			<div className="flex min-h-screen flex-col items-center justify-center px-4 gap-6 text-center">
 				<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1e2230] ring-1 ring-white/10 shadow-lg">
-					<RamLogo size={40} />
+					<PulseMark size={40} />
 				</div>
 				<div>
 					<p className="text-2xl font-black text-white">Class is over!</p>
@@ -484,11 +451,17 @@ export function StudentSession({
 			<div ref={headerRef} className="flex flex-col items-center gap-3 pt-2">
 				<div className="flex items-center gap-3">
 					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1e2230] ring-1 ring-white/10 shadow-lg">
-						<RamLogo size={34} />
+						<PulseMark size={34} />
 					</div>
 					<div>
 						<p className="text-lg font-black text-white leading-tight">{displayName}</p>
 						<p className="text-xs text-slate-500 font-medium">{classLabel}</p>
+						{subject && (
+							<p className="text-sm text-slate-400">
+								{subject}
+								{topic ? ` · ${topic}` : ""}
+							</p>
+						)}
 						<p className="text-[10px] font-mono text-slate-600 tracking-widest">
 							JOIN: <span className="text-slate-500">{joinCode}</span>
 						</p>
@@ -833,7 +806,7 @@ export function StudentSession({
 				) : (
 					<div className="flex flex-col items-center gap-4 p-12">
 						<div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-800 animate-pulse">
-							<RamLogo size={36} />
+							<PulseMark size={36} />
 						</div>
 						<div className="text-center">
 							<p className="text-base font-bold text-white">Waiting for class...</p>

@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { PulseMark } from "@/components/brand/pulse-mark";
 import { useVoiceQueue } from "@/contexts/voice-queue";
 import { authClient } from "@/lib/auth/client";
 import { PRODUCTION_HANDOFF_MODE_KEY, readBooleanPreference } from "@/lib/ui-prefs";
@@ -223,12 +224,16 @@ export function NavBar() {
 
 	return (
 		<nav className="border-b border-slate-800 bg-slate-900 sticky top-0 z-30">
-			<div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-				<Link href="/coach" className="text-base font-bold shrink-0 text-white">
+			<div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+				<Link
+					href="/coach"
+					className="flex items-center gap-2 text-base font-bold shrink-0 text-white"
+				>
+					<PulseMark size={30} decorative />
 					Class Pulse
 				</Link>
 
-				<div className="flex items-center gap-0.5 ml-6">
+				<div className="order-last flex w-full items-center gap-0.5 overflow-x-auto md:order-none md:ml-6 md:w-auto">
 					{NAV_LINKS.map(({ href, label }) => {
 						const active = pathname === href || pathname.startsWith(`${href}/`);
 						return (

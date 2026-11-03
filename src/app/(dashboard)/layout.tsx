@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AiPresenceBorder } from "@/components/coach/ai-presence-border";
 import { NavBar } from "@/components/nav-bar";
+import { WorkspaceFrame } from "@/components/reservations/workspace-frame";
 import { ScheduleOverlay } from "@/components/schedule/schedule-overlay";
 import { Toaster } from "@/components/ui/sonner";
 import { VoiceCommandProvider } from "@/components/voice/voice-command-provider";
@@ -17,7 +18,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 				<AiPresenceBorder />
 				<NavBar />
 				<VoiceCommandProvider>
-					<main>{children}</main>
+					<WorkspaceFrame>
+						<main>{children}</main>
+					</WorkspaceFrame>
 				</VoiceCommandProvider>
 				<ScheduleOverlay />
 				<Toaster />

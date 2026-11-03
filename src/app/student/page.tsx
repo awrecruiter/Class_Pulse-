@@ -4,55 +4,11 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useRef, useState } from "react";
+import { PulseMark } from "@/components/brand/pulse-mark";
 
 gsap.registerPlugin(useGSAP);
 
 type Phase = "enter-code" | "enter-id" | "joining";
-
-// ─── RAM SVG — stylized ram head with curling horns ───────────────────────────
-function RamLogo({ size = 56 }: { size?: number }) {
-	return (
-		<svg
-			width={size}
-			height={size}
-			viewBox="0 0 64 64"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-			aria-label="RAM mascot"
-		>
-			<title>RAM mascot</title>
-			{/* Left curling horn */}
-			<path
-				d="M14 28 C6 22 4 12 10 8 C16 4 22 8 20 16 C18 22 14 24 16 28"
-				stroke="#f59e0b"
-				strokeWidth="4"
-				strokeLinecap="round"
-				fill="none"
-			/>
-			{/* Right curling horn */}
-			<path
-				d="M50 28 C58 22 60 12 54 8 C48 4 42 8 44 16 C46 22 50 24 48 28"
-				stroke="#f59e0b"
-				strokeWidth="4"
-				strokeLinecap="round"
-				fill="none"
-			/>
-			{/* Head */}
-			<ellipse cx="32" cy="36" rx="16" ry="18" fill="#e2e8f0" />
-			{/* Snout */}
-			<ellipse cx="32" cy="46" rx="9" ry="6" fill="#cbd5e1" />
-			{/* Nostrils */}
-			<circle cx="29" cy="47" r="1.5" fill="#94a3b8" />
-			<circle cx="35" cy="47" r="1.5" fill="#94a3b8" />
-			{/* Eyes */}
-			<circle cx="25" cy="33" r="3" fill="#1e293b" />
-			<circle cx="39" cy="33" r="3" fill="#1e293b" />
-			{/* Eye shine */}
-			<circle cx="26" cy="32" r="1" fill="white" />
-			<circle cx="40" cy="32" r="1" fill="white" />
-		</svg>
-	);
-}
 
 function StudentJoinContent() {
 	const router = useRouter();
@@ -175,7 +131,7 @@ function StudentJoinContent() {
 			{/* Logo */}
 			<div ref={logoRef} className="flex flex-col items-center gap-3">
 				<div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-[#1e2230] shadow-lg ring-1 ring-white/10">
-					<RamLogo size={52} />
+					<PulseMark size={52} />
 				</div>
 				<div className="text-center">
 					<p className="text-2xl font-black tracking-tight text-white">Class Pulse</p>
@@ -221,7 +177,7 @@ function StudentJoinContent() {
 						<button
 							type="submit"
 							disabled={loading || code.length !== 6}
-							className="rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 px-6 py-3.5 text-base font-black text-black shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+							className="rounded-xl bg-indigo-500 hover:bg-indigo-400 active:scale-95 px-6 py-3.5 text-base font-black text-white shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
 						>
 							{loading ? "Looking up..." : "Find My Class →"}
 						</button>
@@ -258,7 +214,7 @@ function StudentJoinContent() {
 						<button
 							type="submit"
 							disabled={loading || studentId.length === 0}
-							className="rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 px-6 py-3.5 text-base font-black text-black shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+							className="rounded-xl bg-indigo-500 hover:bg-indigo-400 active:scale-95 px-6 py-3.5 text-base font-black text-white shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
 						>
 							Join Class →
 						</button>
@@ -276,7 +232,7 @@ function StudentJoinContent() {
 				{phase === "joining" && (
 					<div className="flex flex-col items-center gap-5 p-12">
 						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 animate-pulse">
-							<RamLogo size={44} />
+							<PulseMark size={44} />
 						</div>
 						<div className="text-center">
 							<p className="text-base font-bold text-white">Joining class...</p>

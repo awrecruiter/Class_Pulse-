@@ -1,7 +1,6 @@
 import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import portalStyles from "@/components/tutoring/student-portal.module.css";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import {
@@ -116,7 +115,7 @@ export default async function StudentSessionPage({
 		.where(and(eq(classAssignments.classId, session.classId), eq(classAssignments.date, today)));
 
 	const [orientation] = await db
-		.select({ token: orientations.token })
+		.select({ token: orientations.token, topic: orientations.learningContent })
 		.from(orientations)
 		.where(
 			and(
@@ -127,23 +126,20 @@ export default async function StudentSessionPage({
 		)
 		.limit(1);
 
-	const displayName = entry ? `${entry.firstInitial}.${entry.lastInitial}.` : "Student";
+	const displayName =
+		entry?.firstName || (entry ? `${entry.firstInitial}.${entry.lastInitial}.` : "Student");
 	const classLabel = cls?.label ?? "Class";
 	const isActive = session.status === "active";
 
 	return (
-		<div
-			className={
-				cls?.workspaceMode === "distance" || cls?.workspaceMode === "homeschool"
-					? portalStyles.portal
-					: undefined
-			}
-		>
+		<div>
 			<StudentSession
 				orientationHref={
 					orientation ? `/student/orientation/${orientation.token}?step=progress` : undefined
 				}
 				studentBookingUrl={settingsRow?.studentBookingUrl ?? ""}
+				subject={cls?.subject}
+				topic={orientation?.topic}
 				sessionId={sessionId}
 				displayName={displayName}
 				classLabel={classLabel}

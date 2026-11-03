@@ -1,0 +1,131 @@
+/* Shared app presentation. Saved dark-theme choice keeps a warm dark palette. */
+:root {
+	--pulse-page: #f7f6f2;
+	--pulse-card: #fff;
+	--pulse-soft: #faf8fc;
+	--pulse-text: #40334e;
+	--pulse-muted: #8b7c98;
+	--pulse-border: #e8e1ef;
+	--pulse-primary: #6d50a3;
+}
+:root.dark {
+	--pulse-page: #211b2a;
+	--pulse-card: #2d2538;
+	--pulse-soft: #362c42;
+	--pulse-text: #eee6f6;
+	--pulse-muted: #b4a5c4;
+	--pulse-border: #4d3e60;
+	--pulse-primary: #9977c6;
+}
+body {
+	background: var(--pulse-page);
+}
+.pulse-app [class*="bg-slate-9"],
+.pulse-app [class*="bg-[#0"],
+.pulse-app [class*="bg-[#1"] {
+	background-color: var(--pulse-page);
+}
+.pulse-app [class*="bg-slate-8"],
+.pulse-app [class*="bg-slate-7"],
+.pulse-app [class*="bg-white/"],
+.pulse-app [class~="bg-white"] {
+	background-color: var(--pulse-card);
+}
+.pulse-app [class*="text-slate-1"],
+.pulse-app [class*="text-slate-2"],
+.pulse-app [class*="text-slate-3"],
+.pulse-app [class~="text-white"] {
+	color: var(--pulse-text);
+}
+.pulse-app [class*="text-slate-4"],
+.pulse-app [class*="text-slate-5"],
+.pulse-app [class*="text-slate-6"] {
+	color: var(--pulse-muted);
+}
+.pulse-app [class*="border-slate"],
+.pulse-app [class*="border-white"] {
+	border-color: var(--pulse-border);
+}
+.pulse-app [class*="rounded-xl"] {
+	border-radius: 16px;
+}
+.pulse-app [class*="rounded-2xl"] {
+	border-radius: 24px;
+}
+.pulse-app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.pulse-app textarea,
+.pulse-app select {
+	background-color: var(--pulse-soft);
+	color: var(--pulse-text);
+	border-color: var(--pulse-border);
+	border-radius: 12px;
+}
+.pulse-app button[class~="bg-indigo-500"],
+.pulse-app button[class~="bg-primary"],
+.pulse-app button[class~="bg-emerald-500"],
+.pulse-app button[class~="bg-red-500"],
+.pulse-app button[class~="bg-violet-500"],
+.pulse-app button[class~="bg-amber-500"] {
+	color: #fff;
+}
+.pulse-app button[class~="bg-indigo-500"],
+.pulse-app button[class~="bg-primary"] {
+	background: var(--pulse-primary);
+	border-radius: 100px;
+}
+.pulse-app a:focus-visible,
+.pulse-app button:focus-visible {
+	outline-offset: 3px;
+}
+
+:root {
+	--background: var(--pulse-page);
+	--foreground: var(--pulse-text);
+	--card: var(--pulse-card);
+	--card-foreground: var(--pulse-text);
+	--popover: var(--pulse-card);
+	--popover-foreground: var(--pulse-text);
+	--border: var(--pulse-border);
+	--input: var(--pulse-border);
+	--primary: var(--pulse-primary);
+	--primary-foreground: #fff;
+	--muted: var(--pulse-soft);
+	--muted-foreground: var(--pulse-muted);
+	--ring: #b9a5da;
+}
+.pulse-app button[class~="bg-amber-500"] {
+	color: #493413;
+}
+.pulse-app a[class~="bg-primary"] {
+	color: #fff;
+	background: var(--pulse-primary);
+}
+.pulse-app [class~="bg-[#F5F5F7]"] {
+	background: var(--pulse-page);
+}
+.pulse-app [class~="text-[#1D1D1F]"] {
+	color: var(--pulse-text);
+}
+.pulse-app [class~="text-[#86868B]"] {
+	color: var(--pulse-muted);
+}
+.pulse-app button[class~="bg-[#1D1D1F]"] {
+	background: var(--pulse-primary);
+	color: #fff;
+	border-radius: 100px;
+}
+.pulse-app [class~="text-indigo-300"],
+.pulse-app [class~="text-violet-300"],
+.pulse-app [class~="text-purple-300"] {
+	color: var(--pulse-primary);
+}
+:root:not(.dark) .pulse-app [class~="text-emerald-400"],
+:root:not(.dark) .pulse-app [class~="text-green-400"] {
+	color: #23765b;
+}
+:root:not(.dark) .pulse-app [class~="text-red-400"] {
+	color: #ac4646;
+}
+:root:not(.dark) .pulse-app [class~="text-amber-400"] {
+	color: #93702e;
+}
