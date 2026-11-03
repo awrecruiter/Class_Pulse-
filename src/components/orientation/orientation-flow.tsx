@@ -17,7 +17,8 @@ const steps = [
 	"Quiz",
 	"Parent progress",
 ];
-const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-white";
+const inputClass =
+	"w-full text-center rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-white";
 const buttonClass =
 	"rounded-xl bg-indigo-500 px-5 py-3 font-semibold text-white hover:bg-indigo-400 disabled:opacity-50";
 
@@ -155,7 +156,7 @@ export function OrientationFlow({
 	}
 
 	return (
-		<main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10 text-slate-100">
+		<main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 text-center px-4 py-10 text-slate-100">
 			<header>
 				<p className="text-sm font-semibold text-indigo-300">Class Pulse · Family orientation</p>
 				<h1 className="mt-2 text-3xl font-bold">Let’s get ready to learn</h1>
@@ -214,16 +215,17 @@ export function OrientationFlow({
 									{CHECK_IN_OPTIONS.map((option) => (
 										<label
 											key={option.value}
-											className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${form.initialSignal === option.value ? "border-indigo-400 bg-indigo-500/15" : "border-slate-700"}`}
+											className={`relative flex cursor-pointer items-center justify-center gap-3 rounded-xl border p-4 ${form.initialSignal === option.value ? "border-indigo-400 bg-indigo-500/15" : "border-slate-700"}`}
 										>
 											<input
+												className="absolute left-4"
 												type="radio"
 												name="initialSignal"
 												value={option.value}
 												checked={form.initialSignal === option.value}
 												onChange={() => setForm({ ...form, initialSignal: option.value })}
 											/>
-											<span>
+											<span className="flex-1">
 												<strong>{option.label}</strong>
 												<span className="mt-1 block text-sm text-slate-400">
 													{option.description}
@@ -270,7 +272,7 @@ export function OrientationFlow({
 								)}
 								<button
 									type="button"
-									className="text-left text-sm text-indigo-300 underline"
+									className="text-center text-sm text-indigo-300 underline"
 									onClick={() => refresh().catch((err) => setError(err.message))}
 								>
 									Refresh tutor links
@@ -305,7 +307,7 @@ export function OrientationFlow({
 									Your tutor will review the quiz and what you demonstrated during the session, then
 									share a private parent report link.
 								</p>
-								<ul className="list-disc space-y-2 pl-5 text-slate-300">
+								<ul className="list-inside list-disc space-y-2 text-slate-300">
 									<li>What you can do independently</li>
 									<li>What still needs practice</li>
 									<li>A concrete activity to reinforce learning at home</li>
