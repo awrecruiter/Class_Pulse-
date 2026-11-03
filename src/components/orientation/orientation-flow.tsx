@@ -11,7 +11,7 @@ import {
 import styles from "./orientation-flow.module.css";
 
 const steps = [
-	"Who should we keep in the loop?",
+	"Who’s on your team?",
 	"Tell us about the learner",
 	"Check-in",
 	"Book time",
@@ -190,8 +190,8 @@ export function OrientationFlow({
 						{step === 0 && (
 							<>
 								<p className="text-sm text-slate-400">
-									We’ll confirm this number before sending parent updates. Learning can start right
-									away.
+									Let’s add a parent or guardian who can cheer you on. Your tutor will share what
+									you’re learning and ways they can help at home.
 								</p>
 								{field("parentName", "Parent / guardian name")}
 								{field("parentEmail", "Parent email", "email", 254)}
