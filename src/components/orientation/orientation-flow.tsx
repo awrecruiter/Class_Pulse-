@@ -19,6 +19,34 @@ const steps = [
 	"Quiz",
 	"Parent progress",
 ];
+const GRADES = [
+	"Pre-K",
+	"K",
+	...Array.from({ length: 12 }, (_, index) => String(index + 1)),
+	"mixed",
+	"adult",
+];
+const TOPICS = [
+	"Number sense",
+	"Addition and subtraction",
+	"Multiplication and division",
+	"Fractions",
+	"Decimals",
+	"Percentages",
+	"Ratios and proportions",
+	"Pre-algebra",
+	"Algebra",
+	"Geometry",
+	"Measurement",
+	"Statistics and probability",
+	"Trigonometry",
+	"Calculus",
+	"Reading",
+	"Writing",
+	"Science",
+	"Study skills",
+];
+
 const inputClass =
 	"w-full text-left placeholder:text-slate-400 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-white";
 
@@ -33,6 +61,7 @@ export function OrientationFlow({
 	const [step, setStep] = useState(0);
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
+	const [customTopic, setCustomTopic] = useState(false);
 	const [form, setForm] = useState({
 		schoolName: "",
 		parentName: "",
@@ -227,18 +256,70 @@ export function OrientationFlow({
 										))}
 									</datalist>
 								</label>
-								{field("gradeLevel", "Grade / level (optional — K, 8, mixed, adult)", "text", 10)}
-								<label className="flex flex-col gap-2 text-sm text-slate-300">
-									<span className="sr-only">What would you like to learn or practice?</span>
-									<textarea
-										placeholder="What would you like to learn or practice?"
+								<label>
+									<span className="sr-only">Grade / level</span>
+									<select
 										className={inputClass}
-										rows={4}
-										maxLength={2000}
-										value={form.learningContent}
-										onChange={(event) => setForm({ ...form, learningContent: event.target.value })}
-									/>
+										name="gradeLevel"
+										value={form.gradeLevel}
+										onChange={(event) => setForm({ ...form, gradeLevel: event.target.value })}
+									>
+										<option value="">Choose grade or level (optional)</option>
+										{Array.from(
+											new Set([...GRADES, ...(form.gradeLevel ? [form.gradeLevel] : [])]),
+										).map((grade) => (
+											<option key={grade} value={grade}>
+												{grade === "mixed"
+													? "Mixed grades"
+													: grade === "adult"
+														? "Adult learner"
+														: /^\d+$/.test(grade)
+															? `Grade ${grade}`
+															: grade === "K"
+																? "Kindergarten"
+																: grade}
+											</option>
+										))}
+									</select>
 								</label>
+								<label>
+									<span className="sr-only">What would you like to learn or practice?</span>
+									<select
+										className={inputClass}
+										name="topic"
+										value={customTopic ? "__other__" : form.learningContent}
+										onChange={(event) => {
+											const other = event.target.value === "__other__";
+											setCustomTopic(other);
+											setForm({ ...form, learningContent: other ? "" : event.target.value });
+										}}
+									>
+										<option value="">Choose a topic</option>
+										{Array.from(new Set([...TOPICS, ...(view.content ? [view.content] : [])])).map(
+											(topic) => (
+												<option key={topic} value={topic}>
+													{topic.length > 100 ? `${topic.slice(0, 100)}…` : topic}
+												</option>
+											),
+										)}
+										<option value="__other__">Other topic…</option>
+									</select>
+								</label>
+								{customTopic && (
+									<label>
+										<span className="sr-only">Your topic</span>
+										<input
+											className={inputClass}
+											name="customTopic"
+											placeholder="Tell us what you’d like to work on"
+											maxLength={2000}
+											value={form.learningContent}
+											onChange={(event) =>
+												setForm({ ...form, learningContent: event.target.value })
+											}
+										/>
+									</label>
+								)}
 							</>
 						)}
 						{step === 2 && (

@@ -51,10 +51,22 @@ describe("family orientation flow", () => {
 		fireEvent.change(screen.getByLabelText("Student last initial"), { target: { value: "S" } });
 		fireEvent.change(screen.getByLabelText("School"), { target: { value: "Test Academy" } });
 		expect(screen.getByLabelText(/Grade \/ level/)).toHaveValue("");
-		fireEvent.change(screen.getByLabelText(/Grade \/ level/), { target: { value: "8" } });
-		fireEvent.change(screen.getByLabelText("What would you like to learn or practice?"), {
-			target: { value: "Algebra" },
+		fireEvent.change(screen.getByRole("combobox", { name: /Grade \/ level/ }), {
+			target: { value: "8" },
 		});
+		fireEvent.change(
+			screen.getByRole("combobox", { name: "What would you like to learn or practice?" }),
+			{
+				target: { value: "Algebra" },
+			},
+		);
+		expect(screen.getByRole("option", { name: "Adult learner" })).toBeInTheDocument();
+		expect(screen.getByRole("option", { name: "Mixed grades" })).toBeInTheDocument();
+		fireEvent.change(
+			screen.getByRole("combobox", { name: "What would you like to learn or practice?" }),
+			{ target: { value: "__other__" } },
+		);
+		fireEvent.change(screen.getByLabelText("Your topic"), { target: { value: "Algebra" } });
 		fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 		fireEvent.click(screen.getByRole("radio", { name: /Almost/ }));
 		fireEvent.click(screen.getByRole("button", { name: "Save & book time" }));

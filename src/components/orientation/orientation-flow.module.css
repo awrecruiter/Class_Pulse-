@@ -71,7 +71,8 @@
 	min-width: 0;
 }
 .shell input:not([type="radio"]),
-.shell textarea {
+.shell textarea,
+.shell select {
 	width: 100%;
 	text-align: left;
 	background: #faf9fc;
@@ -92,7 +93,8 @@
 	opacity: 1;
 }
 .shell input:focus-visible,
-.shell textarea:focus-visible {
+.shell textarea:focus-visible,
+.shell select:focus-visible {
 	border-color: #9a83ce;
 	box-shadow: 0 0 0 3px #eee8f8;
 }
@@ -205,4 +207,12 @@
 		padding: 28px 22px 24px;
 		border-radius: 24px;
 	}
+}
+
+.shell select {
+	cursor: pointer;
+	padding-right: 32px;
+}
+.shell select:has(option[value=""]:checked) {
+	color: #97909f;
 }
