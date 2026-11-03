@@ -18,7 +18,7 @@ const steps = [
 	"Parent progress",
 ];
 const inputClass =
-	"w-full text-center rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-white";
+	"w-full text-left placeholder:text-slate-400 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-white";
 const buttonClass =
 	"rounded-xl bg-indigo-500 px-5 py-3 font-semibold text-white hover:bg-indigo-400 disabled:opacity-50";
 
@@ -142,9 +142,10 @@ export function OrientationFlow({
 	) {
 		return (
 			<label className="flex flex-col gap-2 text-sm text-slate-300" key={name}>
-				{label}
+				<span className="sr-only">{label}</span>
 				<input
 					className={inputClass}
+					placeholder={label}
 					name={name}
 					type={type}
 					maxLength={maxLength}
@@ -193,8 +194,9 @@ export function OrientationFlow({
 								{field("studentLastInitial", "Student last initial", "text", 1)}
 								{field("gradeLevel", "Grade / level (optional — K, 8, mixed, adult)", "text", 10)}
 								<label className="flex flex-col gap-2 text-sm text-slate-300">
-									What would you like to learn or practice?
+									<span className="sr-only">What would you like to learn or practice?</span>
 									<textarea
+										placeholder="What would you like to learn or practice?"
 										className={inputClass}
 										rows={4}
 										maxLength={2000}
