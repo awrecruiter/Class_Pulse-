@@ -114,7 +114,8 @@ function InviteCard({
 	const [message, setMessage] = useState("");
 	const [reportUrl, setReportUrl] = useState("");
 	const dirty =
-		JSON.stringify(fields.schoolOptions ?? []) !== JSON.stringify(invite.schoolOptions ?? []) ||
+		JSON.stringify((fields.schoolOptions ?? []).map((school) => school.trim()).filter(Boolean)) !==
+			JSON.stringify(invite.schoolOptions ?? []) ||
 		fields.content !== invite.content ||
 		fields.quizUrl !== invite.quizUrl ||
 		fields.meetingUrl !== invite.meetingUrl ||
