@@ -42,6 +42,7 @@ export const meetingUrlSchema = activityUrlSchema.refine((value) => {
 }, "Use a Zoom meeting link or leave blank.");
 
 export const orientationSetupSchema = z.object({
+	schoolOptions: z.array(z.string().trim().min(1).max(150)).max(100).default([]),
 	content: z.string().trim().max(2000).default(""),
 	quizUrl: activityUrlSchema.default(""),
 	meetingUrl: meetingUrlSchema.default(""),
@@ -72,6 +73,7 @@ export const orientationIntakeSchema = z.object({
 					: raw;
 		})
 		.refine((value) => /^\+1\d{10}$/.test(value), "Enter a 10-digit US parent phone number."),
+	schoolName: z.string().trim().max(150).default(""),
 	studentFirstName: z.string().trim().min(1, "Enter the student's first name.").max(50),
 	studentLastInitial: z
 		.string()
@@ -85,6 +87,7 @@ export const orientationIntakeSchema = z.object({
 export type OrientationIntake = z.infer<typeof orientationIntakeSchema>;
 
 export type OrientationView = {
+	schoolOptions?: string[];
 	classLabel: string;
 	defaultGrade: string;
 	content: string;

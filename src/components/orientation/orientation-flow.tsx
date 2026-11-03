@@ -34,6 +34,7 @@ export function OrientationFlow({
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [form, setForm] = useState({
+		schoolName: "",
 		parentName: "",
 		parentEmail: "",
 		phone: "",
@@ -73,6 +74,7 @@ export function OrientationFlow({
 				: step === 1
 					? orientationIntakeSchema
 							.pick({
+								schoolName: true,
 								studentFirstName: true,
 								studentLastInitial: true,
 								gradeLevel: true,
@@ -192,6 +194,29 @@ export function OrientationFlow({
 							<>
 								{field("studentFirstName", "Student first name", "text", 50)}
 								{field("studentLastInitial", "Student last initial", "text", 1)}
+								<label className="text-sm text-slate-300">
+									<span className="sr-only">School</span>
+									<input
+										className={inputClass}
+										name="schoolName"
+										list="orientation-schools"
+										placeholder="Select or enter your school"
+										maxLength={150}
+										value={form.schoolName}
+										onChange={(event) => setForm({ ...form, schoolName: event.target.value })}
+									/>
+									<datalist id="orientation-schools">
+										{Array.from(
+											new Set([
+												...(view.schoolOptions ?? []),
+												"Homeschool",
+												"Not currently enrolled",
+											]),
+										).map((school) => (
+											<option key={school} value={school} />
+										))}
+									</datalist>
+								</label>
 								{field("gradeLevel", "Grade / level (optional — K, 8, mixed, adult)", "text", 10)}
 								<label className="flex flex-col gap-2 text-sm text-slate-300">
 									<span className="sr-only">What would you like to learn or practice?</span>
@@ -259,7 +284,7 @@ export function OrientationFlow({
 								<p>At your scheduled time, join your tutor on Zoom.</p>
 								{view.meetingUrl ? (
 									<a
-										className={buttonClass}
+										className={`${buttonClass} self-center`}
 										href={view.meetingUrl}
 										target="_blank"
 										rel="noopener noreferrer"
@@ -289,12 +314,17 @@ export function OrientationFlow({
 										href={view.quizUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className={buttonClass}
+										className={`${buttonClass} self-center`}
 									>
 										Open assigned quiz ↗
 									</a>
 								)}
-								<button type="button" disabled={busy} className={buttonClass} onClick={join}>
+								<button
+									type="button"
+									disabled={busy}
+									className={`${buttonClass} self-center`}
+									onClick={join}
+								>
 									Enter classroom quiz
 								</button>
 								<p className="text-sm text-slate-400">
@@ -320,7 +350,7 @@ export function OrientationFlow({
 								</p>
 							</>
 						)}
-						<div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-4">
+						<div className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-800 pt-4">
 							<button
 								type="button"
 								disabled={busy || step === 0 || (view.enrolled && step === 3)}
@@ -333,13 +363,18 @@ export function OrientationFlow({
 								Back
 							</button>
 							{step < 3 ? (
-								<button type="button" className={buttonClass} disabled={busy} onClick={next}>
+								<button
+									type="button"
+									className={`${buttonClass} self-center`}
+									disabled={busy}
+									onClick={next}
+								>
 									{busy ? "Saving…" : step === 2 ? "Save & book time" : "Continue"}
 								</button>
 							) : step < 6 ? (
 								<button
 									type="button"
-									className={buttonClass}
+									className={`${buttonClass} self-center`}
 									onClick={() => {
 										setStep(step + 1);
 										setError("");
@@ -348,7 +383,11 @@ export function OrientationFlow({
 									{step === 3 ? "Continue to session details" : "Continue"}
 								</button>
 							) : (
-								<button type="button" className={buttonClass} onClick={() => setStep(3)}>
+								<button
+									type="button"
+									className={`${buttonClass} self-center`}
+									onClick={() => setStep(3)}
+								>
 									Back to booking
 								</button>
 							)}

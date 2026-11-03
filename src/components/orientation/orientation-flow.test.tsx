@@ -7,6 +7,7 @@ const fetchMock = vi.fn();
 const view = {
 	classLabel: "Tutoring",
 	defaultGrade: "",
+	schoolOptions: ["Test Academy"],
 	content: "",
 	bookingUrl: "https://calendly.com/tutor/session",
 	quizUrl: "https://wayground.com/join",
@@ -48,6 +49,7 @@ describe("family orientation flow", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 		fireEvent.change(screen.getByLabelText("Student first name"), { target: { value: "Test" } });
 		fireEvent.change(screen.getByLabelText("Student last initial"), { target: { value: "S" } });
+		fireEvent.change(screen.getByLabelText("School"), { target: { value: "Test Academy" } });
 		expect(screen.getByLabelText(/Grade \/ level/)).toHaveValue("");
 		fireEvent.change(screen.getByLabelText(/Grade \/ level/), { target: { value: "8" } });
 		fireEvent.change(screen.getByLabelText("What would you like to learn or practice?"), {
@@ -59,6 +61,7 @@ describe("family orientation flow", () => {
 		await screen.findByText("Your orientation is saved. Choose a time with your tutor.");
 		const post = fetchMock.mock.calls.find(([, options]) => options?.method === "POST");
 		expect(JSON.parse(post?.[1].body)).toMatchObject({
+			schoolName: "Test Academy",
 			gradeLevel: "8",
 			initialSignal: "almost",
 			parentName: "Test Parent",

@@ -1085,6 +1085,8 @@ export const orientations = pgTable(
 		token: text("token").notNull().unique(),
 		rosterId: uuid("roster_id").references(() => rosterEntries.id, { onDelete: "cascade" }),
 		parentEmail: text("parent_email").notNull().default(""),
+		schoolName: text("school_name").notNull().default(""),
+		schoolOptions: jsonb("school_options").$type<string[]>().notNull().default([]),
 		gradeLevel: text("grade_level").notNull().default(""),
 		learningContent: text("learning_content").notNull().default(""),
 		initialSignal: text("initial_signal"),

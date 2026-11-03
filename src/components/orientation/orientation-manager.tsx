@@ -12,6 +12,8 @@ type Invite = {
 	token: string;
 	rosterId: string | null;
 	studentName: string | null;
+	schoolName: string;
+	schoolOptions?: string[];
 	parentEmail: string;
 	gradeLevel: string;
 	learningContent: string;
@@ -25,8 +27,8 @@ type Invite = {
 	enrolledAt: string | null;
 	expiresAt: string;
 };
-type Setup = { content: string; quizUrl: string; meetingUrl: string };
-const empty: Setup = { content: "", quizUrl: "", meetingUrl: "" };
+type Setup = { schoolOptions?: string[]; content: string; quizUrl: string; meetingUrl: string };
+const empty: Setup = { schoolOptions: [], content: "", quizUrl: "", meetingUrl: "" };
 const inputClass =
 	"w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100";
 const buttonClass =
@@ -43,6 +45,20 @@ function SetupFields({
 }) {
 	return (
 		<div className="grid gap-4 sm:grid-cols-2">
+			<label className="flex flex-col gap-2 text-sm sm:col-span-2">
+				School choices (one per line)
+				<textarea
+					className={inputClass}
+					rows={3}
+					value={(value.schoolOptions ?? []).join("\n")}
+					onChange={(event) =>
+						onChange({ ...value, schoolOptions: event.target.value.split("\n") })
+					}
+				/>
+				<span className="text-xs text-slate-400">
+					Families can select one of these schools or enter another school.
+				</span>
+			</label>
 			<label className="flex flex-col gap-2 text-sm sm:col-span-2" htmlFor={`${prefix}-content`}>
 				Learning content / topic
 				<textarea
@@ -98,6 +114,7 @@ function InviteCard({
 	const [message, setMessage] = useState("");
 	const [reportUrl, setReportUrl] = useState("");
 	const dirty =
+		JSON.stringify(fields.schoolOptions ?? []) !== JSON.stringify(invite.schoolOptions ?? []) ||
 		fields.content !== invite.content ||
 		fields.quizUrl !== invite.quizUrl ||
 		fields.meetingUrl !== invite.meetingUrl ||
@@ -113,7 +130,13 @@ function InviteCard({
 			const response = await fetch(`/api/classes/${classId}/orientations/${invite.id}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ...fields, progressNote, homePractice, reviewed }),
+				body: JSON.stringify({
+					...fields,
+					schoolOptions: (fields.schoolOptions ?? []).map((s) => s.trim()).filter(Boolean),
+					progressNote,
+					homePractice,
+					reviewed,
+				}),
 			});
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || "Could not save.");
@@ -211,6 +234,7 @@ function InviteCard({
 			{invite.rosterId && (
 				<div className="space-y-2 rounded-lg bg-slate-950 p-4 text-sm">
 					<p>Parent email: {invite.parentEmail}</p>
+					<p>School: {invite.schoolName || "Not specified"}</p>
 					<p>Parent number: {invite.parentPhone || "No number on file"}</p>
 					<p>
 						{parentConfirmed
@@ -356,7 +380,10 @@ export function OrientationManager({ classId }: { classId: string }) {
 			const response = await fetch(`/api/classes/${classId}/orientations`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(setup),
+				body: JSON.stringify({
+					...setup,
+					schoolOptions: (setup.schoolOptions ?? []).map((s) => s.trim()).filter(Boolean),
+				}),
 			});
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || "Could not create invitation.");

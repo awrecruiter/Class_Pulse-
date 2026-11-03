@@ -44,6 +44,7 @@ export async function GET(request: NextRequest, context: Context) {
 		.from(teacherSettings)
 		.where(eq(teacherSettings.userId, row.classroom.teacherId));
 	const view: OrientationView = {
+		schoolOptions: row.invite.schoolOptions,
 		classLabel: row.classroom.label,
 		defaultGrade: row.classroom.gradeLevel,
 		content: row.invite.content,
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest, context: Context) {
 			.set({
 				rosterId: student.id,
 				parentEmail: input.parentEmail,
+				schoolName: input.schoolName,
 				gradeLevel: input.gradeLevel,
 				learningContent: input.learningContent,
 				initialSignal: input.initialSignal,

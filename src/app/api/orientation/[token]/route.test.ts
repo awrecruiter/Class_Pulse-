@@ -33,6 +33,7 @@ const intake = {
 	phone: "2025550101",
 	studentFirstName: "Test",
 	studentLastInitial: "S",
+	schoolName: "Test Academy",
 	gradeLevel: "8",
 	learningContent: "Algebra",
 	initialSignal: "almost",
@@ -123,7 +124,12 @@ describe("private orientation API", () => {
 			phone: "+12025550101",
 		});
 		expect(mocks.set).toHaveBeenCalledWith(
-			expect.objectContaining({ rosterId: "student-1", gradeLevel: "8", initialSignal: "almost" }),
+			expect.objectContaining({
+				rosterId: "student-1",
+				schoolName: "Test Academy",
+				gradeLevel: "8",
+				initialSignal: "almost",
+			}),
 		);
 	});
 	it("does not duplicate enrollment or overwrite details on a retry", async () => {

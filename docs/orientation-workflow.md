@@ -37,3 +37,7 @@ Browser QA completed with synthetic records: intake → self-check → booking s
 ## Parent destination confirmation
 
 The family sees only the current screen, with no visible step list or guardian checkbox. Tutoring, booking and quizzes continue while the number is unconfirmed. After contacting the parent, the tutor confirms the exact number in Family orientation. Orientation report creation, SMS delivery and existing report access require confirmation matching the current active parent contact. Confirmation records the tutor and time and revokes previously issued tokens. Changing the contact number invalidates the match. Legacy classroom contacts retain their existing sharing behavior. No confirmation message is automatically sent by this change.
+
+## School selection and layout
+
+Learner intake includes a searchable school field beside grade and topic. Tutors manage school choices per invitation, one school per line, and families can enter an unlisted school. School names are stored with the learner orientation and shown to the tutor. No school directory is inferred from other learners. Buttons and explanatory text are centered; inputs use left-aligned placeholders with accessible labels.
