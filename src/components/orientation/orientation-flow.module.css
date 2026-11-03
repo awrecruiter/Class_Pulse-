@@ -1,0 +1,208 @@
+.shell {
+	min-height: 100dvh;
+	width: 100%;
+	background: radial-gradient(ellipse at 50% 0%, #ece8fa 0, transparent 52%), #f7f6f2;
+	color: #262334;
+	padding: clamp(32px, 7vh, 72px) 20px 40px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 28px;
+	text-align: center;
+}
+.brand {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+}
+.brandMark {
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 15px;
+	background: #6550a5;
+	color: white;
+	box-shadow: 0 5px 16px #6550a51a;
+}
+.shell .brandName {
+	color: #45395e;
+	font-size: 14px;
+	font-weight: 650;
+	letter-spacing: -0.02em;
+}
+.shell .className {
+	color: #8b8496;
+	font-size: 12px;
+	max-width: 360px;
+	margin: 0;
+}
+.card {
+	width: 100%;
+	max-width: 460px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 34px 30px 26px;
+	border: 1px solid #e8e3ed;
+	border-radius: 28px;
+	background: #ffffffed;
+	box-shadow: 0 18px 60px -28px #3c285f40;
+}
+.shell h1 {
+	color: #2c2539;
+	font-size: clamp(26px, 5vw, 32px);
+	line-height: 1.18;
+	font-weight: 650;
+	letter-spacing: -0.045em;
+	margin: 0 0 4px;
+	text-wrap: balance;
+}
+.shell p {
+	color: #81798b;
+	font-size: 14px;
+	line-height: 1.65;
+	margin: 0;
+	text-wrap: pretty;
+}
+.shell label {
+	color: #534b60;
+	min-width: 0;
+}
+.shell input:not([type="radio"]),
+.shell textarea {
+	width: 100%;
+	text-align: left;
+	background: #faf9fc;
+	border: 1px solid #e5e0ed;
+	color: #30283e;
+	border-radius: 14px;
+	padding: 16px;
+	font-size: 15px;
+	line-height: 1.4;
+	outline: none;
+	transition:
+		border-color 0.15s,
+		box-shadow 0.15s;
+}
+.shell input::placeholder,
+.shell textarea::placeholder {
+	color: #97909f;
+	opacity: 1;
+}
+.shell input:focus-visible,
+.shell textarea:focus-visible {
+	border-color: #9a83ce;
+	box-shadow: 0 0 0 3px #eee8f8;
+}
+.shell textarea {
+	resize: vertical;
+	min-height: 104px;
+}
+.nameRow {
+	display: grid;
+	grid-template-columns: 1fr 100px;
+	gap: 10px;
+}
+.shell fieldset {
+	margin-top: 4px;
+}
+.shell fieldset label {
+	background: #fbfafd;
+	border: 1px solid #e6e1ee;
+	border-radius: 16px;
+	padding: 18px 34px;
+}
+.shell fieldset label:has(input:checked) {
+	border-color: #8d73bf;
+	background: #f3eefb;
+	box-shadow: 0 0 0 1px #8d73bf;
+}
+.shell input[type="radio"] {
+	accent-color: #7052a6;
+}
+.shell fieldset strong {
+	color: #42334f;
+	font-size: 15px;
+	font-weight: 600;
+}
+.shell fieldset span span {
+	color: #91869e;
+	font-size: 12px;
+	line-height: 1.5;
+}
+.actions {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 12px;
+	padding-top: 12px;
+	margin-top: 4px;
+}
+.shell .primary {
+	background: #6d50a3;
+	color: #fff;
+	border: 1px solid transparent;
+	border-radius: 100px;
+	padding: 14px 26px;
+	min-width: 180px;
+	font-size: 14px;
+	font-weight: 600;
+	box-shadow: 0 5px 12px #6d50a31a;
+	transition:
+		background 0.15s,
+		transform 0.15s;
+}
+.shell .primary:hover {
+	background: #5c408f;
+	transform: translateY(-1px);
+}
+.shell button:focus-visible,
+.shell a:focus-visible {
+	outline: 3px solid #b9a5da;
+	outline-offset: 3px;
+}
+.shell button:disabled {
+	opacity: 0.45;
+	transform: none;
+}
+.shell .back {
+	color: #92849e;
+	font-size: 13px;
+	padding: 12px;
+}
+.shell button:not(.primary):not(.back) {
+	color: #7052a6;
+}
+.shell ul {
+	color: #70617e;
+	font-size: 14px;
+	line-height: 1.8;
+	padding: 0;
+}
+.shell [role="alert"] {
+	width: 100%;
+	max-width: 460px;
+	background: #fff1f0;
+	border: 1px solid #edc9c5;
+	padding: 14px 20px;
+	border-radius: 14px;
+	color: #9b423f;
+}
+.footer {
+	font-size: 11px;
+	color: #a198ac;
+	letter-spacing: 0.02em;
+}
+@media (max-width: 480px) {
+	.shell {
+		padding: 28px 18px;
+		gap: 22px;
+	}
+	.card {
+		padding: 28px 22px 24px;
+		border-radius: 24px;
+	}
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { BookOpen } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { StudentBooking } from "@/components/student/student-booking";
 import {
@@ -7,6 +8,7 @@ import {
 	type OrientationView,
 	orientationIntakeSchema,
 } from "@/lib/orientation/validation";
+import styles from "./orientation-flow.module.css";
 
 const steps = [
 	"Who should we keep in the loop?",
@@ -19,8 +21,6 @@ const steps = [
 ];
 const inputClass =
 	"w-full text-left placeholder:text-slate-400 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-white";
-const buttonClass =
-	"rounded-xl bg-indigo-500 px-5 py-3 font-semibold text-white hover:bg-indigo-400 disabled:opacity-50";
 
 export function OrientationFlow({
 	token,
@@ -147,7 +147,13 @@ export function OrientationFlow({
 				<span className="sr-only">{label}</span>
 				<input
 					className={inputClass}
-					placeholder={label}
+					placeholder={
+						name === "gradeLevel"
+							? "Grade or level (optional)"
+							: name === "studentLastInitial"
+								? "Initial"
+								: label
+					}
 					name={name}
 					type={type}
 					maxLength={maxLength}
@@ -159,11 +165,13 @@ export function OrientationFlow({
 	}
 
 	return (
-		<main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 text-center px-4 py-10 text-slate-100">
-			<header>
-				<p className="text-sm font-semibold text-indigo-300">Class Pulse · Family orientation</p>
-				<h1 className="mt-2 text-3xl font-bold">Let’s get ready to learn</h1>
-				<p className="mt-2 text-slate-400">{view?.classLabel ?? "Your tutor’s learning space"}</p>
+		<main className={styles.shell}>
+			<header className={styles.brand}>
+				<span className={styles.brandMark}>
+					<BookOpen size={22} strokeWidth={1.6} aria-hidden="true" />
+				</span>
+				<p className={styles.brandName}>Class Pulse</p>
+				<p className={styles.className}>{view?.classLabel ?? "Your learning space"}</p>
 			</header>
 			{error && (
 				<p
@@ -177,13 +185,13 @@ export function OrientationFlow({
 				<p>{error ? "Contact your tutor if you need a new invitation." : "Loading orientation…"}</p>
 			) : (
 				<>
-					<section className="flex flex-col gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-7">
-						<h2 className="text-xl font-semibold">{steps[step]}</h2>
+					<section className={styles.card}>
+						<h1>{step === 2 ? "How are you doing?" : steps[step]}</h1>
 						{step === 0 && (
 							<>
 								<p className="text-sm text-slate-400">
-									We’ll contact this number to confirm where learning updates should go. You can
-									start tutoring while we confirm it.
+									We’ll confirm this number before sending parent updates. Learning can start right
+									away.
 								</p>
 								{field("parentName", "Parent / guardian name")}
 								{field("parentEmail", "Parent email", "email", 254)}
@@ -192,8 +200,10 @@ export function OrientationFlow({
 						)}
 						{step === 1 && (
 							<>
-								{field("studentFirstName", "Student first name", "text", 50)}
-								{field("studentLastInitial", "Student last initial", "text", 1)}
+								<div className={styles.nameRow}>
+									{field("studentFirstName", "Student first name", "text", 50)}
+									{field("studentLastInitial", "Student last initial", "text", 1)}
+								</div>
 								<label className="text-sm text-slate-300">
 									<span className="sr-only">School</span>
 									<input
@@ -233,7 +243,6 @@ export function OrientationFlow({
 						)}
 						{step === 2 && (
 							<>
-								<p className="text-lg">How are you doing?</p>
 								<p className="text-sm text-slate-400">
 									Think about the topic you chose. This is a confidence check, not a quiz score.
 								</p>
@@ -284,7 +293,7 @@ export function OrientationFlow({
 								<p>At your scheduled time, join your tutor on Zoom.</p>
 								{view.meetingUrl ? (
 									<a
-										className={`${buttonClass} self-center`}
+										className={styles.primary}
 										href={view.meetingUrl}
 										target="_blank"
 										rel="noopener noreferrer"
@@ -314,17 +323,12 @@ export function OrientationFlow({
 										href={view.quizUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className={`${buttonClass} self-center`}
+										className={styles.primary}
 									>
 										Open assigned quiz ↗
 									</a>
 								)}
-								<button
-									type="button"
-									disabled={busy}
-									className={`${buttonClass} self-center`}
-									onClick={join}
-								>
+								<button type="button" disabled={busy} className={styles.primary} onClick={join}>
 									Enter classroom quiz
 								</button>
 								<p className="text-sm text-slate-400">
@@ -350,7 +354,7 @@ export function OrientationFlow({
 								</p>
 							</>
 						)}
-						<div className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-800 pt-4">
+						<div className={styles.actions}>
 							<button
 								type="button"
 								disabled={busy || step === 0 || (view.enrolled && step === 3)}
@@ -358,23 +362,19 @@ export function OrientationFlow({
 									setStep(step - 1);
 									setError("");
 								}}
-								className="px-3 py-2 text-slate-300 disabled:opacity-30"
+								className={styles.back}
+								hidden={step === 0 || (view.enrolled && step === 3)}
 							>
 								Back
 							</button>
 							{step < 3 ? (
-								<button
-									type="button"
-									className={`${buttonClass} self-center`}
-									disabled={busy}
-									onClick={next}
-								>
+								<button type="button" className={styles.primary} disabled={busy} onClick={next}>
 									{busy ? "Saving…" : step === 2 ? "Save & book time" : "Continue"}
 								</button>
 							) : step < 6 ? (
 								<button
 									type="button"
-									className={`${buttonClass} self-center`}
+									className={styles.primary}
 									onClick={() => {
 										setStep(step + 1);
 										setError("");
@@ -383,11 +383,7 @@ export function OrientationFlow({
 									{step === 3 ? "Continue to session details" : "Continue"}
 								</button>
 							) : (
-								<button
-									type="button"
-									className={`${buttonClass} self-center`}
-									onClick={() => setStep(3)}
-								>
+								<button type="button" className={styles.primary} onClick={() => setStep(3)}>
 									Back to booking
 								</button>
 							)}
@@ -395,6 +391,7 @@ export function OrientationFlow({
 					</section>
 				</>
 			)}
+			<footer className={styles.footer}>A little support. A lot of possibility.</footer>
 		</main>
 	);
 }
