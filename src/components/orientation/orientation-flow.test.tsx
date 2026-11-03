@@ -33,7 +33,10 @@ describe("family orientation flow", () => {
 			return new Response(JSON.stringify({ ...view, enrolled }));
 		});
 		render(<OrientationFlow token={"a".repeat(48)} />);
-		fireEvent.change(await screen.findByLabelText("Parent / guardian name"), {
+		await screen.findByLabelText("Parent / guardian name");
+		expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+		expect(screen.queryByRole("list", { name: "Orientation steps" })).not.toBeInTheDocument();
+		fireEvent.change(screen.getByLabelText("Parent / guardian name"), {
 			target: { value: "Test Parent" },
 		});
 		fireEvent.change(screen.getByLabelText("Parent email"), {
@@ -42,7 +45,6 @@ describe("family orientation flow", () => {
 		fireEvent.change(screen.getByLabelText("Parent phone (US)"), {
 			target: { value: "2025550101" },
 		});
-		fireEvent.click(screen.getByRole("checkbox"));
 		fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 		fireEvent.change(screen.getByLabelText("Student first name"), { target: { value: "Test" } });
 		fireEvent.change(screen.getByLabelText("Student last initial"), { target: { value: "S" } });

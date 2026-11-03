@@ -1,3 +1,7 @@
+vi.mock("@/lib/orientation/parent-confirmation", () => ({
+	canShareParentReport: async () => true,
+}));
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

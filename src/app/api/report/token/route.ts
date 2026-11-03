@@ -1,3 +1,4 @@
+import { canShareParentReport } from "@/lib/orientation/parent-confirmation";
 export const dynamic = "force-dynamic";
 
 import crypto from "node:crypto";
@@ -48,6 +49,12 @@ export async function POST(request: NextRequest) {
 		.from(rosterEntries)
 		.where(and(eq(rosterEntries.id, rosterId), eq(rosterEntries.classId, classId)));
 	if (!roster) return NextResponse.json({ error: "Student not found" }, { status: 404 });
+
+	if (!(await canShareParentReport(classId, rosterId)))
+		return NextResponse.json(
+			{ error: "Confirm the parent phone number before sharing a report." },
+			{ status: 409 },
+		);
 
 	// Check for an existing non-expired token for this roster+class via a linked flag
 	// We look for a valid token that has a flag pointing to this rosterId in this classId

@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import { CHECK_IN_OPTIONS } from "@/lib/orientation/validation";
 
 type Invite = {
+	parentPhone: string | null;
+	confirmedPhone: string | null;
+	phoneConfirmedAt: string | null;
 	id: string;
 	token: string;
 	rosterId: string | null;
@@ -100,6 +103,7 @@ function InviteCard({
 		fields.meetingUrl !== invite.meetingUrl ||
 		progressNote !== invite.progressNote ||
 		homePractice !== invite.homePractice;
+	const parentConfirmed = !!invite.phoneConfirmedAt && invite.parentPhone === invite.confirmedPhone;
 	const expired = new Date(invite.expiresAt) < new Date();
 
 	async function save(reviewed: boolean) {
@@ -121,6 +125,26 @@ function InviteCard({
 			);
 		} catch (err) {
 			setMessage(err instanceof Error ? err.message : "Could not save.");
+		} finally {
+			setBusy(false);
+		}
+	}
+	async function confirmParent() {
+		setBusy(true);
+		setMessage("");
+		setReportUrl("");
+		try {
+			const response = await fetch(`/api/classes/${classId}/orientations/${invite.id}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ action: "confirm-parent", phone: invite.parentPhone }),
+			});
+			const data = await response.json();
+			if (!response.ok) throw new Error(data.error);
+			await reload();
+			setMessage("Parent number confirmed. Reviewed reports can now be shared.");
+		} catch (err) {
+			setMessage(err instanceof Error ? err.message : "Could not confirm number.");
 		} finally {
 			setBusy(false);
 		}
@@ -187,6 +211,28 @@ function InviteCard({
 			{invite.rosterId && (
 				<div className="space-y-2 rounded-lg bg-slate-950 p-4 text-sm">
 					<p>Parent email: {invite.parentEmail}</p>
+					<p>Parent number: {invite.parentPhone || "No number on file"}</p>
+					<p>
+						{parentConfirmed
+							? "Parent number confirmed"
+							: "Parent number awaiting confirmation. Tutoring can continue."}
+					</p>
+					{!parentConfirmed && (
+						<>
+							<p className="text-xs text-slate-400">
+								Contact this number and confirm it belongs to the parent before enabling report
+								sharing.
+							</p>
+							<button
+								type="button"
+								className={buttonClass}
+								disabled={busy || !invite.parentPhone}
+								onClick={confirmParent}
+							>
+								I contacted and confirmed this parent number
+							</button>
+						</>
+					)}
 					<p>Grade / level: {invite.gradeLevel || "Not specified"}</p>
 					<p className="whitespace-pre-wrap">Learning goals: {invite.learningContent}</p>
 					<p>
@@ -244,7 +290,7 @@ function InviteCard({
 						<button
 							type="button"
 							className={buttonClass}
-							disabled={busy || dirty || !invite.reviewedAt}
+							disabled={busy || dirty || !invite.reviewedAt || !parentConfirmed}
 							onClick={share}
 						>
 							Create parent report link
@@ -253,7 +299,7 @@ function InviteCard({
 				)}
 			</div>
 			{message && <output className="block text-sm text-amber-200">{message}</output>}
-			{reportUrl && (
+			{reportUrl && parentConfirmed && (
 				<div className="space-y-2 rounded-lg bg-indigo-500/10 p-4">
 					<p className="text-sm">
 						Preview this private report, then copy the link to share with the parent.

@@ -12,6 +12,7 @@ import {
 	parentReportTokens,
 	rosterEntries,
 } from "@/lib/db/schema";
+import { canShareParentReport } from "@/lib/orientation/parent-confirmation";
 import { sessionRateLimiter, smsRateLimiter } from "@/lib/rate-limit";
 import { sendSms } from "@/lib/sms";
 
@@ -68,6 +69,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 	}
 
 	// action === "send"
+
+	if (!(await canShareParentReport(flag.classId, flag.rosterId)))
+		return NextResponse.json(
+			{ error: "Confirm the parent phone number before sending a report." },
+			{ status: 409 },
+		);
 
 	// Fetch roster entry (initials + studentId only — FERPA)
 	const [roster] = await db

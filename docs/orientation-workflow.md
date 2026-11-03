@@ -11,7 +11,7 @@ Class Pulse now connects family intake to the existing student portal and parent
 
 ## Family journey
 
-Parent/guardian name, email, US phone and confirmation → student first name and last initial, optional grade/level, learning content → **How are you doing?** → Calendly booking → Zoom details → external quiz or the existing Class Pulse classroom → parent-progress instructions.
+Parent/guardian name, email, US phone → student first name and last initial, optional grade/level, learning content → **How are you doing?** → Calendly booking → Zoom details → external quiz or the existing Class Pulse classroom → parent-progress instructions.
 
 Grade/level is per learner and may be blank, K–12, mixed, or adult. Intake creates a roster entry and existing parent contact in one transaction; the email and learner-specific goals are kept in the orientation record. The self-check is confidence, not assessment evidence. It initializes the existing comprehension signal only for the learner's first orientation-linked session. Subsequent session check-ins are not overwritten.
 
@@ -33,3 +33,7 @@ External quiz scores are not automatically imported. Calendly confirmations carr
 - Validation: full TypeScript/lint suite and 279 tests passed; production build passed. Live Calendly/Zoom booking requires the tutor's real scheduling setup and is not simulated as a successful reservation.
 
 Browser QA completed with synthetic records: intake → self-check → booking setup state → Zoom instructions → signed student classroom → return to parent progress → private parent report. No actual Calendly booking or Zoom meeting was created.
+
+## Parent destination confirmation
+
+The family sees only the current screen, with no visible step list or guardian checkbox. Tutoring, booking and quizzes continue while the number is unconfirmed. After contacting the parent, the tutor confirms the exact number in Family orientation. Orientation report creation, SMS delivery and existing report access require confirmation matching the current active parent contact. Confirmation records the tutor and time and revokes previously issued tokens. Changing the contact number invalidates the match. Legacy classroom contacts retain their existing sharing behavior. No confirmation message is automatically sent by this change.

@@ -27,6 +27,7 @@ import {
 	parentReportTokens,
 	rosterEntries,
 } from "@/lib/db/schema";
+import { canShareParentReport } from "@/lib/orientation/parent-confirmation";
 import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,8 @@ export default async function ReportPage({ params }: PageProps) {
 	if (!flag) notFound();
 
 	const { classId, rosterId } = flag;
+
+	if (!(await canShareParentReport(classId, rosterId))) notFound();
 
 	const weekStart = new Date();
 	weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));

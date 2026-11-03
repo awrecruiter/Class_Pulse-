@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import { orientations, rosterEntries } from "@/lib/db/schema";
+import { orientations, parentContacts, rosterEntries } from "@/lib/db/schema";
 import { ownsOrientationClass } from "@/lib/orientation/server";
 import { orientationSetupSchema } from "@/lib/orientation/validation";
 import { sessionRateLimiter } from "@/lib/rate-limit";
@@ -27,13 +27,20 @@ export async function GET(request: NextRequest, context: Context) {
 	const result = await authorize(request, context);
 	if (result instanceof NextResponse) return result;
 	const rows = await db
-		.select({ invite: orientations, studentName: rosterEntries.firstName })
+		.select({
+			invite: orientations,
+			studentName: rosterEntries.firstName,
+			parentPhone: parentContacts.phone,
+			confirmedPhone: parentContacts.confirmedPhone,
+			phoneConfirmedAt: parentContacts.phoneConfirmedAt,
+		})
 		.from(orientations)
 		.leftJoin(rosterEntries, eq(rosterEntries.id, orientations.rosterId))
+		.leftJoin(parentContacts, eq(parentContacts.rosterId, orientations.rosterId))
 		.where(eq(orientations.classId, result))
 		.orderBy(desc(orientations.createdAt));
 	return NextResponse.json(
-		{ orientations: rows.map(({ invite, studentName }) => ({ ...invite, studentName })) },
+		{ orientations: rows.map(({ invite, ...contact }) => ({ ...invite, ...contact })) },
 		{ headers: { "Cache-Control": "no-store" } },
 	);
 }

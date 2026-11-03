@@ -1,3 +1,7 @@
+vi.mock("@/lib/orientation/parent-confirmation", () => ({
+	canShareParentReport: async () => true,
+}));
+
 import { NextRequest } from "next/server";
 import { expect, it, vi } from "vitest";
 

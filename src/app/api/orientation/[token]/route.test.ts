@@ -36,7 +36,6 @@ const intake = {
 	gradeLevel: "8",
 	learningContent: "Algebra",
 	initialSignal: "almost",
-	guardianConfirmed: true,
 };
 function request(body?: unknown) {
 	return new NextRequest(
@@ -97,9 +96,7 @@ describe("private orientation API", () => {
 		expect(response.headers.get("cache-control")).toBe("no-store");
 	});
 	it("validates intake before writing", async () => {
-		expect((await POST(request({ ...intake, guardianConfirmed: false }), context)).status).toBe(
-			400,
-		);
+		expect((await POST(request({ ...intake, parentName: "" }), context)).status).toBe(400);
 		expect(mocks.transaction).not.toHaveBeenCalled();
 	});
 	it("creates linked learner and parent records in one transaction", async () => {

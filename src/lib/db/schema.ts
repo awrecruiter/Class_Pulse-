@@ -600,6 +600,9 @@ export const parentContacts = pgTable(
 			.references(() => rosterEntries.id, { onDelete: "cascade" }),
 		parentName: text("parent_name").notNull().default(""),
 		phone: text("phone").notNull(), // E.164 format: +1XXXXXXXXXX
+		confirmedPhone: text("confirmed_phone"),
+		phoneConfirmedAt: timestamp("phone_confirmed_at", { withTimezone: true }),
+		phoneConfirmedBy: text("phone_confirmed_by"),
 		notes: text("notes").notNull().default(""),
 		isActive: boolean("is_active").notNull().default(true), // soft delete
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

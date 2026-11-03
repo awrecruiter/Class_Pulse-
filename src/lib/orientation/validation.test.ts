@@ -15,7 +15,6 @@ const intake = {
 	gradeLevel: "",
 	learningContent: "Fractions",
 	initialSignal: "almost",
-	guardianConfirmed: true,
 };
 
 describe("family orientation validation", () => {
@@ -29,7 +28,7 @@ describe("family orientation validation", () => {
 	);
 	it.each([
 		{ parentEmail: "invalid" },
-		{ guardianConfirmed: false },
+
 		{ initialSignal: "mastered" },
 		{ studentFirstName: " " },
 		{ learningContent: "" },

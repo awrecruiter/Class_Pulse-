@@ -80,7 +80,6 @@ export const orientationIntakeSchema = z.object({
 	gradeLevel: z.string().trim().max(10).default(""),
 	learningContent: z.string().trim().min(1, "Tell us what you want to learn.").max(2000),
 	initialSignal: checkInSchema,
-	guardianConfirmed: z.literal(true, { error: "A parent or guardian must confirm these details." }),
 });
 
 export type OrientationIntake = z.infer<typeof orientationIntakeSchema>;

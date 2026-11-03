@@ -9,8 +9,8 @@ import {
 } from "@/lib/orientation/validation";
 
 const steps = [
-	"Parent",
-	"Learner & content",
+	"Who should we keep in the loop?",
+	"Tell us about the learner",
 	"Check-in",
 	"Book time",
 	"Zoom",
@@ -41,7 +41,6 @@ export function OrientationFlow({
 		gradeLevel: "",
 		learningContent: "",
 		initialSignal: "",
-		guardianConfirmed: false,
 	});
 	const refresh = useCallback(async () => {
 		const response = await fetch(`/api/orientation/${token}`, { cache: "no-store" });
@@ -68,7 +67,7 @@ export function OrientationFlow({
 		const result =
 			step === 0
 				? orientationIntakeSchema
-						.pick({ parentName: true, parentEmail: true, phone: true, guardianConfirmed: true })
+						.pick({ parentName: true, parentEmail: true, phone: true })
 						.safeParse(form)
 				: step === 1
 					? orientationIntakeSchema
@@ -135,7 +134,7 @@ export function OrientationFlow({
 	}
 
 	function field(
-		name: Exclude<keyof typeof form, "guardianConfirmed" | "initialSignal">,
+		name: Exclude<keyof typeof form, "initialSignal">,
 		label: string,
 		type = "text",
 		maxLength = 100,
@@ -174,40 +173,17 @@ export function OrientationFlow({
 				<p>{error ? "Contact your tutor if you need a new invitation." : "Loading orientation…"}</p>
 			) : (
 				<>
-					<ol aria-label="Orientation steps" className="flex flex-wrap gap-2 text-xs">
-						{steps.map((label, index) => (
-							<li
-								key={label}
-								aria-current={index === step ? "step" : undefined}
-								className={`rounded-full px-3 py-2 ${index === step ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"}`}
-							>
-								{index + 1}. {label}
-							</li>
-						))}
-					</ol>
 					<section className="flex flex-col gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-7">
 						<h2 className="text-xl font-semibold">{steps[step]}</h2>
 						{step === 0 && (
 							<>
 								<p className="text-sm text-slate-400">
-									A parent or guardian should complete this section. Your tutor uses these details
-									for learning updates.
+									We’ll contact this number to confirm where learning updates should go. You can
+									start tutoring while we confirm it.
 								</p>
 								{field("parentName", "Parent / guardian name")}
 								{field("parentEmail", "Parent email", "email", 254)}
 								{field("phone", "Parent phone (US)", "tel", 30)}
-								<label className="flex items-start gap-3 text-sm text-slate-300">
-									<input
-										className="mt-1"
-										type="checkbox"
-										checked={form.guardianConfirmed}
-										onChange={(event) =>
-											setForm({ ...form, guardianConfirmed: event.target.checked })
-										}
-									/>
-									I am the parent or guardian and confirm these details can be shared with the tutor
-									for this learner’s support.
-								</label>
 							</>
 						)}
 						{step === 1 && (
