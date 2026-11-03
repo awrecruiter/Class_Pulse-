@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { CHECK_IN_OPTIONS } from "@/lib/orientation/validation";
+import { activityUrlSchema, CHECK_IN_OPTIONS } from "@/lib/orientation/validation";
 
 type Invite = {
 	parentPhone: string | null;
@@ -38,10 +38,12 @@ function SetupFields({
 	value,
 	onChange,
 	prefix,
+	previewLinks = false,
 }: {
 	value: Setup;
 	onChange: (value: Setup) => void;
 	prefix: string;
+	previewLinks?: boolean;
 }) {
 	return (
 		<div className="grid gap-4 sm:grid-cols-2">
@@ -81,6 +83,16 @@ function SetupFields({
 					value={value.quizUrl}
 					onChange={(event) => onChange({ ...value, quizUrl: event.target.value })}
 				/>
+				{previewLinks && value.quizUrl && activityUrlSchema.safeParse(value.quizUrl).success && (
+					<a
+						href={value.quizUrl.trim()}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-sm underline"
+					>
+						Preview quiz ↗
+					</a>
+				)}
 			</label>
 			<label className="flex flex-col gap-2 text-sm" htmlFor={`${prefix}-zoom`}>
 				Zoom link (optional)
@@ -102,10 +114,12 @@ function InviteCard({
 	invite,
 	classId,
 	reload,
+	previewLinks = false,
 }: {
 	invite: Invite;
 	classId: string;
 	reload: () => Promise<void>;
+	previewLinks?: boolean;
 }) {
 	const [fields, setFields] = useState<Setup>(invite);
 	const [progressNote, setProgressNote] = useState(invite.progressNote);
@@ -271,7 +285,12 @@ function InviteCard({
 					</p>
 				</div>
 			)}
-			<SetupFields prefix={invite.id} value={fields} onChange={setFields} />
+			<SetupFields
+				previewLinks={previewLinks}
+				prefix={invite.id}
+				value={fields}
+				onChange={setFields}
+			/>
 			{invite.rosterId && (
 				<>
 					<label className="flex flex-col gap-2 text-sm">
@@ -357,7 +376,15 @@ function InviteCard({
 	);
 }
 
-export function OrientationManager({ classId }: { classId: string }) {
+export function OrientationManager({
+	classId,
+	previewLinks = false,
+	bookingSettingsHref = "/settings#booking",
+}: {
+	classId: string;
+	previewLinks?: boolean;
+	bookingSettingsHref?: string;
+}) {
 	const [invites, setInvites] = useState<Invite[]>([]);
 	const [setup, setSetup] = useState(empty);
 	const [busy, setBusy] = useState(false);
@@ -404,7 +431,7 @@ export function OrientationManager({ classId }: { classId: string }) {
 				parent report.
 			</p>
 			<p className="text-sm">
-				<Link href="/settings#booking" className="text-indigo-300 underline">
+				<Link href={bookingSettingsHref} className="text-indigo-300 underline">
 					Configure your Calendly link
 				</Link>
 				. Connect Zoom in Calendly for meeting details in confirmations. You can also add an
@@ -417,7 +444,7 @@ export function OrientationManager({ classId }: { classId: string }) {
 			)}
 			<section className="space-y-4 rounded-xl border border-slate-700 p-5">
 				<h2 className="font-semibold">New family invitation</h2>
-				<SetupFields prefix="new" value={setup} onChange={setSetup} />
+				<SetupFields previewLinks={previewLinks} prefix="new" value={setup} onChange={setSetup} />
 				<p className="text-xs text-slate-400">
 					Quiz links can come from Blooket, Wayground, Khan Academy, or another tutor-selected
 					platform. Results are reviewed manually.
@@ -442,7 +469,13 @@ export function OrientationManager({ classId }: { classId: string }) {
 				<p className="text-sm text-slate-400">No invitations yet.</p>
 			) : (
 				invites.map((invite) => (
-					<InviteCard key={invite.id} invite={invite} classId={classId} reload={reload} />
+					<InviteCard
+						key={invite.id}
+						invite={invite}
+						classId={classId}
+						reload={reload}
+						previewLinks={previewLinks}
+					/>
 				))
 			)}
 		</div>

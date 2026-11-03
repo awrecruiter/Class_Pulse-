@@ -1,0 +1,242 @@
+.shell {
+	min-height: 100dvh;
+	background: radial-gradient(ellipse at 50% 0%, #ece8fa 0, transparent 52%), #f7f6f2;
+	color: #30283e;
+}
+.nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 16px;
+	max-width: 1080px;
+	margin: auto;
+	padding: 24px;
+	border-bottom: 1px solid #e8e3ed;
+}
+.brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	font-weight: 650;
+	color: #554074;
+}
+.links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 18px;
+	font-size: 13px;
+	color: #81728f;
+}
+.content {
+	max-width: 960px;
+	margin: auto;
+	padding: 44px 24px 64px;
+}
+.header {
+	max-width: 600px;
+	text-align: center;
+	margin: 0 auto 32px;
+}
+.header h1 {
+	font-size: clamp(28px, 5vw, 40px);
+	line-height: 1.15;
+	letter-spacing: -0.045em;
+	font-weight: 650;
+}
+.header p {
+	color: #8b8195;
+	line-height: 1.7;
+	margin-top: 12px;
+	font-size: 14px;
+}
+.modeTabs {
+	display: flex;
+	justify-content: center;
+	gap: 6px;
+	margin: 22px 0;
+}
+.tab {
+	padding: 10px 18px;
+	border-radius: 100px;
+	font-size: 13px;
+	color: #81728f;
+}
+.activeTab {
+	background: #ece5f6;
+	color: #654a91;
+}
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+	gap: 18px;
+}
+.card {
+	background: #fff;
+	border: 1px solid #e8e3ed;
+	border-radius: 24px;
+	padding: 26px;
+	box-shadow: 0 12px 40px -28px #3c285f40;
+}
+.card h2 {
+	font-weight: 600;
+	font-size: 18px;
+	letter-spacing: -0.02em;
+}
+.card p {
+	font-size: 13px;
+	line-height: 1.7;
+	color: #8b8195;
+	margin: 10px 0;
+}
+.primary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	background: #6d50a3;
+	color: white;
+	border-radius: 100px;
+	padding: 12px 23px;
+	font-size: 13px;
+	font-weight: 600;
+	text-align: center;
+}
+.primary:hover {
+	background: #5c408f;
+}
+.secondary {
+	display: inline-block;
+	color: #7c629e;
+	padding: 12px;
+	font-size: 13px;
+	text-align: center;
+}
+.actions {
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-top: 22px;
+}
+.form {
+	max-width: 460px;
+	margin: 0 auto 26px;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.form input,
+.form select {
+	width: 100%;
+	text-align: left;
+	border: 1px solid #e5e0ed;
+	background: #faf9fc;
+	border-radius: 14px;
+	padding: 14px 16px;
+	color: #40334e;
+	font-size: 14px;
+}
+.form label {
+	font-size: 13px;
+	color: #81728f;
+}
+.form input::placeholder {
+	color: #a198ac;
+}
+.empty {
+	text-align: center;
+	padding: 44px 24px;
+}
+.error {
+	padding: 16px;
+	color: #a04e54;
+	font-size: 14px;
+	text-align: center;
+}
+.badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: #f1ecf8;
+	color: #80629e;
+	padding: 6px 12px;
+	border-radius: 100px;
+	font-size: 11px;
+}
+.manager {
+	margin-top: 30px;
+}
+.manager article,
+.manager section {
+	background: #fff;
+	border: 1px solid #e8e3ed;
+	border-radius: 22px;
+	padding: 24px;
+}
+.manager article > div {
+	border-color: #e8e3ed;
+}
+.manager article > div[class*="bg-slate"] {
+	background: #f8f6fb;
+}
+.manager p,
+.manager label,
+.manager h2,
+.manager h3 {
+	color: #70617e;
+}
+.manager label {
+	gap: 8px;
+}
+.manager input,
+.manager textarea {
+	background: #faf9fc;
+	border-color: #e5e0ed;
+	border-radius: 12px;
+	color: #40334e;
+}
+.manager a,
+.manager button[class*="underline"] {
+	color: #80629e;
+}
+.manager button[class*="bg-indigo"] {
+	background: #6d50a3;
+	color: white;
+	border-radius: 100px;
+	padding: 11px 18px;
+}
+.manager output {
+	color: #8f7043;
+}
+.manager input:focus-visible,
+.manager textarea:focus-visible,
+.form input:focus-visible,
+.form select:focus-visible {
+	outline: 3px solid #eee8f8;
+	border-color: #9a83ce;
+}
+.shell button:disabled {
+	opacity: 0.45;
+}
+.shell a:focus-visible,
+.shell button:focus-visible {
+	outline: 3px solid #b9a5da;
+	outline-offset: 3px;
+}
+@media (max-width: 540px) {
+	.nav {
+		padding: 18px;
+		justify-content: center;
+	}
+	.links {
+		justify-content: center;
+		gap: 14px;
+	}
+	.content {
+		padding: 30px 18px;
+	}
+	.card {
+		padding: 22px;
+	}
+}

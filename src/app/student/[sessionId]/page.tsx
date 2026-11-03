@@ -1,6 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import portalStyles from "@/components/tutoring/student-portal.module.css";
 import { STUDENT_COOKIE, verifyStudentToken } from "@/lib/auth/student";
 import { db } from "@/lib/db";
 import {
@@ -131,24 +132,32 @@ export default async function StudentSessionPage({
 	const isActive = session.status === "active";
 
 	return (
-		<StudentSession
-			orientationHref={
-				orientation ? `/student/orientation/${orientation.token}?step=progress` : undefined
+		<div
+			className={
+				cls?.workspaceMode === "distance" || cls?.workspaceMode === "homeschool"
+					? portalStyles.portal
+					: undefined
 			}
-			studentBookingUrl={settingsRow?.studentBookingUrl ?? ""}
-			sessionId={sessionId}
-			displayName={displayName}
-			classLabel={classLabel}
-			isActive={isActive}
-			studentId={entry?.studentId ?? ""}
-			initialSignal={(signalRow?.signal as "got-it" | "almost" | "lost" | null) ?? null}
-			ramBalance={ramAccount?.balance ?? 0}
-			groupBalance={groupBalance}
-			groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
-			joinCode={session.joinCode}
-			currencyName={settingsRow?.currencyName ?? "RAM Bucks"}
-			currencyEmoji={settingsRow?.currencyEmoji ?? "🐏"}
-			todayAssignment={assignmentRow?.content ?? null}
-		/>
+		>
+			<StudentSession
+				orientationHref={
+					orientation ? `/student/orientation/${orientation.token}?step=progress` : undefined
+				}
+				studentBookingUrl={settingsRow?.studentBookingUrl ?? ""}
+				sessionId={sessionId}
+				displayName={displayName}
+				classLabel={classLabel}
+				isActive={isActive}
+				studentId={entry?.studentId ?? ""}
+				initialSignal={(signalRow?.signal as "got-it" | "almost" | "lost" | null) ?? null}
+				ramBalance={ramAccount?.balance ?? 0}
+				groupBalance={groupBalance}
+				groupName={membershipRow ? `${membershipRow.groupEmoji} ${membershipRow.groupName}` : null}
+				joinCode={session.joinCode}
+				currencyName={settingsRow?.currencyName ?? "RAM Bucks"}
+				currencyEmoji={settingsRow?.currencyEmoji ?? "🐏"}
+				todayAssignment={assignmentRow?.content ?? null}
+			/>
+		</div>
 	);
 }

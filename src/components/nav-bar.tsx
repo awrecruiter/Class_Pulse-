@@ -207,6 +207,7 @@ const NAV_LINKS = [
 	{ href: "/cockpit", label: "Cockpit", icon: LayoutDashboardIcon },
 	{ href: "/coach", label: "Coach", icon: GraduationCapIcon },
 	{ href: "/classes", label: "Classes", icon: UsersIcon },
+	{ href: "/tutoring", label: "Tutoring", icon: BookOpenIcon },
 	// { href: "/pacing", label: "Pacing", icon: CalendarDays },
 	// { href: "/resources", label: "Resources", icon: FolderOpenIcon },
 	{ href: "/gradebook", label: "Gradebook", icon: BookOpenIcon },

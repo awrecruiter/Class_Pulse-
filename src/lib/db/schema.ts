@@ -171,6 +171,7 @@ export const classes = pgTable(
 		id: uuid("id").defaultRandom().primaryKey(),
 		teacherId: text("teacher_id").notNull(),
 		label: text("label").notNull(), // "AM Math", "PM Math", "Period 3"
+		workspaceMode: text("workspace_mode").notNull().default("classroom"),
 		periodTime: text("period_time").notNull().default(""), // "8:00 AM", "12:30 PM"
 		gradeLevel: text("grade_level").notNull().default(""),
 		subject: text("subject").notNull().default("Math"),
@@ -178,7 +179,10 @@ export const classes = pgTable(
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => [index("idx_classes_teacher_id").on(table.teacherId)],
+	(table) => [
+		index("idx_classes_teacher_id").on(table.teacherId),
+		index("idx_classes_teacher_workspace").on(table.teacherId, table.workspaceMode),
+	],
 );
 
 // Students on a class roster. No accounts — just school ID + initials.

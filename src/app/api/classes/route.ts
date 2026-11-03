@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
@@ -8,7 +8,10 @@ import { db } from "@/lib/db";
 import { classes, rosterEntries } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
 
+import { workspaceModeSchema } from "@/lib/workspace-mode";
+
 const createClassSchema = z.object({
+	workspaceMode: workspaceModeSchema.default("classroom"),
 	label: z.string().min(1).max(100),
 	periodTime: z.string().max(20).default(""),
 	gradeLevel: z.string().trim().max(10).default(""),
@@ -23,7 +26,14 @@ export async function GET(request: NextRequest) {
 	const { data } = await auth.getSession();
 	if (!data?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-	const rows = await db.select().from(classes).where(eq(classes.teacherId, data.user.id));
+	const mode = workspaceModeSchema.safeParse(
+		request.nextUrl.searchParams.get("mode") ?? "classroom",
+	);
+	if (!mode.success) return NextResponse.json({ error: "Invalid workspace mode" }, { status: 400 });
+	const rows = await db
+		.select()
+		.from(classes)
+		.where(and(eq(classes.teacherId, data.user.id), eq(classes.workspaceMode, mode.data)));
 
 	// Attach roster counts
 	const withCounts = await Promise.all(
@@ -61,6 +71,7 @@ export async function POST(request: NextRequest) {
 		.insert(classes)
 		.values({
 			teacherId: data.user.id,
+			workspaceMode: result.data.workspaceMode,
 			label: result.data.label,
 			periodTime: result.data.periodTime,
 			gradeLevel: result.data.gradeLevel,
