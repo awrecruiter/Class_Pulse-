@@ -1,5 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { calendlyGet, openToken, readReservations, sealToken } from "./client";
+import {
+	calendlyFailureMessage,
+	calendlyGet,
+	openToken,
+	readReservations,
+	sealToken,
+} from "./client";
 
 afterEach(() => {
 	vi.unstubAllEnvs();
@@ -72,4 +78,43 @@ it("reads only active events for the connected user and excludes cancelled invit
 		subject: "Math",
 		topic: "Ratios",
 	});
+});
+
+it("explains missing event-read permission without exposing provider details or credentials", async () => {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockResolvedValue(
+			Response.json(
+				{
+					title: "Insufficient scope",
+					message: "sensitive provider details",
+					required_scopes: ["scheduled_events:read"],
+				},
+				{ status: 403 },
+			),
+		),
+	);
+	try {
+		await calendlyGet("secret-token", "/scheduled_events");
+		throw new Error("Expected a scope error");
+	} catch (error) {
+		const message = calendlyFailureMessage(error);
+		expect(message).toContain("scheduled_events:read");
+		expect(message).toContain("reconnect");
+		expect(message).not.toContain("secret-token");
+		expect(message).not.toContain("sensitive provider details");
+	}
+});
+it("reports revoked credentials separately and does not expose unknown errors", async () => {
+	vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({}, { status: 401 })));
+	await expect(calendlyGet("secret-token", "/users/me")).rejects.toThrow("expired or was revoked");
+	expect(calendlyFailureMessage(new Error("secret-token"))).not.toContain("secret-token");
+});
+
+it("identifies missing profile-read scope separately from reservation scope", async () => {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockResolvedValue(Response.json({ title: "Insufficient scope" }, { status: 403 })),
+	);
+	await expect(calendlyGet("secret-token", "/users/me")).rejects.toThrow("users:read permission");
 });

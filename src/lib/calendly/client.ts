@@ -21,6 +21,31 @@ export function openToken(value: string) {
 		"utf8",
 	);
 }
+export class CalendlyApiError extends Error {
+	constructor(
+		public readonly status: number,
+		missingScope: boolean | "users:read" | "scheduled_events:read" = false,
+	) {
+		super(
+			status === 403 && missingScope
+				? `Your Calendly token is missing ${typeof missingScope === "string" ? missingScope : "scheduled_events:read"} permission. Create a token with that permission in Calendly, then reconnect in Booking setup.`
+				: status === 401
+					? "Calendly connection expired or was revoked. Reconnect in Booking setup."
+					: status === 403
+						? "Calendly denied reservation access. Check your token permissions and reconnect in Booking setup."
+						: status === 429
+							? "Calendly is limiting requests. Wait a moment, then refresh your schedule."
+							: "Calendly is temporarily unavailable. Try refreshing your schedule again.",
+		);
+		this.name = "CalendlyApiError";
+	}
+}
+export function calendlyFailureMessage(
+	error: unknown,
+	fallback = "Calendly could not refresh. Retry to see current reservations.",
+) {
+	return error instanceof CalendlyApiError ? error.message : fallback;
+}
 export async function calendlyGet(token: string, path: string) {
 	if (!path.startsWith("/") || path.startsWith("//")) throw new Error("Invalid Calendly API path.");
 	const url = new URL(path, "https://api.calendly.com");
@@ -31,12 +56,17 @@ export async function calendlyGet(token: string, path: string) {
 		cache: "no-store",
 		signal: AbortSignal.timeout(15000),
 	});
-	if (!response.ok)
-		throw new Error(
-			response.status === 401
-				? "Calendly connection expired. Reconnect your account."
-				: "Calendly could not be reached. Check your token permissions and try again.",
+	if (!response.ok) {
+		const body = await response.json().catch(() => null);
+		throw new CalendlyApiError(
+			response.status,
+			body?.title === "Insufficient scope"
+				? url.pathname.startsWith("/users/")
+					? "users:read"
+					: "scheduled_events:read"
+				: false,
 		);
+	}
 	return response.json();
 }
 export const calendlyUserSchema = z.object({

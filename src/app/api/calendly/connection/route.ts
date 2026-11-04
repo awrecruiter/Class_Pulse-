@@ -2,7 +2,12 @@ import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
-import { calendlyGet, calendlyUserSchema, sealToken } from "@/lib/calendly/client";
+import {
+	calendlyFailureMessage,
+	calendlyGet,
+	calendlyUserSchema,
+	sealToken,
+} from "@/lib/calendly/client";
 import { db } from "@/lib/db";
 import { calendlyConnections } from "@/lib/db/schema";
 import { sessionRateLimiter } from "@/lib/rate-limit";
@@ -32,6 +37,15 @@ export async function PUT(request: NextRequest) {
 		const user = calendlyUserSchema.parse(
 			await calendlyGet(result.data.token, "/users/me"),
 		).resource;
+		// A token that can read the profile may still be unable to read bookings.
+		// Verify event/invitee scope before replacing a previously saved credential.
+		const query = new URLSearchParams({
+			user: user.uri,
+			status: "active",
+			count: "1",
+			min_start_time: new Date().toISOString(),
+		});
+		await calendlyGet(result.data.token, `/scheduled_events?${query}`);
 		const fields = {
 			tokenEncrypted: sealToken(result.data.token),
 			userUri: user.uri,
@@ -42,9 +56,14 @@ export async function PUT(request: NextRequest) {
 			.values({ userId: data.user.id, ...fields })
 			.onConflictDoUpdate({ target: calendlyConnections.userId, set: fields });
 		return NextResponse.json({ connected: true, accountName: user.name });
-	} catch {
+	} catch (cause) {
 		return NextResponse.json(
-			{ error: "Could not connect Calendly. Check the token and its user/event read permissions." },
+			{
+				error: calendlyFailureMessage(
+					cause,
+					"Could not connect Calendly. Check the token and its users:read and scheduled_events:read permissions.",
+				),
+			},
 			{ status: 422 },
 		);
 	}

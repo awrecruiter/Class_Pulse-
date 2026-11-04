@@ -4,7 +4,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({ auth: vi.fn(), where: vi.fn(), values: vi.fn(), read: vi.fn() }));
 vi.mock("@/lib/auth/server", () => ({ auth: { getSession: m.auth } }));
-vi.mock("@/lib/calendly/client", () => ({
+vi.mock("@/lib/calendly/client", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/calendly/client")>()),
 	openToken: () => "decrypted",
 	readReservations: m.read,
 }));
@@ -16,6 +17,7 @@ vi.mock("@/lib/db", () => ({
 	},
 }));
 
+import { CalendlyApiError } from "@/lib/calendly/client";
 import { GET, POST } from "./route";
 
 const body = {
@@ -56,4 +58,18 @@ it("does not trust a supplied teacher identity when adding a reservation", async
 it("rejects backwards reservation times before writing", async () => {
 	expect((await POST(request({ ...body, endsAt: "2026-12-01T09:00:00Z" }))).status).toBe(400);
 	expect(m.values).not.toHaveBeenCalled();
+});
+
+it("returns an actionable permission error instead of hiding a provider failure", async () => {
+	m.where
+		.mockReturnValueOnce({ orderBy: async () => [] })
+		.mockResolvedValueOnce([
+			{ tokenEncrypted: "encrypted", userUri: "https://api.calendly.com/users/teacher" },
+		]);
+	m.read.mockRejectedValueOnce(new CalendlyApiError(403, true));
+	const response = await GET();
+	const json = await response.json();
+	expect(json.connected).toBe(true);
+	expect(json.error).toContain("scheduled_events:read");
+	expect(json.reservations).toEqual([]);
 });

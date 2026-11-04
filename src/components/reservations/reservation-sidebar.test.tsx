@@ -36,3 +36,24 @@ it("shows learner, subject and topic, and clearly labels demo reservations", asy
 	expect(screen.getByText("Demo reservation")).toBeInTheDocument();
 	expect(screen.getByRole("link", { name: "Connect Calendly" })).toBeInTheDocument();
 });
+
+it("does not claim an empty schedule when Calendly denied reservation access", async () => {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockResolvedValue(
+			Response.json({
+				connected: true,
+				reservations: [],
+				error: "Your Calendly token is missing scheduled_events:read permission.",
+			}),
+		),
+	);
+	render(<ReservationSidebar />);
+	await screen.findByText(/missing scheduled_events:read/);
+	expect(screen.getByText("Reservation status is unavailable.")).toBeInTheDocument();
+	expect(screen.queryByText("No upcoming reservations to display.")).not.toBeInTheDocument();
+	expect(screen.getByRole("link", { name: "Update Calendly connection" })).toHaveAttribute(
+		"href",
+		"/tutoring/settings#calendly-connection",
+	);
+});

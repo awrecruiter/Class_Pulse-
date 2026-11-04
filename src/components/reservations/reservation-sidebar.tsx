@@ -20,6 +20,7 @@ export function ReservationSidebar({ variant = "card" }: { variant?: "card" | "c
 	const [rows, setRows] = useState<Reservation[]>([]);
 	const [connected, setConnected] = useState(false);
 	const [message, setMessage] = useState("");
+	const [failed, setFailed] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [manual, setManual] = useState(false);
 	const [editing, setEditing] = useState<Reservation | null>(null);
@@ -38,6 +39,7 @@ export function ReservationSidebar({ variant = "card" }: { variant?: "card" | "c
 			if (!response.ok) throw new Error(body.error || "Could not load reservations.");
 			setRows(body.reservations);
 			setConnected(body.connected);
+			setFailed(!!body.error);
 			setMessage(
 				body.error ||
 					(body.limited
@@ -45,6 +47,7 @@ export function ReservationSidebar({ variant = "card" }: { variant?: "card" | "c
 						: ""),
 			);
 		} catch (err) {
+			setFailed(true);
 			setMessage(err instanceof Error ? err.message : "Could not load reservations.");
 		} finally {
 			setLoading(false);
@@ -105,10 +108,17 @@ export function ReservationSidebar({ variant = "card" }: { variant?: "card" | "c
 				</p>
 			)}
 			{message && <output className={styles.notice}>{message}</output>}
+			{failed && connected && (
+				<p className={styles.notice}>
+					<Link href="/tutoring/settings#calendly-connection">Update Calendly connection</Link>
+				</p>
+			)}
 			{loading ? (
 				<p className={styles.caption}>Loading reservations…</p>
 			) : rows.length === 0 ? (
-				<p className={styles.empty}>No upcoming reservations to display.</p>
+				<p className={styles.empty}>
+					{failed ? "Reservation status is unavailable." : "No upcoming reservations to display."}
+				</p>
 			) : variant === "classroom" ? (
 				<ReservationsTimeline
 					rows={rows}

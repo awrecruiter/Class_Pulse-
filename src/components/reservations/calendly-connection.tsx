@@ -50,12 +50,13 @@ export function CalendlyConnection() {
 			<h2 className="text-center">Your reservations, together.</h2>
 			<p>
 				{connected
-					? `Connected as ${name}.`
+					? `Saved account: ${name}.`
 					: "Connect Calendly to see confirmed bookings in your schedule sidebar."}
 			</p>
 			<p className="text-sm">
-				Create a personal access token in Calendly’s API & webhooks settings with user, event, and
-				invitee read access. Enter it here, never in a message.
+				Create a personal access token in Calendly’s API & webhooks settings. Select users:read and
+				scheduled_events:read so your profile and reservations can load. Enter it here, never in a
+				message.
 			</p>
 			<form className="space-y-4" onSubmit={save}>
 				<label>

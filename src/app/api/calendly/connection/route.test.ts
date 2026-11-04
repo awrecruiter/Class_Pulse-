@@ -16,6 +16,7 @@ vi.mock("@/lib/calendly/client", async (importOriginal) => ({
 }));
 vi.mock("@/lib/rate-limit", () => ({ sessionRateLimiter: { check: () => ({ success: true }) } }));
 
+import { CalendlyApiError } from "@/lib/calendly/client";
 import { GET, PUT } from "./route";
 
 beforeEach(() => {
@@ -46,6 +47,8 @@ it("validates the account and stores only encrypted credentials under the authen
 		}),
 	);
 	expect(response.status).toBe(200);
+	expect(m.get).toHaveBeenCalledTimes(2);
+	expect(m.get.mock.calls[1][1]).toContain("/scheduled_events?");
 	expect(m.values).toHaveBeenCalledWith({
 		userId: "teacher-1",
 		tokenEncrypted: "encrypted-only",
@@ -53,4 +56,21 @@ it("validates the account and stores only encrypted credentials under the authen
 		accountName: "Test Tutor",
 	});
 	expect(await response.text()).not.toContain("encrypted-only");
+});
+
+it("rejects a profile-only token before overwriting the saved account", async () => {
+	m.get
+		.mockResolvedValueOnce({
+			resource: { uri: "https://api.calendly.com/users/account-1", name: "Test Tutor" },
+		})
+		.mockRejectedValueOnce(new CalendlyApiError(403, true));
+	const response = await PUT(
+		new NextRequest("https://example.com", {
+			method: "PUT",
+			body: JSON.stringify({ token: "profile-only-token-without-events" }),
+		}),
+	);
+	expect(response.status).toBe(422);
+	expect((await response.json()).error).toContain("scheduled_events:read");
+	expect(m.values).not.toHaveBeenCalled();
 });

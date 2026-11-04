@@ -2,7 +2,7 @@ import { and, asc, eq, gt, or } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
-import { openToken, readReservations } from "@/lib/calendly/client";
+import { calendlyFailureMessage, openToken, readReservations } from "@/lib/calendly/client";
 import { db } from "@/lib/db";
 import {
 	calendlyConnections,
@@ -44,26 +44,27 @@ export async function GET() {
 	if (connection) {
 		try {
 			external = await readReservations(openToken(connection.tokenEncrypted), connection.userUri);
-		} catch {
-			error = "Calendly could not refresh. Retry to see current reservations.";
+		} catch (cause) {
+			error = calendlyFailureMessage(cause);
 		}
 	}
-	const learners = connection
-		? await db
-				.select({
-					spaceId: classes.id,
-					mode: classes.workspaceMode,
-					email: orientations.parentEmail,
-					name: rosterEntries.firstName,
-					initial: rosterEntries.lastInitial,
-					subject: classes.subject,
-					topic: orientations.learningContent,
-				})
-				.from(orientations)
-				.innerJoin(classes, eq(classes.id, orientations.classId))
-				.innerJoin(rosterEntries, eq(rosterEntries.id, orientations.rosterId))
-				.where(and(eq(classes.teacherId, data.user.id), eq(rosterEntries.isActive, true)))
-		: [];
+	const learners =
+		connection && !error
+			? await db
+					.select({
+						spaceId: classes.id,
+						mode: classes.workspaceMode,
+						email: orientations.parentEmail,
+						name: rosterEntries.firstName,
+						initial: rosterEntries.lastInitial,
+						subject: classes.subject,
+						topic: orientations.learningContent,
+					})
+					.from(orientations)
+					.innerJoin(classes, eq(classes.id, orientations.classId))
+					.innerJoin(rosterEntries, eq(rosterEntries.id, orientations.rosterId))
+					.where(and(eq(classes.teacherId, data.user.id), eq(rosterEntries.isActive, true)))
+			: [];
 	const linkedSpaces = manual.some((row) => row.classId)
 		? await db
 				.select({ id: classes.id, mode: classes.workspaceMode })
