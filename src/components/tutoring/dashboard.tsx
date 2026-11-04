@@ -76,13 +76,13 @@ export function TutoringDashboard({ mode }: { mode: "distance" | "homeschool" })
 				</p>
 				<div className={styles.modeTabs}>
 					<Link
-						href="/tutoring"
+						href="/tutoring/spaces"
 						className={`${styles.tab} ${mode === "distance" ? styles.activeTab : ""}`}
 					>
 						Distance learning
 					</Link>
 					<Link
-						href="/tutoring?mode=homeschool"
+						href="/tutoring/spaces?mode=homeschool"
 						className={`${styles.tab} ${mode === "homeschool" ? styles.activeTab : ""}`}
 					>
 						Homeschool

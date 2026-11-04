@@ -18,11 +18,12 @@
 
 import { useEffect } from "react";
 
-const SESSION_KEY = "activeSessionId";
-const SESSION_DATE_KEY = "activeSessionDate";
+import type { WorkspaceMode } from "@/lib/workspace-mode";
+import { workspaceStorageKeys } from "@/lib/workspace-storage";
 
 /** Call once on mount to evict any sessionStorage entry from a previous day. */
-export function clearStaleSessionStorage(): void {
+export function clearStaleSessionStorage(mode: WorkspaceMode = "classroom"): void {
+	const { sessionId: SESSION_KEY, sessionDate: SESSION_DATE_KEY } = workspaceStorageKeys(mode);
 	try {
 		const storedDate = sessionStorage.getItem(SESSION_DATE_KEY);
 		const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
@@ -36,7 +37,8 @@ export function clearStaleSessionStorage(): void {
 }
 
 /** Write a session to sessionStorage, stamped with today's date. */
-export function writeSessionToStorage(sessionId: string): void {
+export function writeSessionToStorage(sessionId: string, mode: WorkspaceMode = "classroom"): void {
+	const { sessionId: SESSION_KEY, sessionDate: SESSION_DATE_KEY } = workspaceStorageKeys(mode);
 	try {
 		sessionStorage.setItem(SESSION_KEY, sessionId);
 		sessionStorage.setItem(SESSION_DATE_KEY, new Date().toISOString().slice(0, 10));
@@ -46,7 +48,8 @@ export function writeSessionToStorage(sessionId: string): void {
 }
 
 /** Remove the active session from sessionStorage. */
-export function clearSessionFromStorage(): void {
+export function clearSessionFromStorage(mode: WorkspaceMode = "classroom"): void {
+	const { sessionId: SESSION_KEY, sessionDate: SESSION_DATE_KEY } = workspaceStorageKeys(mode);
 	try {
 		sessionStorage.removeItem(SESSION_KEY);
 		sessionStorage.removeItem(SESSION_DATE_KEY);
@@ -56,6 +59,7 @@ export function clearSessionFromStorage(): void {
 }
 
 interface SessionLifecycleOptions {
+	workspaceMode?: WorkspaceMode;
 	/** The currently selected class ID. Required to start a session. */
 	classId: string | null;
 	/** Optional standard code to attach when starting a session. */
@@ -71,6 +75,7 @@ interface SessionLifecycleOptions {
 }
 
 export function useSessionLifecycle({
+	workspaceMode = "classroom",
 	classId,
 	sessionStandardCode,
 	setActiveSessionId,
@@ -80,8 +85,8 @@ export function useSessionLifecycle({
 }: SessionLifecycleOptions) {
 	// Day-gate: clear any sessionStorage entry from a previous calendar day on mount.
 	useEffect(() => {
-		clearStaleSessionStorage();
-	}, []);
+		clearStaleSessionStorage(workspaceMode);
+	}, [workspaceMode]);
 
 	async function goLive(): Promise<void> {
 		if (!classId) return;
@@ -104,7 +109,7 @@ export function useSessionLifecycle({
 			setActiveSessionId(s?.id);
 			setActiveJoinCode(s?.joinCode);
 			if (s?.id) {
-				writeSessionToStorage(s.id);
+				writeSessionToStorage(s.id, workspaceMode);
 			}
 			onSessionStarted?.();
 		} catch {
@@ -119,7 +124,7 @@ export function useSessionLifecycle({
 			if (res.ok) {
 				setActiveSessionId(undefined);
 				setActiveJoinCode(undefined);
-				clearSessionFromStorage();
+				clearSessionFromStorage(workspaceMode);
 				onSessionEnded?.();
 			}
 		} catch {

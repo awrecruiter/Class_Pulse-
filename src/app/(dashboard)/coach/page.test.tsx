@@ -2,6 +2,7 @@
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TeachingDesk } from "@/components/coach/teaching-desk";
 import { VoiceQueueProvider } from "@/contexts/voice-queue";
 import CoachPage from "./page";
 
@@ -47,6 +48,10 @@ vi.mock("@/components/coach/waveform-meter", () => ({
 }));
 vi.mock("@/components/schedule/schedule-sidebar-panel", () => ({
 	ScheduleSidebarPanel: () => <div data-testid="schedule-sidebar-panel" />,
+}));
+
+vi.mock("@/components/reservations/reservation-sidebar", () => ({
+	ReservationSidebar: () => <div data-testid="calendly-schedule" />,
 }));
 
 vi.mock("@/hooks/use-lecture-transcript", () => ({
@@ -164,6 +169,18 @@ describe("CoachPage voice session events", () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
+	});
+
+	it("uses the same desk controls with the Calendly sidebar only in the tutoring workspace", async () => {
+		render(
+			<VoiceQueueProvider workspaceMode="distance">
+				<TeachingDesk workspaceMode="distance" />
+			</VoiceQueueProvider>,
+		);
+		expect(screen.getByTestId("calendly-schedule")).toBeInTheDocument();
+		expect(screen.queryByTestId("schedule-sidebar-panel")).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Record lesson" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Calendly schedule" })).toBeInTheDocument();
 	});
 
 	it("starts and ends the active class session from voice events", async () => {

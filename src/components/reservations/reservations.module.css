@@ -145,3 +145,29 @@
 .booking {
 	overflow-wrap: anywhere;
 }
+
+.classroomPanel {
+	padding: 8px 12px 14px;
+	color: var(--pulse-text);
+}
+.classroomPanel .header h2 {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+}
+.classroomPanel .caption {
+	margin: 6px 0 12px;
+}
+.classroomPanel .list {
+	max-height: 260px;
+}
+.classroomPanel .booking {
+	border-radius: 8px;
+	border: 1px solid var(--pulse-border);
+	border-left: 3px solid #9b78cc;
+	background: var(--pulse-soft);
+	padding: 9px 10px;
+}
+.classroomPanel .booking h3 {
+	font-size: 12px;
+}

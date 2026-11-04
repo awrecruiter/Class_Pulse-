@@ -110,6 +110,47 @@ describe("VoiceCommandProvider", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("pushes tutor questions into the tutor session without reading or overwriting the classroom selection", async () => {
+		sessionStorage.setItem("activeSessionId", "original-room");
+		sessionStorage.setItem("pulse:distance:activeSessionId", "tutor-room");
+		localStorage.setItem("pulse:distance:activeClassId", "tutor-class");
+		const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.startsWith("/api/questions?"))
+				return Response.json({ questions: [{ id: "question" }] });
+			if (url.endsWith("/question-push")) return Response.json({ ok: true });
+			return Response.json({
+				settings: {
+					voiceNavMode: "toast",
+					voiceAppOpenMode: "confirm",
+					scheduleDocOpenMode: "new-tab",
+				},
+			});
+		});
+		vi.stubGlobal("fetch", fetcher);
+		render(
+			<VoiceQueueProvider workspaceMode="distance">
+				<VoiceCommandProvider>
+					<Harness />
+				</VoiceCommandProvider>
+			</VoiceQueueProvider>,
+		);
+		await waitFor(() => expect(latestVoiceTranscriptHandler).toBeTypeOf("function"));
+		await act(async () => {
+			await latestVoiceTranscriptHandler?.("send check");
+		});
+		await waitFor(() =>
+			expect(fetcher).toHaveBeenCalledWith(
+				"/api/sessions/tutor-room/question-push",
+				expect.objectContaining({ method: "POST" }),
+			),
+		);
+		expect(fetcher.mock.calls.some(([url]) => String(url).includes("original-room"))).toBe(false);
+		expect(localStorage.getItem("activeClassId")).toBe("class-123");
+		expect(sessionStorage.getItem("activeSessionId")).toBe("original-room");
+		sessionStorage.clear();
+	});
+
 	it("routes parent_message commands into the shared queue for coach-page handling", async () => {
 		const queueSizes: number[] = [];
 		renderProvider((size) => queueSizes.push(size));

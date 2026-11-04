@@ -3,8 +3,9 @@ import { CalendarDays, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import styles from "./reservations.module.css";
+import { ReservationsTimeline } from "./reservations-timeline";
 
-type Reservation = {
+export type Reservation = {
 	learningSpaceUrl?: string;
 	id: string;
 	source: string;
@@ -15,7 +16,7 @@ type Reservation = {
 	startsAt: string;
 	endsAt: string;
 };
-export function ReservationSidebar() {
+export function ReservationSidebar({ variant = "card" }: { variant?: "card" | "classroom" }) {
 	const [rows, setRows] = useState<Reservation[]>([]);
 	const [connected, setConnected] = useState(false);
 	const [message, setMessage] = useState("");
@@ -83,7 +84,10 @@ export function ReservationSidebar() {
 		}
 	}
 	return (
-		<aside className={styles.panel} aria-label="Reservations schedule">
+		<aside
+			className={variant === "classroom" ? styles.classroomPanel : styles.panel}
+			aria-label="Reservations schedule"
+		>
 			<header className={styles.header}>
 				<h2>
 					<CalendarDays size={18} />
@@ -105,6 +109,34 @@ export function ReservationSidebar() {
 				<p className={styles.caption}>Loading reservations…</p>
 			) : rows.length === 0 ? (
 				<p className={styles.empty}>No upcoming reservations to display.</p>
+			) : variant === "classroom" ? (
+				<ReservationsTimeline
+					rows={rows}
+					onEdit={(row) => {
+						setEditing(row);
+						setManual(true);
+						setForm({
+							learnerName: row.learnerName,
+							subject: row.subject,
+							topic: row.topic,
+							startsAt: row.startsAt,
+							endsAt: row.endsAt,
+						});
+					}}
+					onRemove={async (row) => {
+						try {
+							const response = await fetch("/api/reservations", {
+								method: "DELETE",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ id: row.id }),
+							});
+							if (!response.ok) throw new Error();
+							await load();
+						} catch {
+							setMessage("Could not remove reservation.");
+						}
+					}}
+				/>
 			) : (
 				<ol className={styles.list}>
 					{rows.map((row) => (

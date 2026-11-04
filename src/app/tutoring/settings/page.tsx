@@ -3,7 +3,7 @@ import { BookingSettings } from "@/components/tutoring/booking-settings";
 import styles from "@/components/tutoring/workspace.module.css";
 export default function TutoringSettingsPage() {
 	return (
-		<>
+		<div className={styles.content}>
 			<header className={styles.header}>
 				<h1>Make time for learning.</h1>
 				<p>
@@ -13,6 +13,6 @@ export default function TutoringSettingsPage() {
 			</header>
 			<BookingSettings />
 			<CalendlyConnection />
-		</>
+		</div>
 	);
 }

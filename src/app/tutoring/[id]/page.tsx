@@ -1,14 +1,10 @@
 import { and, eq } from "drizzle-orm";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
-import { OrientationManager } from "@/components/orientation/orientation-manager";
-import { QuizRoom } from "@/components/tutoring/quiz-room";
-import styles from "@/components/tutoring/workspace.module.css";
+import { TutoringDesk } from "@/components/tutoring/tutoring-desk";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import { classes, classSessions, rosterEntries } from "@/lib/db/schema";
-import { WORKSPACE_LABELS } from "@/lib/workspace-mode";
+import { classes } from "@/lib/db/schema";
 
 export default async function LearningSpacePage({ params }: { params: Promise<{ id: string }> }) {
 	const { data } = await auth.getSession();
@@ -23,32 +19,5 @@ export default async function LearningSpacePage({ params }: { params: Promise<{ 
 		);
 	if (!space || (space.workspaceMode !== "distance" && space.workspaceMode !== "homeschool"))
 		notFound();
-	const [session] = await db
-		.select({ id: classSessions.id, joinCode: classSessions.joinCode })
-		.from(classSessions)
-		.where(and(eq(classSessions.classId, id), eq(classSessions.status, "active")));
-	const learners = await db
-		.select({ id: rosterEntries.id })
-		.from(rosterEntries)
-		.where(and(eq(rosterEntries.classId, id), eq(rosterEntries.isActive, true)));
-	return (
-		<>
-			<Link className={styles.secondary} href={`/tutoring?mode=${space.workspaceMode}`}>
-				← Your learning spaces
-			</Link>
-			<header className={styles.header}>
-				<span className={styles.badge}>{WORKSPACE_LABELS[space.workspaceMode]}</span>
-				<h1 className="mt-4">{space.label}</h1>
-				<p>
-					{learners.length} learner{learners.length === 1 ? "" : "s"} ·{" "}
-					{space.subject || "Learning"}
-					{space.gradeLevel ? ` · Level ${space.gradeLevel}` : " · Any grade"}
-				</p>
-			</header>
-			<QuizRoom classId={id} initialSession={session ?? null} />
-			<section id="family-orientation" className={styles.manager}>
-				<OrientationManager classId={id} previewLinks bookingSettingsHref="/tutoring/settings" />
-			</section>
-		</>
-	);
+	return <TutoringDesk key={id} workspaceMode={space.workspaceMode} initialClassId={id} />;
 }

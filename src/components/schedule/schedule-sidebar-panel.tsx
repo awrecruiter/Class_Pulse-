@@ -4,7 +4,6 @@ import { PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { TodayResourceSection } from "@/app/api/resources/today/route";
-import { ReservationSidebar } from "@/components/reservations/reservation-sidebar";
 import type { ScheduleDocLink } from "@/hooks/use-schedule-today";
 import { useScheduleToday } from "@/hooks/use-schedule-today";
 import { getTodayPacing } from "@/lib/pacing";
@@ -343,7 +342,6 @@ export function ScheduleSidebarPanel({
 
 	return (
 		<div>
-			<ReservationSidebar />
 			{/* Day label */}
 			<div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
 				{label}

@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useReducer, useRef, useState } from "react";
 import type { BoardPanel } from "@/components/board/side-strip";
 import { playActivationChime } from "@/lib/chime";
+import type { WorkspaceMode } from "@/lib/workspace-mode";
+import { workspaceStorageKeys } from "@/lib/workspace-storage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ function reducer(state: QueueItem[], action: Action): QueueItem[] {
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 interface VoiceQueueCtx {
+	sessionStorageKey: string;
 	queue: QueueItem[];
 	enqueue: (data: QueueItemData, transcript: string) => void;
 	confirm: (id: string) => void;
@@ -116,7 +119,14 @@ interface VoiceQueueCtx {
 
 const VoiceQueueContext = createContext<VoiceQueueCtx | null>(null);
 
-export function VoiceQueueProvider({ children }: { children: React.ReactNode }) {
+export function VoiceQueueProvider({
+	children,
+	workspaceMode = "classroom",
+}: {
+	children: React.ReactNode;
+	workspaceMode?: WorkspaceMode;
+}) {
+	const storage = workspaceStorageKeys(workspaceMode);
 	const [queue, dispatch] = useReducer(reducer, []);
 	const [commandsEnabled, setCommandsEnabled] = useState(true);
 	const [drawerOpen, setDrawerOpen] = useState(false);
@@ -125,20 +135,23 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 	const [commsDictating, setCommsDictating] = useState(false);
 	const [activeClassId, setActiveClassIdRaw] = useState(() => {
 		try {
-			return localStorage.getItem("activeClassId") ?? "";
+			return localStorage.getItem(storage.classId) ?? "";
 		} catch {
 			return "";
 		}
 	});
-	const setActiveClassId = useCallback((id: string) => {
-		setActiveClassIdRaw(id);
-		try {
-			if (id) localStorage.setItem("activeClassId", id);
-			else localStorage.removeItem("activeClassId");
-		} catch {
-			/* noop */
-		}
-	}, []);
+	const setActiveClassId = useCallback(
+		(id: string) => {
+			setActiveClassIdRaw(id);
+			try {
+				if (id) localStorage.setItem(storage.classId, id);
+				else localStorage.removeItem(storage.classId);
+			} catch {
+				/* noop */
+			}
+		},
+		[storage.classId],
+	);
 	const [boardPanel, setBoardPanel] = useState<BoardPanel | null>(null);
 	const [boardOpenLast, setBoardOpenLast] = useState(0);
 	const [agentThinking, setAgentThinking] = useState(false);
@@ -177,6 +190,7 @@ export function VoiceQueueProvider({ children }: { children: React.ReactNode }) 
 	return (
 		<VoiceQueueContext.Provider
 			value={{
+				sessionStorageKey: storage.sessionId,
 				queue,
 				enqueue,
 				confirm,

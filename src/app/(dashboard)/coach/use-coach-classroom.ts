@@ -4,8 +4,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { toast } from "sonner";
 import type { StudentOverview } from "@/app/api/classes/[id]/roster-overview/route";
 import type { QueueItem } from "@/contexts/voice-queue";
-import { clearSessionFromStorage, clearStaleSessionStorage } from "@/hooks/use-session-lifecycle";
+import {
+	clearSessionFromStorage,
+	clearStaleSessionStorage,
+	writeSessionToStorage,
+} from "@/hooks/use-session-lifecycle";
 import { playActivationChime } from "@/lib/chime";
+import type { WorkspaceMode } from "@/lib/workspace-mode";
+import { workspaceStorageKeys } from "@/lib/workspace-storage";
 
 export type ClassRow = { id: string; label: string; gradeLevel?: string; activeSessionId?: string };
 export type GroupRow = { id: string; name: string; emoji: string; memberRosterIds: string[] };
@@ -18,6 +24,8 @@ export type ParentCommsPreselect = {
 } | null;
 
 interface UseCoachClassroomOptions {
+	workspaceMode?: WorkspaceMode;
+	initialClassId?: string;
 	queue: QueueItem[];
 	confirm: (id: string) => void;
 	setActiveClassId: (id: string) => void;
@@ -27,6 +35,8 @@ interface UseCoachClassroomOptions {
 }
 
 export function useCoachClassroom({
+	workspaceMode = "classroom",
+	initialClassId,
 	queue,
 	confirm,
 	setActiveClassId,
@@ -34,12 +44,13 @@ export function useCoachClassroom({
 	setGroupsOpen,
 	setParentCommsPreselect,
 }: UseCoachClassroomOptions) {
+	const storage = workspaceStorageKeys(workspaceMode);
 	const [classes, setClasses] = useState<ClassRow[]>([]);
 	const [selectedClassId, setSelectedClassId] = useState(() => {
 		try {
-			return localStorage.getItem("activeClassId") ?? "";
+			return initialClassId ?? localStorage.getItem(storage.classId) ?? "";
 		} catch {
-			return "";
+			return initialClassId ?? "";
 		}
 	});
 	const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
@@ -49,10 +60,10 @@ export function useCoachClassroom({
 	// server where sessionStorage is unavailable, so we use useLayoutEffect instead).
 	// Day-gate: evict any entry from a previous calendar day before reading.
 	useLayoutEffect(() => {
-		clearStaleSessionStorage();
-		const stored = sessionStorage.getItem("activeSessionId");
+		clearStaleSessionStorage(workspaceMode);
+		const stored = sessionStorage.getItem(storage.sessionId);
 		if (stored) setActiveSessionId(stored);
-	}, []);
+	}, [workspaceMode, storage.sessionId]);
 	const [activeJoinCode, setActiveJoinCode] = useState<string | undefined>();
 	const [students, setStudents] = useState<StudentOverview[]>([]);
 	const [studentsLoading, setStudentsLoading] = useState(false);
@@ -75,10 +86,10 @@ export function useCoachClassroom({
 	}, [activeSessionId]);
 
 	useEffect(() => {
-		fetch("/api/classes")
+		fetch(workspaceMode === "classroom" ? "/api/classes" : `/api/classes?mode=${workspaceMode}`)
 			.then((r) => {
 				if (r.status === 401) {
-					clearSessionFromStorage();
+					clearSessionFromStorage(workspaceMode);
 					window.location.href = "/login";
 					return null;
 				}
@@ -101,7 +112,7 @@ export function useCoachClassroom({
 				const stillValid = active.some((c) => c.id === currentSelection);
 				if (stillValid) return;
 				const savedClassId =
-					typeof window !== "undefined" ? localStorage.getItem("activeClassId") : null;
+					typeof window !== "undefined" ? localStorage.getItem(storage.classId) : null;
 				const preferred =
 					active.find((c) => c.id === savedClassId) ??
 					active.find((c) => c.id === currentSelection) ??
@@ -109,7 +120,7 @@ export function useCoachClassroom({
 				if (preferred) setSelectedClassId(preferred.id);
 			})
 			.catch(() => {});
-	}, [setActiveClassId]);
+	}, [setActiveClassId, workspaceMode, storage.classId]);
 
 	useEffect(() => {
 		if (!selectedClassId) {
@@ -121,7 +132,7 @@ export function useCoachClassroom({
 		fetch(`/api/classes/${selectedClassId}`)
 			.then(async (r) => {
 				if (r.status === 401) {
-					clearSessionFromStorage();
+					clearSessionFromStorage(workspaceMode);
 					window.location.href = "/login";
 					return;
 				}
@@ -131,7 +142,7 @@ export function useCoachClassroom({
 					if (activeSessionReqRef.current !== reqId) return;
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
-					clearSessionFromStorage();
+					clearSessionFromStorage(workspaceMode);
 					return;
 				}
 				const j = await r.json();
@@ -143,22 +154,23 @@ export function useCoachClassroom({
 				// previous tab/day — end it and start fresh.
 				const tabSessionId =
 					typeof sessionStorage !== "undefined"
-						? (sessionStorage.getItem("activeSessionId") ?? undefined)
+						? (sessionStorage.getItem(storage.sessionId) ?? undefined)
 						: undefined;
-				if (dbSessionId && dbSessionId === tabSessionId) {
+				if (dbSessionId && (dbSessionId === tabSessionId || workspaceMode !== "classroom")) {
 					setActiveSessionId(dbSessionId);
 					setActiveJoinCode(j.activeSession?.joinCode);
+					if (workspaceMode !== "classroom") writeSessionToStorage(dbSessionId, workspaceMode);
 				} else {
 					if (dbSessionId) {
 						await fetch(`/api/sessions/${dbSessionId}/end`, { method: "PUT" }).catch(() => {});
 					}
 					setActiveSessionId(undefined);
 					setActiveJoinCode(undefined);
-					clearSessionFromStorage();
+					clearSessionFromStorage(workspaceMode);
 				}
 			})
 			.catch(() => {});
-	}, [selectedClassId]);
+	}, [selectedClassId, workspaceMode, storage.sessionId]);
 
 	const fetchStudents = useCallback(async (classId: string) => {
 		const reqId = ++studentsReqRef.current;
@@ -192,9 +204,9 @@ export function useCoachClassroom({
 	}, [selectedClassId, setActiveClassId]);
 
 	useEffect(() => {
-		if (selectedClassId) localStorage.setItem("board-class-id", selectedClassId);
-		else localStorage.removeItem("board-class-id");
-	}, [selectedClassId]);
+		if (selectedClassId) localStorage.setItem(storage.boardClassId, selectedClassId);
+		else localStorage.removeItem(storage.boardClassId);
+	}, [selectedClassId, storage.boardClassId]);
 
 	useEffect(() => {
 		const item = queue.find(

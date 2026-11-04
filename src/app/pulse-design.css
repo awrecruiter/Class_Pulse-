@@ -129,3 +129,26 @@ body {
 :root:not(.dark) .pulse-app [class~="text-amber-400"] {
 	color: #93702e;
 }
+
+.pulse-app button[class~="bg-indigo-600"] {
+	background: var(--pulse-primary);
+	color: #fff;
+}
+@media (max-width: 900px) {
+	.tutoring-teaching-desk {
+		height: auto;
+		min-height: calc(100dvh - 56px);
+		overflow: visible;
+	}
+	.tutoring-teaching-desk .teaching-desk-grid {
+		display: flex;
+		flex-direction: column;
+	}
+	.tutoring-teaching-desk .teaching-desk-grid > div {
+		min-width: 0;
+		overflow: visible;
+	}
+	.tutoring-teaching-desk .teaching-desk-grid > div:nth-child(2) {
+		min-height: 520px;
+	}
+}
